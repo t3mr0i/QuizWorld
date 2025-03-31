@@ -546,30 +546,28 @@ input[type="number"]:focus {
 
 /* Modal styling */
 .modal {
-  display: none;
   position: fixed;
-  z-index: 999;
-  left: 0;
   top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(19, 20, 23, 0.8);
-}
-
-.modal.active {
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 20;
+}
+
+.modal.hidden {
+  display: none;
 }
 
 .modal-content {
-  background-color: var(--kb-white);
-  padding: 25px;
+  background-color: white;
+  padding: 20px;
   border-radius: 8px;
-  width: 80%;
-  max-width: 500px;
-  position: relative;
-  font-family: "Inter", sans-serif;
+  max-width: 80%;
+  z-index: 21;
 }
 
 .close-modal {
@@ -762,4 +760,30 @@ input[type="number"]:focus {
 /* Success button style */
 .btn-success {
   background-color: #28a745 !important;
+}
+
+/* Fix z-index and interaction issues */
+.game-screen {
+  position: relative;
+  z-index: 1;
+}
+
+.game-screen.active {
+  display: block;
+  z-index: 10;
+}
+
+.game-screen.hidden {
+  display: none;
+}
+
+/* Ensure buttons are clickable */
+button, 
+input[type="submit"],
+.primary-btn,
+.secondary-btn {
+  position: relative;
+  z-index: 15;
+  cursor: pointer;
+  pointer-events: auto;
 } 

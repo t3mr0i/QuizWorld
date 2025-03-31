@@ -17,7 +17,7 @@ const gameState = {
   timerInterval: null
 };
 
-// DOM elements
+// DOM elements - get references to all screens
 const screens = {
   welcome: document.getElementById('welcome-screen'),
   lobby: document.getElementById('lobby-screen'),
@@ -27,16 +27,34 @@ const screens = {
 
 // Helper functions
 function showScreen(screenName) {
+  console.log(`Showing screen: ${screenName}`);
+  
+  // Hide all screens first
   Object.keys(screens).forEach(key => {
-    screens[key].classList.add('hidden');
-    screens[key].classList.remove('active');
+    if (screens[key]) {
+      screens[key].classList.add('hidden');
+      screens[key].classList.remove('active');
+    } else {
+      console.error(`Screen ${key} element not found`);
+    }
   });
-  screens[screenName].classList.remove('hidden');
-  screens[screenName].classList.add('active');
+  
+  // Show the requested screen
+  if (screens[screenName]) {
+    screens[screenName].classList.remove('hidden');
+    screens[screenName].classList.add('active');
+  } else {
+    console.error(`Cannot show screen ${screenName}: Element not found`);
+  }
 }
 
 function updatePlayerList() {
   const playerList = document.getElementById('player-list');
+  if (!playerList) {
+    console.error('Player list element not found');
+    return;
+  }
+  
   playerList.innerHTML = '';
   
   // Sort players by score (descending)
@@ -66,23 +84,33 @@ function updatePlayerList() {
   });
   
   // Update start game button visibility
-  document.getElementById('admin-controls').style.display = 'block';
+  const adminControls = document.getElementById('admin-controls');
   const startGameBtn = document.getElementById('start-game-btn');
-  startGameBtn.style.display = 'inline-block';
+  const adminMessage = document.getElementById('admin-message');
   
-  // Update admin message
-  document.getElementById('admin-message').textContent = 'Anyone can start the game';
+  if (adminControls && startGameBtn && adminMessage) {
+    adminControls.style.display = 'block';
+    startGameBtn.style.display = 'inline-block';
+    adminMessage.textContent = 'Anyone can start the game';
+  }
   
   // Update waiting message
   const waitingMessage = document.getElementById('waiting-message');
-  waitingMessage.style.display = gameState.players.length <= 1 ? 'block' : 'none';
-  if (gameState.players.length <= 1) {
-    waitingMessage.textContent = 'Waiting for more players to join...';
+  if (waitingMessage) {
+    waitingMessage.style.display = gameState.players.length <= 1 ? 'block' : 'none';
+    if (gameState.players.length <= 1) {
+      waitingMessage.textContent = 'Waiting for more players to join...';
+    }
   }
 }
 
 function updateScores() {
   const scoresList = document.getElementById('scores-list');
+  if (!scoresList) {
+    console.error('Scores list element not found');
+    return;
+  }
+  
   scoresList.innerHTML = '';
   
   // Sort players by score (descending)
@@ -113,6 +141,11 @@ function updateScores() {
 
 function startTimer(duration) {
   const timerElement = document.getElementById('timer');
+  if (!timerElement) {
+    console.error('Timer element not found');
+    return;
+  }
+  
   let timeLeft = duration;
   
   // Clear any existing timer
@@ -148,6 +181,11 @@ function startTimer(duration) {
 function submitAnswers() {
   // Collect answers from form
   const form = document.getElementById('answers-form');
+  if (!form) {
+    console.error('Answers form not found');
+    return;
+  }
+  
   const formData = new FormData(form);
   const answers = {};
   
@@ -166,9 +204,11 @@ function submitAnswers() {
   
   // Change submit button
   const submitBtn = document.getElementById('submit-btn');
-  submitBtn.textContent = 'Answers Submitted ✓';
-  submitBtn.classList.add('btn-success');
-  submitBtn.disabled = true;
+  if (submitBtn) {
+    submitBtn.textContent = 'Answers Submitted ✓';
+    submitBtn.classList.add('btn-success');
+    submitBtn.disabled = true;
+  }
   
   // Send to server
   socket.send({
@@ -217,7 +257,11 @@ socket.on('message', (data) => {
       gameState.players = data.players;
       
       // Update UI
-      document.getElementById('display-room-id').textContent = data.roomId;
+      const roomIdDisplay = document.getElementById('display-room-id');
+      if (roomIdDisplay) {
+        roomIdDisplay.textContent = data.roomId;
+      }
+      
       updatePlayerList();
       
       // Switch to lobby screen
@@ -256,34 +300,41 @@ socket.on('message', (data) => {
       gameState.submitted = false;
       
       // Update UI
-      document.getElementById('current-letter').textContent = data.letter;
+      const letterDisplay = document.getElementById('current-letter');
+      if (letterDisplay) {
+        letterDisplay.textContent = data.letter;
+      }
       
       // Create category inputs
       const categoriesContainer = document.querySelector('.categories-container');
-      categoriesContainer.innerHTML = '';
-      
-      CATEGORIES.forEach(category => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'category';
+      if (categoriesContainer) {
+        categoriesContainer.innerHTML = '';
         
-        categoryDiv.innerHTML = `
-          <label for="answer-${category.toLowerCase()}">${category}</label>
-          <input type="text" 
-                 id="answer-${category.toLowerCase()}" 
-                 name="${category}" 
-                 class="answer-input" 
-                 placeholder="${category} with ${data.letter}..." 
-                 autocomplete="off">
-        `;
-        
-        categoriesContainer.appendChild(categoryDiv);
-      });
+        CATEGORIES.forEach(category => {
+          const categoryDiv = document.createElement('div');
+          categoryDiv.className = 'category';
+          
+          categoryDiv.innerHTML = `
+            <label for="answer-${category.toLowerCase()}">${category}</label>
+            <input type="text" 
+                   id="answer-${category.toLowerCase()}" 
+                   name="${category}" 
+                   class="answer-input" 
+                   placeholder="${category} with ${data.letter}..." 
+                   autocomplete="off">
+          `;
+          
+          categoriesContainer.appendChild(categoryDiv);
+        });
+      }
       
       // Reset submit button
       const submitBtn = document.getElementById('submit-btn');
-      submitBtn.textContent = 'Submit Answers';
-      submitBtn.classList.remove('btn-success');
-      submitBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.textContent = 'Submit Answers';
+        submitBtn.classList.remove('btn-success');
+        submitBtn.disabled = false;
+      }
       
       // Start timer
       startTimer(data.timeLimit || gameState.timeLimit);
@@ -316,30 +367,32 @@ socket.on('message', (data) => {
       
       // Populate results table
       const resultsBody = document.getElementById('results-body');
-      resultsBody.innerHTML = '';
-      
-      Object.entries(data.scores).forEach(([category, categoryScores]) => {
-        Object.entries(categoryScores).forEach(([playerId, scoreData]) => {
-          const player = gameState.players.find(p => p.id === playerId);
-          if (!player) return;
-          
-          const row = document.createElement('tr');
-          
-          // Highlight current player's rows
-          if (playerId === socket.id) {
-            row.classList.add('current-player');
-          }
-          
-          row.innerHTML = `
-            <td>${category}</td>
-            <td>${player.name}</td>
-            <td>${scoreData.answer || ''}</td>
-            <td>${scoreData.score || 0}</td>
-          `;
-          
-          resultsBody.appendChild(row);
+      if (resultsBody) {
+        resultsBody.innerHTML = '';
+        
+        Object.entries(data.scores).forEach(([category, categoryScores]) => {
+          Object.entries(categoryScores).forEach(([playerId, scoreData]) => {
+            const player = gameState.players.find(p => p.id === playerId);
+            if (!player) return;
+            
+            const row = document.createElement('tr');
+            
+            // Highlight current player's rows
+            if (playerId === socket.id) {
+              row.classList.add('current-player');
+            }
+            
+            row.innerHTML = `
+              <td>${category}</td>
+              <td>${player.name}</td>
+              <td>${scoreData.answer || ''}</td>
+              <td>${scoreData.score || 0}</td>
+            `;
+            
+            resultsBody.appendChild(row);
+          });
         });
-      });
+      }
       
       // Update scores list
       updateScores();
@@ -354,99 +407,138 @@ socket.on('message', (data) => {
   }
 });
 
-// Button event handlers
-document.getElementById('join-game-btn').addEventListener('click', () => {
-  const playerName = document.getElementById('player-name').value.trim();
-  const roomId = document.getElementById('room-id').value.trim();
-  const timeLimit = parseInt(document.getElementById('time-limit').value, 10) || 60;
-  
-  if (!playerName) {
-    showError('Please enter your name');
-    return;
-  }
-  
-  // Store in game state
-  gameState.playerName = playerName;
-  gameState.timeLimit = timeLimit;
-  
-  // Connect to room
-  socket.connectToRoom(roomId, playerName, timeLimit);
-});
-
-document.getElementById('start-game-btn').addEventListener('click', () => {
-  socket.send({
-    type: 'startRound',
-    timeLimit: gameState.timeLimit
-  });
-});
-
-document.getElementById('answers-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  submitAnswers();
-});
-
-document.getElementById('next-round-btn').addEventListener('click', () => {
-  console.log('Starting next round');
-  socket.send({
-    type: 'startRound',
-    timeLimit: gameState.timeLimit
-  });
-});
-
-document.getElementById('copy-link-btn').addEventListener('click', () => {
-  const roomId = gameState.roomId;
-  const url = `${window.location.origin}?room=${roomId}`;
-  
-  navigator.clipboard.writeText(url)
-    .then(() => {
-      const btn = document.getElementById('copy-link-btn');
-      const originalText = btn.textContent;
+// Attach event listeners once DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Button event handlers
+  const joinGameBtn = document.getElementById('join-game-btn');
+  if (joinGameBtn) {
+    joinGameBtn.addEventListener('click', () => {
+      const playerNameInput = document.getElementById('player-name');
+      const roomIdInput = document.getElementById('room-id');
+      const timeLimitInput = document.getElementById('time-limit');
       
-      btn.textContent = 'Copied!';
-      setTimeout(() => {
-        btn.textContent = originalText;
-      }, 2000);
-    })
-    .catch(err => {
-      showError('Failed to copy link: ' + err.message);
+      if (!playerNameInput || !roomIdInput || !timeLimitInput) {
+        console.error('Form inputs not found');
+        return;
+      }
+      
+      const playerName = playerNameInput.value.trim();
+      const roomId = roomIdInput.value.trim();
+      const timeLimit = parseInt(timeLimitInput.value, 10) || 60;
+      
+      if (!playerName) {
+        showError('Please enter your name');
+        return;
+      }
+      
+      // Store in game state
+      gameState.playerName = playerName;
+      gameState.timeLimit = timeLimit;
+      
+      // Connect to room
+      socket.connectToRoom(roomId, playerName, timeLimit);
     });
-});
+  }
 
-document.getElementById('debug-btn').addEventListener('click', () => {
-  const roomIdInput = document.getElementById('room-id');
-  const randomRoomId = Math.floor(Math.random() * 1000000).toString();
-  roomIdInput.value = randomRoomId;
-  
-  alert('Random room ID generated. Enter your name and click "Join Game" to start a new game.');
-});
+  const startGameBtn = document.getElementById('start-game-btn');
+  if (startGameBtn) {
+    startGameBtn.addEventListener('click', () => {
+      socket.send({
+        type: 'startRound',
+        timeLimit: gameState.timeLimit
+      });
+    });
+  }
 
-document.getElementById('error-close-btn').addEventListener('click', () => {
-  document.getElementById('error-modal').classList.add('hidden');
-});
+  const answersForm = document.getElementById('answers-form');
+  if (answersForm) {
+    answersForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitAnswers();
+    });
+  }
 
-// Helper functions
-function showError(message) {
-  const errorModal = document.getElementById('error-modal');
-  const errorMessage = document.getElementById('error-message');
-  
-  errorMessage.textContent = message;
-  errorModal.classList.remove('hidden');
-}
+  const nextRoundBtn = document.getElementById('next-round-btn');
+  if (nextRoundBtn) {
+    nextRoundBtn.addEventListener('click', () => {
+      console.log('Starting next round');
+      socket.send({
+        type: 'startRound',
+        timeLimit: gameState.timeLimit
+      });
+    });
+  }
 
-// Check URL for room ID parameter
-function checkUrlParams() {
+  const copyLinkBtn = document.getElementById('copy-link-btn');
+  if (copyLinkBtn) {
+    copyLinkBtn.addEventListener('click', () => {
+      const roomId = gameState.roomId;
+      const url = `${window.location.origin}?room=${roomId}`;
+      
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          const btn = document.getElementById('copy-link-btn');
+          const originalText = btn.textContent;
+          
+          btn.textContent = 'Copied!';
+          setTimeout(() => {
+            btn.textContent = originalText;
+          }, 2000);
+        })
+        .catch(err => {
+          showError('Failed to copy link: ' + err.message);
+        });
+    });
+  }
+
+  const debugBtn = document.getElementById('debug-btn');
+  if (debugBtn) {
+    debugBtn.addEventListener('click', () => {
+      const roomIdInput = document.getElementById('room-id');
+      if (roomIdInput) {
+        const randomRoomId = Math.floor(Math.random() * 1000000).toString();
+        roomIdInput.value = randomRoomId;
+        
+        alert('Random room ID generated. Enter your name and click "Join Game" to start a new game.');
+      }
+    });
+  }
+
+  const errorCloseBtn = document.getElementById('error-close-btn');
+  if (errorCloseBtn) {
+    errorCloseBtn.addEventListener('click', () => {
+      const errorModal = document.getElementById('error-modal');
+      if (errorModal) {
+        errorModal.classList.add('hidden');
+      }
+    });
+  }
+
+  // Check URL for room ID parameter
   const urlParams = new URLSearchParams(window.location.search);
   const roomId = urlParams.get('room');
   
   if (roomId) {
-    document.getElementById('room-id').value = roomId;
+    const roomIdInput = document.getElementById('room-id');
+    if (roomIdInput) {
+      roomIdInput.value = roomId;
+    }
   }
-}
+});
 
-// Initialize
-function init() {
-  checkUrlParams();
-}
-
-// Start everything when DOM is loaded
-document.addEventListener('DOMContentLoaded', init); 
+// Helper functions
+function showError(message) {
+  console.error(message);
+  
+  const errorModal = document.getElementById('error-modal');
+  const errorMessage = document.getElementById('error-message');
+  
+  if (!errorModal || !errorMessage) {
+    console.error('Error modal elements not found');
+    alert(message); // Fallback to alert if modal not found
+    return;
+  }
+  
+  errorMessage.textContent = message;
+  errorModal.classList.remove('hidden');
+} 

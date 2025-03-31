@@ -14,6 +14,7 @@ interface Player {
   answers: Record<string, string>;
   score: number;
   isAdmin: boolean;
+  submitted: boolean;
 }
 
 interface RoomState {
@@ -71,12 +72,19 @@ export default class StadtLandFlussServer implements Party.Server {
   async onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
     console.log(`Player connected: ${conn.id} in room: ${this.party.id}`);
     
-    // Send current state to the new connection
+    // First send connection ID message
     conn.send(JSON.stringify({
-      type: "init",
+      type: "connection",
+      id: conn.id
+    }));
+    
+    // Then send current state
+    conn.send(JSON.stringify({
+      type: "joined",
       connectionId: conn.id,
       players: Object.values(this.roomState.players),
-      admin: this.roomState.admin,
+      adminId: this.roomState.admin,
+      isAdmin: this.roomState.admin === conn.id,
       timeLimit: this.roomState.timeLimit,
       roundInProgress: this.roomState.roundInProgress,
       currentLetter: this.roomState.currentLetter,
@@ -136,9 +144,9 @@ export default class StadtLandFlussServer implements Party.Server {
         
         // Notify remaining players about new admin
         this.party.broadcast(JSON.stringify({
-          type: "playerJoined",
+          type: "playerLeft",
           players: Object.values(this.roomState.players),
-          admin: this.roomState.admin,
+          adminId: this.roomState.admin,
           timeLimit: this.roomState.timeLimit
         }));
       } else {
@@ -215,19 +223,33 @@ export default class StadtLandFlussServer implements Party.Server {
       name: playerName,
       answers: {},
       score: 0,
-      isAdmin: this.roomState.admin === sender.id
+      isAdmin: this.roomState.admin === sender.id,
+      submitted: false
     };
     
     // Log players for debugging
     console.log(`Room ${roomId} now has ${Object.keys(this.roomState.players).length} players`);
     
-    // Notify everyone in the room
-    this.party.broadcast(JSON.stringify({
-      type: "playerJoined",
+    // Send confirmation to the joining player
+    sender.send(JSON.stringify({
+      type: "joined",
+      roomId: this.party.id,
       players: Object.values(this.roomState.players),
-      admin: this.roomState.admin,
+      adminId: this.roomState.admin,
+      isAdmin: this.roomState.admin === sender.id,
       timeLimit: this.roomState.timeLimit
     }));
+    
+    // Notify everyone else in the room
+    this.party.broadcast(
+      JSON.stringify({
+        type: "playerJoined",
+        players: Object.values(this.roomState.players),
+        adminId: this.roomState.admin,
+        timeLimit: this.roomState.timeLimit
+      }), 
+      [sender.id] // Exclude the sender
+    );
   }
 
   private handleStartRound(sender: Party.Connection) {
@@ -248,9 +270,10 @@ export default class StadtLandFlussServer implements Party.Server {
     this.roomState.roundResults = {};
     this.roomState.timerEnd = timerEnd;
     
-    // Reset player answers
+    // Reset player answers and submission status
     Object.keys(this.roomState.players).forEach(playerId => {
       this.roomState.players[playerId].answers = {};
+      this.roomState.players[playerId].submitted = false;
     });
     
     // Notify everyone in the room
@@ -258,7 +281,7 @@ export default class StadtLandFlussServer implements Party.Server {
       type: "roundStarted",
       letter,
       timeLimit,
-      timerEnd
+      timerEnd: timerEnd.toISOString() // Send as ISO string for cross-platform compatibility
     }));
   }
 
@@ -276,13 +299,17 @@ export default class StadtLandFlussServer implements Party.Server {
     // Store player answers
     this.roomState.players[sender.id].answers = data.answers || {};
     
+    // Mark player as submitted
+    this.roomState.players[sender.id].submitted = true;
+    
     // Notify that answers were received
     this.party.broadcast(JSON.stringify({
       type: "answerReceived",
-      playerId: sender.id
+      playerId: sender.id,
+      players: Object.values(this.roomState.players)
     }));
     
-    // Process round if this was the last player to submit
+    // Process round if all players have submitted
     this.processValidation();
   }
 
@@ -295,7 +322,7 @@ export default class StadtLandFlussServer implements Party.Server {
     
     Object.entries(this.roomState.players).forEach(([playerId, player]) => {
       // Check if player has submitted answers
-      if (Object.keys(player.answers).length === 0) {
+      if (!player.submitted || Object.keys(player.answers).length === 0) {
         allPlayersSubmitted = false;
       } else {
         playerAnswers[playerId] = player.answers;

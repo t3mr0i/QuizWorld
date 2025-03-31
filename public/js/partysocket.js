@@ -1,165 +1,184 @@
-// PartySocket client for Stadt Land Fluss
+/**
+ * PartySocket connector for Stadt Land Fluss
+ * Handles connection to PartyKit server and provides event handling
+ */
 class GamePartySocket {
-  constructor() {
-    this._handlers = {};
-    this._connected = false;
-    this._socket = null;
-    this._id = null;
-    this._roomId = null;
-    this._reconnectAttempts = 0;
-    this._maxReconnectAttempts = 5;
+  constructor(host = window.location.host) {
+    this.host = host;
+    this.connection = null;
+    this.id = null;
+    this.connected = false;
+    this.reconnecting = false;
+    this.maxReconnectAttempts = 5;
+    this.reconnectAttempts = 0;
+    this.playerData = null;
+    this.eventHandlers = {};
+    
+    console.log(`GamePartySocket initialized with host: ${this.host}`);
   }
-
-  get id() {
-    return this._id;
-  }
-
-  get connected() {
-    return this._connected;
-  }
-
-  get roomId() {
-    return this._roomId;
-  }
-
-  // Simple method to connect to a specific room
+  
   connectToRoom(roomId, playerName, timeLimit) {
-    // Store data for reconnection
-    this._playerName = playerName;
-    this._timeLimit = timeLimit;
+    console.log(`Connecting to room: ${roomId}, player: ${playerName}`);
     
-    // Always use the provided room ID or generate a random one
-    this._roomId = roomId || Math.floor(Math.random() * 1000000).toString();
+    // Store player data for reconnection
+    this.playerData = {
+      roomId: roomId || Math.floor(Math.random() * 1000000).toString(),
+      playerName,
+      timeLimit
+    };
     
-    // Close any existing connection
-    if (this._socket) {
+    // If already connected, disconnect first
+    if (this.connection) {
       try {
-        this._socket.close();
-      } catch (e) {
-        console.warn('Error closing socket:', e);
+        console.log('Closing existing connection before connecting to new room');
+        this.connection.close();
+      } catch (err) {
+        console.error('Error closing existing connection:', err);
       }
     }
     
-    // Determine host based on environment
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const host = isLocalhost ? 'localhost:1999' : window.location.host;
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    
-    // Create WebSocket URL with room ID
-    const url = `${protocol}//${host}/party/game/${this._roomId}`;
-    console.log(`Connecting to room ${this._roomId} at ${url}`);
-    
-    // Create the WebSocket connection
-    this._socket = new WebSocket(url);
-    
-    // Set up event handlers
-    this._socket.onopen = () => {
-      this._connected = true;
-      this._reconnectAttempts = 0;
-      console.log(`Connected to room ${this._roomId}`);
+    try {
+      // Create new PartySocket connection
+      const url = `wss://${this.host}/party/${this.playerData.roomId}`;
+      console.log(`Connecting to: ${url}`);
       
-      // Auto-join the room when connection is established
-      this.emit('joinRoom', {
-        playerName: this._playerName,
-        timeLimit: this._timeLimit
+      this.connection = new WebSocket(url);
+      
+      // Set up event handlers
+      this.connection.onopen = this.handleOpen.bind(this);
+      this.connection.onmessage = this.handleMessage.bind(this);
+      this.connection.onclose = this.handleClose.bind(this);
+      this.connection.onerror = this.handleError.bind(this);
+    } catch (error) {
+      console.error('Error creating connection:', error);
+      this.triggerEvent('error', { message: 'Failed to connect to game server' });
+    }
+  }
+  
+  handleOpen(event) {
+    console.log('Connection established to game server');
+    this.connected = true;
+    this.reconnectAttempts = 0;
+    
+    // Set connection ID if available
+    if (event.target && event.target.url) {
+      const urlParts = event.target.url.split('/');
+      this.id = urlParts[urlParts.length - 1] || null;
+    }
+    
+    // Send join message with player data
+    if (this.playerData) {
+      this.send({
+        type: 'joinRoom',
+        playerName: this.playerData.playerName,
+        timeLimit: this.playerData.timeLimit
       });
-      
-      // Call connect handlers
-      if (this._handlers['connect']) {
-        this._handlers['connect'].forEach(handler => handler());
-      }
-    };
+    }
     
-    this._socket.onmessage = (event) => {
+    // Trigger connect event
+    this.triggerEvent('connect');
+  }
+  
+  handleMessage(event) {
+    try {
+      const data = JSON.parse(event.data);
+      console.log('Received message:', data);
+      
+      // If this is a connection ID message, store it
+      if (data.type === 'connection' && data.id) {
+        this.id = data.id;
+        console.log(`Connection ID set: ${this.id}`);
+      }
+      
+      // Trigger message event with data
+      this.triggerEvent('message', data);
+    } catch (error) {
+      console.error('Error parsing message:', error, event.data);
+    }
+  }
+  
+  handleClose(event) {
+    console.log(`Connection closed: ${event.code} ${event.reason}`);
+    this.connected = false;
+    
+    // Attempt to reconnect if needed
+    if (this.playerData && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      this.reconnecting = true;
+      
+      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      
+      setTimeout(() => {
+        if (this.playerData) {
+          this.connectToRoom(
+            this.playerData.roomId,
+            this.playerData.playerName,
+            this.playerData.timeLimit
+          );
+        }
+      }, 1000 * Math.min(this.reconnectAttempts, 5));
+    } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error('Maximum reconnection attempts reached');
+      this.triggerEvent('error', { 
+        message: 'Could not reconnect to game server after multiple attempts' 
+      });
+    }
+    
+    // Trigger disconnect event
+    this.triggerEvent('disconnect');
+  }
+  
+  handleError(error) {
+    console.error('Connection error:', error);
+    this.triggerEvent('error', { message: 'Connection error' });
+  }
+  
+  send(data) {
+    if (!this.connected || !this.connection) {
+      console.error('Cannot send message: Not connected');
+      return false;
+    }
+    
+    try {
+      const message = JSON.stringify(data);
+      this.connection.send(message);
+      return true;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return false;
+    }
+  }
+  
+  on(eventName, callback) {
+    if (!this.eventHandlers[eventName]) {
+      this.eventHandlers[eventName] = [];
+    }
+    
+    this.eventHandlers[eventName].push(callback);
+  }
+  
+  off(eventName, callback) {
+    if (!this.eventHandlers[eventName]) return;
+    
+    if (callback) {
+      this.eventHandlers[eventName] = this.eventHandlers[eventName].filter(
+        cb => cb !== callback
+      );
+    } else {
+      delete this.eventHandlers[eventName];
+    }
+  }
+  
+  triggerEvent(eventName, data) {
+    if (!this.eventHandlers[eventName]) return;
+    
+    this.eventHandlers[eventName].forEach(callback => {
       try {
-        const data = JSON.parse(event.data);
-        console.log('Received message:', data);
-        
-        // Extract message type
-        const type = data.type;
-        
-        // Handle init message
-        if (type === 'init') {
-          this._id = data.connectionId;
-          console.log('Connection ID:', this._id);
-        }
-        
-        // Call event handlers
-        if (this._handlers[type]) {
-          this._handlers[type].forEach(handler => handler(data));
-        }
+        callback(data);
       } catch (error) {
-        console.error('Error parsing message:', error);
+        console.error(`Error in ${eventName} event handler:`, error);
       }
-    };
-    
-    this._socket.onclose = (event) => {
-      this._connected = false;
-      console.log(`Connection closed with code ${event.code}`);
-      
-      // Attempt to reconnect
-      if (this._reconnectAttempts < this._maxReconnectAttempts) {
-        this._reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), 10000);
-        console.log(`Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})...`);
-        
-        setTimeout(() => {
-          this.connectToRoom(this._roomId, this._playerName, this._timeLimit);
-        }, delay);
-      } else {
-        console.error('Maximum reconnect attempts reached');
-        
-        if (this._handlers['disconnect']) {
-          this._handlers['disconnect'].forEach(handler => handler());
-        }
-        
-        // Show reconnect error
-        if (typeof showConnectionError === 'function') {
-          showConnectionError('Connection lost. Maximum reconnect attempts reached.');
-        }
-      }
-    };
-    
-    this._socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      
-      if (this._handlers['connect_error']) {
-        this._handlers['connect_error'].forEach(handler => handler(error));
-      }
-    };
-    
-    return this._roomId;
-  }
-
-  // Socket.IO compatibility layer
-  on(event, handler) {
-    if (!this._handlers[event]) {
-      this._handlers[event] = [];
-    }
-    
-    this._handlers[event].push(handler);
-    return this;
-  }
-
-  emit(event, data) {
-    if (!this._connected) {
-      console.warn('Attempting to send message while disconnected');
-      return this;
-    }
-    
-    const message = {
-      type: event,
-      ...data
-    };
-    
-    this._socket.send(JSON.stringify(message));
-    return this;
-  }
-
-  disconnect() {
-    if (this._socket) {
-      this._socket.close();
-    }
+    });
   }
 }
 
