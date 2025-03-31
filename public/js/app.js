@@ -399,6 +399,11 @@ socket.on('connect', () => {
     console.log('Forcing player list update after connection');
     updatePlayerList();
   }
+  
+  // Force a fix for the admin message and button
+  setTimeout(() => {
+    forceFixAdminControls();
+  }, 1000);
 });
 
 socket.on('connect_error', (error) => {
@@ -456,20 +461,24 @@ socket.on('newAdmin', ({ admin }) => {
   updatePlayerList();
 });
 
-socket.on('roundStarted', ({ letter, timeLimit, players }) => {
+socket.on('roundStarted', (data) => {
   // Update game state
-  gameState.currentLetter = letter;
+  gameState.currentLetter = data.letter;
   gameState.submitted = false;
   
-  // If players data is provided, update it
-  if (players) {
-    console.log('Updated players list for new round:', players);
-    gameState.players = players;
-    updatePlayerList();
+  console.log('Round started with letter:', data.letter);
+  console.log('Timer end:', data.timerEnd);
+  
+  // Calculate time limit from timerEnd if provided
+  let timeLimit = data.timeLimit || gameState.timeLimit;
+  if (data.timerEnd) {
+    const timerEnd = new Date(data.timerEnd);
+    const now = new Date();
+    timeLimit = Math.max(1, Math.floor((timerEnd - now) / 1000));
   }
   
   // Set current letter in UI
-  currentLetterDisplay.textContent = letter;
+  currentLetterDisplay.textContent = data.letter;
   
   // Reset form inputs
   resetGameInputs();
@@ -627,4 +636,125 @@ function checkAdminControlsVisibility() {
     
     console.log('Start game button display after fix:', startGameBtn.style.display);
   }
-} 
+}
+
+// Add a new function to force fix admin controls
+function forceFixAdminControls() {
+  console.log('Forcing fix for admin controls');
+  
+  // Update admin message regardless of current text
+  const adminMessage = document.querySelector('.admin-message');
+  if (adminMessage) {
+    adminMessage.textContent = 'As the admin, you can start the game anytime';
+    adminMessage.style.color = '#FF4600';
+    adminMessage.style.fontWeight = 'bold';
+  }
+  
+  // Fix for admin instructions in results screen
+  const adminInstructions = document.querySelector('.admin-instructions');
+  if (adminInstructions) {
+    adminInstructions.textContent = 'As the admin, you can start the next round anytime';
+  }
+  
+  // Fix Start Game button for admin
+  if (gameState.isAdmin) {
+    const adminControls = document.getElementById('admin-controls');
+    const startGameBtn = document.getElementById('start-game-btn');
+    
+    if (adminControls && startGameBtn) {
+      // Make controls extremely visible
+      adminControls.style.display = 'block';
+      adminControls.style.border = '3px solid #FF4600';
+      adminControls.style.padding = '20px';
+      adminControls.style.backgroundColor = 'rgba(255, 70, 0, 0.1)';
+      
+      // Make button extremely visible
+      startGameBtn.style.display = 'inline-block';
+      startGameBtn.style.fontSize = '1.5rem';
+      startGameBtn.style.padding = '20px 40px';
+      startGameBtn.style.backgroundColor = '#FF4600';
+      startGameBtn.style.color = 'white';
+      startGameBtn.style.boxShadow = '0 0 20px rgba(255, 70, 0, 0.8)';
+      startGameBtn.style.cursor = 'pointer';
+      
+      // Add big text explaining what to do
+      const bigText = document.createElement('div');
+      bigText.innerHTML = '<strong>CLICK THIS BUTTON TO START THE GAME!</strong>';
+      bigText.style.fontSize = '1.2rem';
+      bigText.style.marginBottom = '15px';
+      bigText.style.color = '#FF4600';
+      adminControls.insertBefore(bigText, startGameBtn);
+      
+      // Add direct click listener to ensure it works
+      startGameBtn.onclick = () => {
+        console.log('Start Game button clicked directly');
+        socket.emit('startRound');
+      };
+    }
+  }
+}
+
+// Add debug reload function
+window.restartGame = function() {
+  console.log('Restarting game...');
+  
+  // Disconnect socket
+  if (socket) {
+    socket.disconnect();
+  }
+  
+  // Clear game state
+  gameState = {
+    playerName: '',
+    roomId: '',
+    isAdmin: false,
+    adminId: null,
+    currentLetter: null,
+    submitted: false,
+    timeLimit: 60,
+    timer: null,
+    players: [],
+    timerInterval: null
+  };
+  
+  // Show welcome screen
+  showScreen('welcome-screen');
+  
+  // Clear any timers
+  if (gameState.timerInterval) {
+    clearInterval(gameState.timerInterval);
+  }
+  
+  // Reload socket connection
+  socket = io({
+    path: '/socket.io/',
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000
+  });
+  
+  // Reload page if needed
+  setTimeout(() => {
+    location.reload();
+  }, 1000);
+};
+
+// Add a visual button for restarting the game
+document.addEventListener('DOMContentLoaded', () => {
+  const restartButton = document.createElement('button');
+  restartButton.textContent = 'Restart Game';
+  restartButton.style.position = 'fixed';
+  restartButton.style.bottom = '10px';
+  restartButton.style.right = '10px';
+  restartButton.style.zIndex = '9999';
+  restartButton.style.padding = '8px 12px';
+  restartButton.style.backgroundColor = '#444';
+  restartButton.style.color = 'white';
+  restartButton.style.border = 'none';
+  restartButton.style.borderRadius = '4px';
+  restartButton.style.cursor = 'pointer';
+  
+  restartButton.onclick = window.restartGame;
+  
+  document.body.appendChild(restartButton);
+}); 
