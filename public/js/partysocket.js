@@ -46,7 +46,8 @@ class GamePartySocket {
       const host = window.location.host;
       
       // Create URL with the party ID (room ID)
-      const url = `${protocol}//${host}/party/${this.playerData.roomId}`;
+      // We need to use 'game' as the party name and pass the room ID as a parameter
+      const url = `${protocol}//${host}/party/game?roomId=${this.playerData.roomId}`;
       console.log(`Connecting to: ${url}`);
       
       this.connection = new WebSocket(url);
@@ -78,7 +79,8 @@ class GamePartySocket {
       this.send({
         type: 'joinRoom',
         playerName: this.playerData.playerName,
-        timeLimit: this.playerData.timeLimit
+        timeLimit: this.playerData.timeLimit,
+        roomId: this.playerData.roomId // Include room ID in the join message
       });
     }
     

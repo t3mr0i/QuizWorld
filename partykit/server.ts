@@ -27,6 +27,9 @@ interface RoomState {
   timerEnd: Date | null;
 }
 
+// Store for game states by room ID
+const roomStates: Record<string, RoomState> = {};
+
 // MIME types for static files
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html",
@@ -45,32 +48,45 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 export default class StadtLandFlussServer implements Party.Server {
+  // Room ID for this game instance
+  private roomId: string;
+  
   constructor(readonly party: Party.Party) {
-    console.log(`PartyKit server created for room: ${this.party.id}`);
+    // Get the room ID from the constructor party.id
+    this.roomId = party.id;
+    
+    console.log(`PartyKit server created for room: ${this.roomId}`);
+    
+    // Initialize room state if it doesn't exist
+    if (!roomStates[this.roomId]) {
+      roomStates[this.roomId] = {
+        players: {},
+        currentLetter: null,
+        roundInProgress: false,
+        roundResults: {},
+        admin: "",
+        timeLimit: 60,
+        timerEnd: null
+      };
+    }
   }
 
-  // Store for the game state
-  private roomState: RoomState = {
-    players: {},
-    currentLetter: null,
-    roundInProgress: false,
-    roundResults: {},
-    admin: "",
-    timeLimit: 60,
-    timerEnd: null
-  };
+  // Get the state for this room
+  private get roomState(): RoomState {
+    return roomStates[this.roomId];
+  }
 
   async onStart() {
     // Load state from storage if it exists
-    const stored = await this.party.storage.get<RoomState>("roomState");
+    const stored = await this.party.storage.get<RoomState>(`room:${this.roomId}`);
     if (stored) {
-      this.roomState = stored;
-      console.log(`Loaded existing state for room ${this.party.id} with ${Object.keys(this.roomState.players).length} players`);
+      roomStates[this.roomId] = stored;
+      console.log(`Loaded existing state for room ${this.roomId} with ${Object.keys(this.roomState.players).length} players`);
     }
   }
 
   async onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    console.log(`Player connected: ${conn.id} in room: ${this.party.id}`);
+    console.log(`Player connected: ${conn.id} in room: ${this.roomId}`);
     
     // First send connection ID message
     conn.send(JSON.stringify({
@@ -89,13 +105,32 @@ export default class StadtLandFlussServer implements Party.Server {
       roundInProgress: this.roomState.roundInProgress,
       currentLetter: this.roomState.currentLetter,
       timerEnd: this.roomState.timerEnd,
-      roomId: this.party.id
+      roomId: this.roomId
     }));
   }
 
   async onMessage(message: string, sender: Party.Connection) {
     try {
       const data = JSON.parse(message);
+      
+      // If message contains roomId, use it to update our roomId
+      if (data.roomId && data.roomId !== this.roomId) {
+        this.roomId = data.roomId;
+        console.log(`Updated room ID to: ${this.roomId}`);
+        
+        // Initialize room state if needed
+        if (!roomStates[this.roomId]) {
+          roomStates[this.roomId] = {
+            players: {},
+            currentLetter: null,
+            roundInProgress: false,
+            roundResults: {},
+            admin: "",
+            timeLimit: 60,
+            timerEnd: null
+          };
+        }
+      }
       
       switch (data.type) {
         case "joinRoom":
@@ -112,7 +147,7 @@ export default class StadtLandFlussServer implements Party.Server {
       }
       
       // Save state after any message
-      await this.party.storage.put("roomState", this.roomState);
+      await this.party.storage.put(`room:${this.roomId}`, this.roomState);
     } catch (error) {
       console.error("Error handling message:", error);
       sender.send(JSON.stringify({
@@ -123,7 +158,7 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   onClose(conn: Party.Connection) {
-    console.log(`Player disconnected: ${conn.id} from room ${this.party.id}`);
+    console.log(`Player disconnected: ${conn.id} from room ${this.roomId}`);
     
     // Remove player from room
     if (this.roomState.players[conn.id]) {
@@ -132,7 +167,7 @@ export default class StadtLandFlussServer implements Party.Server {
       
       // If room is empty, leave the state as is (it will be cleaned up eventually)
       if (Object.keys(this.roomState.players).length === 0) {
-        console.log(`Room ${this.party.id} is now empty`);
+        console.log(`Room ${this.roomId} is now empty`);
       } 
       // If admin left, assign a new admin
       else if (this.roomState.admin === conn.id) {
@@ -160,13 +195,33 @@ export default class StadtLandFlussServer implements Party.Server {
       }
       
       // Save state when a player disconnects
-      this.party.storage.put("roomState", this.roomState);
+      this.party.storage.put(`room:${this.roomId}`, this.roomState);
     }
   }
 
   // HTTP request handler to serve static files
   async onRequest(req: Party.Request) {
     const url = new URL(req.url);
+    
+    // Extract roomId from URL if present and update room state
+    const roomIdParam = url.searchParams.get("roomId");
+    if (roomIdParam) {
+      this.roomId = roomIdParam;
+      
+      // Initialize room state if needed
+      if (!roomStates[this.roomId]) {
+        roomStates[this.roomId] = {
+          players: {},
+          currentLetter: null,
+          roundInProgress: false,
+          roundResults: {},
+          admin: "",
+          timeLimit: 60,
+          timerEnd: null
+        };
+      }
+    }
+    
     let filePath = url.pathname;
     
     // Handle root request, serve index.html
@@ -206,10 +261,12 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   private handleJoinRoom(data: any, sender: Party.Connection) {
-    const { playerName, timeLimit } = data;
-    const roomId = this.party.id; // Use the PartyKit room ID
+    const { playerName, timeLimit, roomId } = data;
     
-    console.log(`${playerName} (${sender.id}) is joining room ${roomId}`);
+    // Use provided roomId or the current one
+    const targetRoomId = roomId || this.roomId;
+    
+    console.log(`${playerName} (${sender.id}) is joining room ${targetRoomId}`);
     
     // Initialize admin if this is the first player
     if (Object.keys(this.roomState.players).length === 0) {
@@ -228,12 +285,12 @@ export default class StadtLandFlussServer implements Party.Server {
     };
     
     // Log players for debugging
-    console.log(`Room ${roomId} now has ${Object.keys(this.roomState.players).length} players`);
+    console.log(`Room ${targetRoomId} now has ${Object.keys(this.roomState.players).length} players`);
     
     // Send confirmation to the joining player
     sender.send(JSON.stringify({
       type: "joined",
-      roomId: this.party.id,
+      roomId: targetRoomId,
       players: Object.values(this.roomState.players),
       adminId: this.roomState.admin,
       isAdmin: this.roomState.admin === sender.id,
@@ -254,7 +311,7 @@ export default class StadtLandFlussServer implements Party.Server {
 
   private handleStartRound(sender: Party.Connection) {
     // Allow any player to start the round
-    console.log(`Player ${sender.id} started a new round in room ${this.party.id}`);
+    console.log(`Player ${sender.id} started a new round in room ${this.roomId}`);
     
     // Select a random letter
     const randomIndex = Math.floor(Math.random() * LETTERS.length);
@@ -294,7 +351,7 @@ export default class StadtLandFlussServer implements Party.Server {
       return;
     }
     
-    console.log(`Player ${sender.id} submitted answers in room ${this.party.id}`);
+    console.log(`Player ${sender.id} submitted answers in room ${this.roomId}`);
     
     // Store player answers
     this.roomState.players[sender.id].answers = data.answers || {};
@@ -332,7 +389,7 @@ export default class StadtLandFlussServer implements Party.Server {
     // If not all players have submitted, don't process yet
     if (!allPlayersSubmitted) return;
     
-    console.log(`All players submitted answers in room ${this.party.id}, validating...`);
+    console.log(`All players submitted answers in room ${this.roomId}, validating...`);
     
     // Mark round as ended to prevent multiple validations
     this.roomState.roundInProgress = false;
@@ -344,7 +401,7 @@ export default class StadtLandFlussServer implements Party.Server {
         playerAnswers
       );
       
-      console.log(`Validation completed for room ${this.party.id}`);
+      console.log(`Validation completed for room ${this.roomId}`);
       
       // Update player scores
       if (scores && typeof scores === 'object') {
@@ -373,9 +430,9 @@ export default class StadtLandFlussServer implements Party.Server {
       this.roomState.roundResults = scores;
       
       // Save state
-      await this.party.storage.put("roomState", this.roomState);
+      await this.party.storage.put(`room:${this.roomId}`, this.roomState);
     } catch (error) {
-      console.error(`Error validating answers in room ${this.party.id}:`, error);
+      console.error(`Error validating answers in room ${this.roomId}:`, error);
       
       // Notify players of error
       this.party.broadcast(JSON.stringify({
