@@ -38,8 +38,15 @@ class GamePartySocket {
     }
     
     try {
-      // Create new PartySocket connection
-      const url = `wss://${this.host}/party/${this.playerData.roomId}`;
+      // Create new PartySocket connection using the correct URL format
+      // Determine protocol based on current page
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      
+      // Use the current host which includes the dynamic port assigned by PartyKit
+      const host = window.location.host;
+      
+      // Create URL with the party ID (room ID)
+      const url = `${protocol}//${host}/party/${this.playerData.roomId}`;
       console.log(`Connecting to: ${url}`);
       
       this.connection = new WebSocket(url);
