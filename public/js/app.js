@@ -173,9 +173,23 @@ function updatePlayerList() {
     playerList.appendChild(listItem);
   });
   
+  // Ensure the admin-controls div is visible and only toggle the button's visibility
+  document.getElementById('admin-controls').style.display = 'block';
+  
   // Always show the start button if you're the admin - Fix the display issue
-  startGameBtn.style.display = gameState.isAdmin ? 'block' : 'none';
-  console.log("Start Game button display:", gameState.isAdmin ? "block" : "none", "isAdmin:", gameState.isAdmin);
+  startGameBtn.style.display = gameState.isAdmin ? 'inline-block' : 'none';
+  
+  // Add debug info directly to DOM if admin
+  if (gameState.isAdmin) {
+    const adminInfo = document.createElement('p');
+    adminInfo.textContent = 'You are the admin and can start the game.';
+    adminInfo.style.color = '#FF4600';
+    adminInfo.style.fontWeight = 'bold';
+    adminInfo.style.marginTop = '10px';
+    document.getElementById('admin-controls').appendChild(adminInfo);
+  }
+  
+  console.log("Start Game button display:", gameState.isAdmin ? "inline-block" : "none", "isAdmin:", gameState.isAdmin);
   
   // Update player count in game screen
   totalPlayersDisplay.textContent = gameState.players.length;
