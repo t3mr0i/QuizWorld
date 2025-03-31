@@ -105,9 +105,6 @@ function updateDetailedPlayerStatus() {
           ${player.name}${player.id === socket.id ? ' (You)' : ''}
         </div>
         <div>
-          ${player.isReady ? 
-            '<span class="status-badge ready">Ready</span>' : 
-            '<span class="status-badge not-ready">Not Ready</span>'}
           ${gameState.isAdmin && player.id === socket.id ? 
             '<span class="status-badge admin">Admin</span>' : ''}
         </div>
@@ -155,10 +152,6 @@ function updatePlayerList() {
     const playerName = document.createElement('span');
     playerName.textContent = player.name + (player.id === socket.id ? ' (You)' : '');
     
-    // Create status text
-    const statusText = document.createElement('span');
-    statusText.textContent = player.isReady ? 'Ready' : 'Not Ready';
-    
     // Add admin indicator if applicable
     const isAdmin = player.isAdmin || (gameState.adminId && player.id === gameState.adminId);
     if (isAdmin) {
@@ -172,7 +165,6 @@ function updatePlayerList() {
     // Add elements to list item
     listItem.appendChild(statusIndicator);
     listItem.appendChild(playerName);
-    listItem.appendChild(statusText);
     
     // Make the list item clickable to show detailed status
     listItem.style.cursor = 'pointer';
@@ -181,8 +173,9 @@ function updatePlayerList() {
     playerList.appendChild(listItem);
   });
   
-  // Show/hide admin controls
+  // Always show the start button if you're the admin - Fix the display issue
   startGameBtn.style.display = gameState.isAdmin ? 'block' : 'none';
+  console.log("Start Game button display:", gameState.isAdmin ? "block" : "none", "isAdmin:", gameState.isAdmin);
   
   // Update player count in game screen
   totalPlayersDisplay.textContent = gameState.players.length;
@@ -374,11 +367,14 @@ socket.on('connect_error', (error) => {
 socket.on('playerJoined', ({ players, admin, timeLimit }) => {
   console.log('Players in room:', players);
   console.log('Admin ID:', admin);
+  console.log('Socket ID:', socket.id);
   
   gameState.players = players;
   gameState.isAdmin = (admin === socket.id);
   gameState.adminId = admin;
   gameState.timeLimit = timeLimit;
+  
+  console.log('Is admin:', gameState.isAdmin);
   
   // Update lobby UI
   lobbyRoomId.textContent = gameState.roomId;

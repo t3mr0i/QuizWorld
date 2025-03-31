@@ -71,6 +71,7 @@ export default class StadtLandFlussServer implements Party.Server {
     // Send current state to the new connection
     conn.send(JSON.stringify({
       type: "init",
+      connectionId: conn.id,
       players: Object.values(this.roomState.players),
       admin: this.roomState.admin,
       timeLimit: this.roomState.timeLimit,

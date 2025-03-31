@@ -48,10 +48,9 @@ class GamePartySocket {
         const type = data.type;
         
         if (type === 'init') {
-          // Store the connection ID if available
-          if (data.connectionId) {
-            this._id = data.connectionId;
-          }
+          // Store the connection ID based on server response
+          this._id = data.connectionId || this._socket.url.split('/').pop();
+          console.log('Setting connection ID:', this._id);
         }
         
         // Call the appropriate event handlers
