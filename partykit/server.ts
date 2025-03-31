@@ -403,31 +403,65 @@ export default class StadtLandFlussServer implements Party.Server {
       
       console.log(`Validation completed for room ${this.roomId}`);
       
-      // Update player scores
-      if (scores && typeof scores === 'object') {
-        Object.entries(scores).forEach(([category, categoryScores]) => {
-          if (categoryScores && typeof categoryScores === 'object') {
-            Object.entries(categoryScores as Record<string, unknown>).forEach(([playerId, scoreData]) => {
-              if (this.roomState.players[playerId] && scoreData) {
-                const score = typeof scoreData === 'object' && scoreData !== null && 'score' in scoreData 
-                  ? (scoreData as {score: number}).score
-                  : 0;
-                this.roomState.players[playerId].score += score;
-              }
-            });
+      // Initialize structured results
+      const structuredScores: Record<string, Record<string, any>> = {};
+      
+      // Process validation results into expected structure
+      CATEGORIES.forEach(category => {
+        structuredScores[category] = {};
+        
+        // For each player, create an entry for this category
+        Object.keys(playerAnswers).forEach(playerId => {
+          const playerAnswer = playerAnswers[playerId][category] || '';
+          
+          // Initialize with default values
+          structuredScores[category][playerId] = {
+            answer: playerAnswer,
+            score: 0,
+            explanation: "No valid answer provided"
+          };
+          
+          // If we have suggestions, add them
+          if (scores.suggestions && scores.suggestions[category]) {
+            structuredScores[category][playerId].suggestion = scores.suggestions[category];
+          }
+          
+          // If we have explanations, add them
+          if (scores.explanations && scores.explanations[category]) {
+            structuredScores[category][playerId].explanation = scores.explanations[category];
+          }
+          
+          // Special case for a unique valid answer (20 points)
+          if (playerAnswer && this.isUniqueAnswer(playerAnswer, category, playerAnswers)) {
+            structuredScores[category][playerId].score = 20;
+            structuredScores[category][playerId].explanation = "Unique valid answer (+20 points)";
+          }
+          // Valid but not unique (10 points)
+          else if (playerAnswer && playerAnswer.toLowerCase().startsWith(this.roomState.currentLetter?.toLowerCase() || '')) {
+            structuredScores[category][playerId].score = 10;
+            structuredScores[category][playerId].explanation = "Valid answer (+10 points)";
           }
         });
-      }
+      });
+      
+      // Update player scores
+      Object.entries(structuredScores).forEach(([category, categoryScores]) => {
+        Object.entries(categoryScores).forEach(([playerId, scoreData]) => {
+          if (this.roomState.players[playerId]) {
+            this.roomState.players[playerId].score += scoreData.score || 0;
+          }
+        });
+      });
       
       // Send results to all players
       this.party.broadcast(JSON.stringify({
         type: "roundResults",
-        scores,
+        scores: structuredScores,
         players: Object.values(this.roomState.players)
       }));
       
       // Store results
-      this.roomState.roundResults = scores;
+      this.roomState.roundResults = structuredScores;
       
       // Save state
       await this.party.storage.put(`room:${this.roomId}`, this.roomState);
@@ -443,5 +477,17 @@ export default class StadtLandFlussServer implements Party.Server {
       // Reset round state so players can try again
       this.roomState.roundInProgress = false;
     }
+  }
+  
+  // Helper function to check if an answer is unique among all players
+  private isUniqueAnswer(answer: string, category: string, allAnswers: Record<string, Record<string, string>>): boolean {
+    // Count occurrences of this answer for this category
+    let count = 0;
+    Object.values(allAnswers).forEach(playerAnswers => {
+      if (playerAnswers[category]?.toLowerCase() === answer.toLowerCase()) {
+        count++;
+      }
+    });
+    return count === 1;
   }
 } 

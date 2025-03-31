@@ -505,60 +505,105 @@ small {
 /* Results screen */
 .results-container {
   margin-bottom: var(--spacing-xl);
-  overflow-x: auto;
 }
 
+/* Replace standard table with category cards */
 .results-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 10px;
   margin-bottom: var(--spacing-lg);
 }
 
-.results-table th,
-.results-table td {
-  padding: var(--spacing-md);
-  text-align: left;
-  border-bottom: 1px solid var(--border-color);
+.category-header {
+  position: relative;
+  background-color: var(--primary-color);
+  border-radius: var(--border-radius-md) var(--border-radius-md) 0 0;
+  overflow: hidden;
+  margin-top: var(--spacing-lg);
 }
 
-.results-table th {
-  font-weight: 600;
-  background-color: var(--input-background);
+.category-name {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: white;
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.category-spacer {
+  height: var(--spacing-lg);
+}
+
+/* Style the category entries */
+.results-table tr:not(.category-header):not(.category-spacer) {
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: var(--border-radius-md);
+  transition: transform 0.2s ease;
+}
+
+.results-table tr:not(.category-header):not(.category-spacer):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.results-table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  position: relative;
 }
 
 .results-table tr.current-player {
   background-color: rgba(74, 111, 255, 0.05);
+  border-left: 4px solid var(--primary-color);
 }
 
-.category-header {
-  background-color: var(--input-background);
-}
-
-.category-name {
-  font-weight: 600;
-  color: var(--primary-color);
-  padding: var(--spacing-md);
-}
-
-.category-spacer {
-  height: var(--spacing-md);
-}
-
+/* Styling score points */
 .score-unique {
-  color: var(--success-color);
-  font-weight: 600;
+  color: white;
+  background-color: var(--success-color);
+  border-radius: 50px;
+  padding: 3px 10px;
+  font-weight: 700;
+  display: inline-block;
 }
 
 .score-valid {
-  color: var(--primary-color);
+  color: white;
+  background-color: var(--primary-color);
+  border-radius: 50px;
+  padding: 3px 10px;
+  font-weight: 600;
+  display: inline-block;
 }
 
 .score-invalid {
   color: var(--text-secondary);
+  background-color: var(--input-background);
+  border-radius: 50px;
+  padding: 3px 10px;
+  font-weight: 400;
+  display: inline-block;
 }
 
+/* Total scores section */
 .scores-container {
   margin-bottom: var(--spacing-xl);
+  background-color: white;
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  padding: var(--spacing-lg);
+}
+
+.scores-container h3 {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+  color: var(--primary-color);
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .scores-list {
@@ -571,48 +616,115 @@ small {
   display: flex;
   align-items: center;
   padding: var(--spacing-md);
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--border-radius-md);
+  background-color: var(--input-background);
+  transition: transform 0.2s ease;
 }
 
-.score-item:last-child {
-  border-bottom: none;
+.score-item:hover {
+  transform: translateX(3px);
 }
 
 .score-item.current-player {
-  background-color: rgba(74, 111, 255, 0.05);
+  background-color: rgba(74, 111, 255, 0.1);
+  border-left: 4px solid var(--primary-color);
 }
 
 .rank {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
   margin-right: var(--spacing-md);
-  background-color: var(--input-background);
+  background-color: white;
   border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .score-item:nth-child(1) .rank {
   background-color: #ffd700;
   color: #333;
+  width: 42px;
+  height: 42px;
+  box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.3);
 }
 
 .score-item:nth-child(2) .rank {
   background-color: #c0c0c0;
   color: #333;
+  box-shadow: 0 0 0 3px rgba(192, 192, 192, 0.3);
 }
 
 .score-item:nth-child(3) .rank {
   background-color: #cd7f32;
   color: #333;
+  box-shadow: 0 0 0 3px rgba(205, 127, 50, 0.3);
 }
 
 .score {
   margin-left: auto;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.1rem;
   color: var(--primary-color);
+  background-color: white;
+  padding: 4px 12px;
+  border-radius: 50px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#next-round-btn {
+  font-size: 1.1rem;
+  padding: 0.75rem 1.5rem;
+  margin: 0 auto;
+  display: block;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+#next-round-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 14px rgba(74, 111, 255, 0.2);
+}
+
+#next-round-btn:active {
+  transform: translateY(-1px);
+}
+
+/* Add animation for new results */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.results-table tr {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+.results-table tr:nth-child(2) {
+  animation-delay: 0.05s;
+}
+
+.results-table tr:nth-child(3) {
+  animation-delay: 0.1s;
+}
+
+.results-table tr:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+.score-item {
+  animation: fadeInUp 0.4s ease-out forwards;
+  animation-delay: 0.2s;
 }
 
 /* Room info */
@@ -780,4 +892,76 @@ small {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
   }
+}
+
+/* Results screen additional styling */
+.results-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.results-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 5px;
+}
+
+.results-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.round-letter {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.result-letter {
+  display: inline-block;
+  margin-left: 8px;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Hide the table header on results screen for a cleaner look */
+.results-table thead {
+  display: none;
+}
+
+/* Style the "Next Round" button */
+.btn-icon {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 1.1em;
+}
+
+#next-round-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+#next-round-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, rgba(255,255,255,0.1), rgba(255,255,255,0.2), rgba(255,255,255,0.1));
+  transform: translateX(-100%);
+  transition: transform 0.6s ease-in-out;
+}
+
+#next-round-btn:hover::after {
+  transform: translateX(100%);
 } 

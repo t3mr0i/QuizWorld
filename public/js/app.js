@@ -367,6 +367,15 @@ socket.on('message', (data) => {
       // Update player data
       gameState.players = data.players;
       
+      // Debug: log the scores data structure 
+      console.log('Round Results data:', data);
+      
+      // Update the letter display in results screen
+      const resultLetterEl = document.getElementById('result-letter');
+      if (resultLetterEl && gameState.currentLetter) {
+        resultLetterEl.textContent = gameState.currentLetter;
+      }
+      
       // Create improved results table with categories in columns
       const resultsBody = document.getElementById('results-body');
       if (resultsBody) {
@@ -375,57 +384,85 @@ socket.on('message', (data) => {
         // Get all players
         const players = gameState.players;
         
-        // For each category, create a section in the results table
-        CATEGORIES.forEach(category => {
-          // Add a category header row
-          const categoryRow = document.createElement('tr');
-          categoryRow.className = 'category-header';
-          categoryRow.innerHTML = `
-            <td colspan="4" class="category-name">${category}</td>
+        // Check if we have scores data
+        if (!data.scores || Object.keys(data.scores).length === 0) {
+          // No scores data, display a message
+          const noResultsRow = document.createElement('tr');
+          noResultsRow.innerHTML = `
+            <td colspan="4" style="text-align: center; padding: 2rem;">
+              <p>No results available for this round.</p>
+            </td>
           `;
-          resultsBody.appendChild(categoryRow);
-          
-          // For each player, show their answer and score for this category
-          Object.values(players).forEach(player => {
-            if (!data.scores[category] || !data.scores[category][player.id]) return;
-            
-            const scoreData = data.scores[category][player.id];
-            
-            const row = document.createElement('tr');
-            
-            // Highlight current player's rows
-            if (player.id === socket.id) {
-              row.classList.add('current-player');
-            }
-            
-            // Determine score class based on points
-            let scoreClass = '';
-            const points = scoreData.score || 0;
-            
-            if (points === 20) {
-              scoreClass = 'score-unique';
-            } else if (points === 10) {
-              scoreClass = 'score-valid';
-            } else {
-              scoreClass = 'score-invalid';
-            }
-            
-            row.innerHTML = `
-              <td>${player.name}${player.id === socket.id ? ' (You)' : ''}</td>
-              <td>${scoreData.answer || '-'}</td>
-              <td class="${scoreClass}">${points} points</td>
-              <td>${scoreData.explanation || ''}</td>
+          resultsBody.appendChild(noResultsRow);
+        } else {
+          // For each category, create a section in the results table
+          CATEGORIES.forEach(category => {
+            // Add a category header row
+            const categoryRow = document.createElement('tr');
+            categoryRow.className = 'category-header';
+            categoryRow.innerHTML = `
+              <td colspan="4" class="category-name">${category}</td>
             `;
+            resultsBody.appendChild(categoryRow);
             
-            resultsBody.appendChild(row);
+            // Check if we have results for this category
+            let hasResultsForCategory = false;
+            
+            // For each player, show their answer and score for this category
+            Object.values(players).forEach(player => {
+              // Verify the data structure and ensure we have scores for this category and player
+              if (data.scores[category] && data.scores[category][player.id]) {
+                hasResultsForCategory = true;
+                const scoreData = data.scores[category][player.id];
+                
+                const row = document.createElement('tr');
+                
+                // Highlight current player's rows
+                if (player.id === socket.id) {
+                  row.classList.add('current-player');
+                }
+                
+                // Determine score class based on points
+                let scoreClass = '';
+                const points = scoreData.score || 0;
+                
+                if (points === 20) {
+                  scoreClass = 'score-unique';
+                } else if (points === 10) {
+                  scoreClass = 'score-valid';
+                } else {
+                  scoreClass = 'score-invalid';
+                }
+                
+                row.innerHTML = `
+                  <td>${player.name}${player.id === socket.id ? ' (You)' : ''}</td>
+                  <td>${scoreData.answer || '-'}</td>
+                  <td><span class="${scoreClass}">${points} points</span></td>
+                  <td>${scoreData.explanation || ''}</td>
+                `;
+                
+                resultsBody.appendChild(row);
+              }
+            });
+            
+            // If no results for this category, show a message
+            if (!hasResultsForCategory) {
+              const noResultsRow = document.createElement('tr');
+              noResultsRow.innerHTML = `
+                <td colspan="4" style="text-align: center; padding: 1rem; color: var(--text-secondary);">
+                  No valid answers for this category
+                </td>
+              `;
+              resultsBody.appendChild(noResultsRow);
+            }
+            
+            // Add a spacer row after each category
+            const spacerRow = document.createElement('tr');
+            spacerRow.className = 'category-spacer';
+            spacerRow.innerHTML = '<td colspan="4"></td>';
+            resultsBody.appendChild(spacerRow);
           });
-          
-          // Add a spacer row after each category
-          const spacerRow = document.createElement('tr');
-          spacerRow.className = 'category-spacer';
-          spacerRow.innerHTML = '<td colspan="4"></td>';
-          resultsBody.appendChild(spacerRow);
-        });
+        }
       }
       
       // Update scores list

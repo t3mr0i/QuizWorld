@@ -118,10 +118,16 @@
         <div class="card">
           <div class="card-header">
             <h2>Round Results</h2>
+            <div class="round-letter">Letter: <span id="result-letter" class="result-letter">A</span></div>
           </div>
           
           <div class="card-body">
             <div class="results-container">
+              <div class="results-header">
+                <div class="results-title">Category Results</div>
+                <div class="results-subtitle">See how your answers compare!</div>
+              </div>
+              
               <table id="results-table" class="results-table">
                 <thead>
                   <tr>
@@ -138,13 +144,15 @@
             </div>
             
             <div class="scores-container">
-              <h3>Total Scores</h3>
+              <h3>🏆 Leaderboard 🏆</h3>
               <ul id="scores-list" class="scores-list">
                 <!-- Scores will be filled dynamically -->
               </ul>
             </div>
             
-            <button id="next-round-btn" class="btn btn-primary btn-large">Next Round</button>
+            <button id="next-round-btn" class="btn btn-primary btn-large">
+              <span class="btn-icon">⟳</span> Next Round
+            </button>
           </div>
         </div>
       </div>
