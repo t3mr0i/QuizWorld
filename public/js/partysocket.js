@@ -202,6 +202,20 @@ class GamePartySocket {
       playerData: this.playerData
     };
   }
+  
+  // Add alias for startConnection for compatibility
+  startConnection(data) {
+    if (typeof data === 'object') {
+      // If called with an object, extract the needed properties
+      this.connectToRoom(
+        data.roomId,
+        data.name,
+        data.timeLimit
+      );
+    } else {
+      console.error('startConnection called with invalid parameters');
+    }
+  }
 }
 
 // Create a single global instance

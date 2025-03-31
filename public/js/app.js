@@ -248,33 +248,6 @@ function submitAnswers() {
 }
 
 // Socket event handlers
-socket.on('connect', () => {
-  console.log('Connected to game server with ID:', socket.id);
-  
-  // Check if reconnecting to existing game
-  if (gameState.roomId) {
-    // Re-join with existing data
-    socket.send({
-      type: 'joinRoom',
-      roomId: gameState.roomId,
-      playerName: gameState.playerName
-    });
-  }
-});
-
-socket.on('disconnect', () => {
-  console.log('Disconnected from game server');
-  
-  // Clear timer if active
-  if (gameState.timerInterval) {
-    clearInterval(gameState.timerInterval);
-    gameState.timerInterval = null;
-  }
-  
-  // Show error modal
-  showError('Lost connection to game server. Trying to reconnect...');
-});
-
 socket.on('message', (data) => {
   console.log('Received message:', data);
   
@@ -443,6 +416,38 @@ socket.on('message', (data) => {
   }
 });
 
+socket.on('connect', () => {
+  console.log('Connected to game server with ID:', socket.id);
+  
+  // Check if reconnecting to existing game
+  if (gameState.roomId) {
+    // Re-join with existing data
+    socket.send(JSON.stringify({
+      type: 'joinRoom',
+      roomId: gameState.roomId,
+      playerName: gameState.playerName
+    }));
+  }
+});
+
+socket.on('disconnect', () => {
+  console.log('Disconnected from game server');
+  
+  // Clear timer if active
+  if (gameState.timerInterval) {
+    clearInterval(gameState.timerInterval);
+    gameState.timerInterval = null;
+  }
+  
+  // Show error modal
+  showError('Lost connection to game server. Trying to reconnect...');
+});
+
+socket.on('error', (error) => {
+  console.error('Socket error:', error);
+  showError('Connection error: ' + (error.message || 'Unknown error'));
+});
+
 // Attach event listeners once DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
   // Time selector buttons
@@ -484,11 +489,11 @@ document.addEventListener('DOMContentLoaded', function() {
       gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
       
       // Connect to socket and join room
-      socket.startConnection({
-        name: gameState.playerName,
-        roomId: gameState.roomId,
-        timeLimit: gameState.timeLimit
-      });
+      socket.connectToRoom(
+        gameState.roomId,
+        gameState.playerName,
+        gameState.timeLimit
+      );
     });
   }
   
