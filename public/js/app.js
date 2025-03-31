@@ -277,6 +277,31 @@ socket.on('message', (data) => {
       showScreen('lobby');
       break;
       
+    case 'joined':
+      // Update game state
+      gameState.roomId = data.roomId;
+      gameState.isAdmin = data.isAdmin;
+      gameState.adminId = data.adminId;
+      gameState.players = data.players;
+      
+      // Update UI
+      const roomDisplay = document.getElementById('display-room-id');
+      if (roomDisplay) {
+        roomDisplay.textContent = data.roomId;
+      }
+      
+      updatePlayerList(data.players, data.adminId);
+      
+      // Show/hide admin controls
+      const adminPanel = document.getElementById('admin-controls');
+      if (adminPanel) {
+        adminPanel.style.display = data.isAdmin ? 'block' : 'none';
+      }
+      
+      // Switch to lobby screen
+      showScreen('lobby');
+      break;
+      
     case 'playerJoined':
       // Update game state
       gameState.players = data.players;
