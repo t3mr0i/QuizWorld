@@ -148,13 +148,10 @@ function updatePlayerList() {
     const statusIndicator = document.createElement('span');
     statusIndicator.classList.add('player-status-indicator');
     
-    if (player.isReady) {
-      statusIndicator.classList.add('status-ready');
-    } else {
-      statusIndicator.classList.add('status-online');
-    }
+    // Always show player as online/active status
+    statusIndicator.classList.add('status-online');
     
-    // Create player name text with player ID for debugging
+    // Create player name text
     const playerName = document.createElement('span');
     playerName.textContent = player.name + (player.id === socket.id ? ' (You)' : '');
     
@@ -206,7 +203,7 @@ function updatePlayerList() {
     
     const adminInfo = document.createElement('p');
     adminInfo.id = 'admin-debug-info';
-    adminInfo.textContent = 'You are the admin and can start the game.';
+    adminInfo.textContent = 'You are the admin and can start the game anytime.';
     adminInfo.style.color = '#FF4600';
     adminInfo.style.fontWeight = 'bold';
     adminInfo.style.marginTop = '10px';
@@ -215,7 +212,10 @@ function updatePlayerList() {
   
   // Update player count in game screen
   totalPlayersDisplay.textContent = gameState.players.length;
-  readyPlayersDisplay.textContent = gameState.players.filter(p => p.isReady).length;
+  // No need for ready players display anymore
+  if (readyPlayersDisplay) {
+    readyPlayersDisplay.parentElement.innerHTML = `<h3>Players: <span id="total-players">${gameState.players.length}</span></h3>`;
+  }
 }
 
 function startTimer(seconds) {
@@ -442,11 +442,12 @@ socket.on('playerLeft', ({ playerId, players }) => {
   updatePlayerList();
 });
 
-socket.on('playerReady', ({ playerId, players }) => {
-  console.log(`Player ${playerId} is ready. Updated players:`, players);
-  gameState.players = players;
-  updatePlayerList();
-});
+// No longer needed since ready status functionality is removed
+// socket.on('playerReady', ({ playerId, players }) => {
+//   console.log(`Player ${playerId} is ready. Updated players:`, players);
+//   gameState.players = players;
+//   updatePlayerList();
+// });
 
 socket.on('newAdmin', ({ admin }) => {
   console.log(`New admin: ${admin}`);

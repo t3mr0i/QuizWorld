@@ -239,10 +239,10 @@ export default class StadtLandFlussServer implements Party.Server {
     this.roomState.roundResults = {};
     this.roomState.timerEnd = timerEnd;
     
-    // Reset player answers and readiness
+    // Reset player answers (but not ready status as it's being removed)
     Object.keys(this.roomState.players).forEach(playerId => {
       this.roomState.players[playerId].answers = {};
-      this.roomState.players[playerId].isReady = false;
+      // Keep the isReady property but don't use it for game logic
     });
     
     // Notify everyone in the room
@@ -250,16 +250,8 @@ export default class StadtLandFlussServer implements Party.Server {
       type: "roundStarted",
       letter,
       timeLimit,
-      players: Object.values(this.roomState.players)
+      timerEnd
     }));
-    
-    // Set server-side timer to end the round
-    setTimeout(() => {
-      if (this.roomState.roundInProgress) {
-        console.log(`Time's up for round`);
-        this.processRoundEnd();
-      }
-    }, timeLimit * 1000);
   }
 
   private handleSubmitAnswers(answers: Record<string, string>, sender: Party.Connection) {
