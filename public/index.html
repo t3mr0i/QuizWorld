@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stadt, Land, Fluss</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Funnel+Display:wght@300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend+Giga:wght@100..900&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Stadt, Land, Fluss</h1>
+    </header>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-screen" class="screen active">
+      <div class="form-group">
+        <label for="player-name">Your Name:</label>
+        <input type="text" id="player-name" placeholder="Enter your name">
+      </div>
+      <div class="form-group">
+        <label for="room-id">Room ID:</label>
+        <input type="text" id="room-id" placeholder="Create or join a room">
+      </div>
+      <div class="form-group">
+        <label for="time-limit">Time Limit (seconds):</label>
+        <input type="number" id="time-limit" value="60" min="10" max="300">
+      </div>
+      <button id="join-btn" class="btn btn-primary">Join Game</button>
+    </div>
+
+    <!-- Lobby Screen -->
+    <div id="lobby-screen" class="screen">
+      <h2>Game Lobby</h2>
+      <p>Room ID: <span id="lobby-room-id"></span></p>
+      <p>Time Limit: <span id="lobby-time-limit"></span> seconds</p>
+      <h3>Players:</h3>
+      <ul id="player-list"></ul>
+      <div id="admin-controls">
+        <button id="start-game-btn" class="btn btn-primary">Start Game</button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+      <div class="game-info">
+        <div class="letter-display">
+          <h2>Current Letter: <span id="current-letter"></span></h2>
+        </div>
+        <div class="timer-display">
+          <h3>Time Remaining: <span id="time-remaining">60</span>s</h3>
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+        </div>
+        <div class="player-status">
+          <h3>Players Ready: <span id="ready-players">0</span>/<span id="total-players">0</span></h3>
+        </div>
+      </div>
+      
+      <form id="answers-form">
+        <div class="categories">
+          <div class="category">
+            <label for="answer-stadt">Stadt</label>
+            <input type="text" id="answer-stadt" name="Stadt" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-land">Land</label>
+            <input type="text" id="answer-land" name="Land" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-fluss">Fluss</label>
+            <input type="text" id="answer-fluss" name="Fluss" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-name">Name</label>
+            <input type="text" id="answer-name" name="Name" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-beruf">Beruf</label>
+            <input type="text" id="answer-beruf" name="Beruf" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-pflanze">Pflanze</label>
+            <input type="text" id="answer-pflanze" name="Pflanze" class="answer-input">
+          </div>
+          <div class="category">
+            <label for="answer-tier">Tier</label>
+            <input type="text" id="answer-tier" name="Tier" class="answer-input">
+          </div>
+        </div>
+        <button type="submit" id="submit-answers-btn" class="btn btn-primary">Submit Answers</button>
+      </form>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="results-screen" class="screen">
+      <h2>Round Results</h2>
+      <div id="round-results"></div>
+      <div class="score-summary">
+        <h3>Total Scores</h3>
+        <ul id="score-list"></ul>
+      </div>
+      <div id="admin-next-round">
+        <p class="admin-instructions">As the admin, you can start the next round when all players are ready</p>
+        <button id="next-round-btn" class="btn btn-primary">
+          <span class="btn-icon">▶</span> Start Next Round
+        </button>
+      </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <p>AI is validating answers...</p>
+      </div>
+    </div>
+    
+    <!-- Player Ready Status Modal -->
+    <div id="player-status-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3>Player Status</h3>
+        <div id="detailed-player-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html> 
