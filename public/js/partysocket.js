@@ -164,18 +164,25 @@ class GamePartySocket {
 function io(options = {}) {
   // Allow resetting the socket by setting a global flag
   if (window._resetGameSocket) {
+    // If we're resetting, completely delete the existing socket
+    if (window._gamePartySocket) {
+      try {
+        window._gamePartySocket.disconnect();
+      } catch (e) {
+        console.error('Error disconnecting socket:', e);
+      }
+    }
     window._gamePartySocket = null;
     window._resetGameSocket = false;
   }
   
+  // Create a new socket only if needed
   if (!window._gamePartySocket) {
     console.log('Creating new GamePartySocket instance');
     window._gamePartySocket = new GamePartySocket();
     
-    // Only auto-connect if we don't have a specific room ID
-    if (!options.roomId) {
-      window._gamePartySocket.connect();
-    }
+    // Don't auto-connect when creating a new socket
+    // Let the caller explicitly connect with a room ID
   } else {
     console.log('Reusing existing GamePartySocket instance');
   }

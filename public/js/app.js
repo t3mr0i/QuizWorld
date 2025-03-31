@@ -3,13 +3,17 @@
 // we can directly establish the connection
 console.log('Connecting to Socket.IO server');
 
-// Connect with path option to ensure compatibility with Vercel deployment
+// Initialize the socket connection but don't connect yet
+// We'll connect with a room ID when joining a game
 const socket = io({
   path: '/socket.io/',
   transports: ['websocket', 'polling'],
   reconnectionAttempts: 5,
   reconnectionDelay: 1000
 });
+
+// Make sure we use the singleton instance for event handlers
+const getGameSocket = () => window._gamePartySocket || socket;
 
 // DOM Elements
 // Screens
@@ -378,7 +382,7 @@ function submitAnswers() {
   submitAnswersBtn.style.backgroundColor = '#28a745';
   
   // Submit answers
-  socket.emit('submitAnswers', answers);
+  getGameSocket().emit('submitAnswers', answers);
   
   // Update game state
   gameState.submitted = true;
@@ -400,7 +404,7 @@ function submitAnswers() {
 
 // Socket.IO event listeners
 socket.on('connect', () => {
-  console.log('Connected to Socket.IO server with ID:', socket.id);
+  console.log('Connected to Socket.IO server with ID:', getGameSocket().id);
   
   // Force an update of the player list if we already have player data
   if (gameState.players.length > 0) {
@@ -619,40 +623,44 @@ joinBtn.addEventListener('click', () => {
   console.log(`Joining game as ${playerName} in room ${roomId}`);
   
   try {
-    // Completely reset socket connection to ensure clean state
+    // Reset the global socket connection
+    window._resetGameSocket = true;
+    
+    // Reset the global socket variable to force a new connection
+    window._gamePartySocket = null;
+    
+    // Connect to the specific room using the io() function 
+    // WITHOUT reassigning the socket variable
     if (window._gamePartySocket) {
-      try {
-        window._gamePartySocket.disconnect();
-      } catch (e) {
-        console.error('Error disconnecting existing socket:', e);
-      }
+      window._gamePartySocket.disconnect();
       window._gamePartySocket = null;
     }
     
-    // Create a fresh socket with the room ID
-    socket = io();
+    // Create a fresh connection through the global function
+    // This will initialize a new socket connection
+    io();
     
-    if (!socket) {
-      console.error('Failed to create socket');
-      alert('Failed to connect to the game server. Please try again.');
-      return;
-    }
-    
-    // Wait for connection to establish before joining room
-    const joinRoom = () => {
-      console.log(`Socket connected (${socket.id}), sending joinRoom event to room ${roomId}`);
-      socket.emit('joinRoom', {
-        playerName: playerName,
-        timeLimit: timeLimit
+    // Instead of changing the socket variable, use what's returned from window._gamePartySocket
+    // and call connect with the roomId directly
+    if (window._gamePartySocket) {
+      console.log(`Connecting to room ID: ${roomId}`);
+      window._gamePartySocket.connect(roomId);
+      
+      // Add a connect handler that will join the room
+      window._gamePartySocket.on('connect', function onConnectHandler() {
+        console.log(`Connected, sending joinRoom event with name: ${playerName}`);
+        window._gamePartySocket.emit('joinRoom', {
+          playerName: playerName,
+          timeLimit: timeLimit
+        });
+        
+        // Remove this handler to avoid duplicates
+        const connectHandlers = window._gamePartySocket._handlers.connect || [];
+        window._gamePartySocket._handlers.connect = connectHandlers.filter(h => h !== onConnectHandler);
       });
-    };
-    
-    socket.on('connect', joinRoom);
-    
-    // Connect to the specific room
-    console.log(`Connecting to room ID: ${roomId}`);
-    socket.roomId = roomId;
-    socket.connect(roomId);
+    } else {
+      throw new Error("Failed to create socket connection");
+    }
     
     // Update UI right away
     lobbyRoomId.textContent = roomId;
@@ -660,8 +668,6 @@ joinBtn.addEventListener('click', () => {
     
     // Show loading indicator first
     showLoading(true);
-    
-    // Will show lobby once we get playerJoined event
     
     // Add a timeout to check if we got stuck
     setTimeout(() => {
@@ -679,7 +685,7 @@ joinBtn.addEventListener('click', () => {
 
 startGameBtn.addEventListener('click', () => {
   // Allow any player to start the game, not just admin
-  socket.emit('startRound');
+  getGameSocket().emit('startRound');
 });
 
 answersForm.addEventListener('submit', (e) => {
@@ -690,7 +696,7 @@ answersForm.addEventListener('submit', (e) => {
 nextRoundBtn.addEventListener('click', () => {
   console.log("Next Round button clicked");
   console.log("Emitting startRound event");
-  socket.emit('startRound');
+  getGameSocket().emit('startRound');
 });
 
 closeModalBtn.addEventListener('click', hidePlayerStatusModal);
@@ -851,8 +857,9 @@ window.restartGame = function() {
   }, 1000);
 };
 
-// Add a visual button for restarting the game
+// Add a debug button to the welcome screen
 document.addEventListener('DOMContentLoaded', () => {
+  // Create restart game button (already exists)
   const restartButton = document.createElement('button');
   restartButton.textContent = 'Restart Game';
   restartButton.style.position = 'fixed';
@@ -869,6 +876,29 @@ document.addEventListener('DOMContentLoaded', () => {
   restartButton.onclick = window.restartGame;
   
   document.body.appendChild(restartButton);
+  
+  // Add a new debug button to welcome screen
+  const debugButton = document.createElement('button');
+  debugButton.textContent = 'Having trouble? Click here';
+  debugButton.style.marginTop = '20px';
+  debugButton.style.padding = '10px 15px';
+  debugButton.style.backgroundColor = '#444';
+  debugButton.style.color = 'white';
+  debugButton.style.border = 'none';
+  debugButton.style.borderRadius = '4px';
+  debugButton.style.cursor = 'pointer';
+  debugButton.style.width = '100%';
+  
+  debugButton.onclick = function() {
+    // Generate a completely random room ID
+    const randomRoomId = Math.floor(Math.random() * 1000000).toString();
+    roomIdInput.value = randomRoomId;
+    
+    // Show instructions
+    alert('A new random room ID has been generated. Enter your name and click "Join Game" to start a fresh game.');
+  };
+  
+  welcomeScreen.appendChild(debugButton);
 });
 
 // Add a hard reset function for critical errors
