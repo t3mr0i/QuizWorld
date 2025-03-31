@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "nodemon server/index.js",
+    "partykit:dev": "partykit dev",
+    "partykit:deploy": "partykit deploy",
+    "serve": "partykit dev",
     "kill-ports": "node scripts/kill-ports.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,6 +25,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.18.2",
+    "partykit": "^0.0.114",
     "socket.io": "^4.7.3"
   },
   "devDependencies": {

@@ -147,7 +147,7 @@
     </div>
   </div>
 
-  <!-- Load Socket.IO client from CDN first, with a callback to load the app -->
+  <!-- Load PartyKit adapter -->
   <script>
     // Function to show connection error overlay
     function showConnectionError(message) {
@@ -171,51 +171,35 @@
     // Add event listener for retry button
     document.getElementById('retry-connection').addEventListener('click', function() {
       hideConnectionError();
-      loadSocketIO();
+      if (window._gamePartySocket) {
+        window._gamePartySocket.connect();
+      } else {
+        loadApp();
+      }
     });
     
-    // Function to load app.js only after Socket.IO is loaded
+    // Function to load app.js after PartyKit adapter
     function loadApp() {
-      var appScript = document.createElement('script');
-      appScript.src = 'js/app.js';
-      appScript.onerror = function() {
-        showConnectionError('Failed to load application script');
-      };
-      document.body.appendChild(appScript);
-      console.log('App script loaded');
-    }
-
-    // First try to load Socket.IO from CDN
-    function loadSocketIO() {
-      console.log('Loading Socket.IO from CDN');
-      var socketScript = document.createElement('script');
-      socketScript.src = 'https://cdn.socket.io/4.7.3/socket.io.min.js';
-      socketScript.integrity = 'sha384-+miq58Ltmjm+SSB5OMdTpJoe+zDIvUw6V/qmLtDfSIqq2xX+GJ/m3CcDYgq8mXrq';
-      socketScript.crossOrigin = 'anonymous';
-      socketScript.onload = function() {
-        console.log('Socket.IO loaded from CDN');
-        loadApp();
-      };
-      socketScript.onerror = function() {
-        console.error('Failed to load Socket.IO from CDN, trying fallback');
-        // Try server version as fallback
-        var fallbackScript = document.createElement('script');
-        fallbackScript.src = '/socket.io/socket.io.js';
-        fallbackScript.onload = function() {
-          console.log('Socket.IO loaded from server');
-          loadApp();
+      var partySocketScript = document.createElement('script');
+      partySocketScript.src = 'js/partysocket.js';
+      partySocketScript.onload = function() {
+        console.log('PartyKit adapter loaded');
+        var appScript = document.createElement('script');
+        appScript.src = 'js/app.js';
+        appScript.onerror = function() {
+          showConnectionError('Failed to load application script');
         };
-        fallbackScript.onerror = function() {
-          console.error('Both Socket.IO sources failed to load');
-          showConnectionError('Unable to load Socket.IO client libraries');
-        };
-        document.body.appendChild(fallbackScript);
+        document.body.appendChild(appScript);
+        console.log('App script loaded');
       };
-      document.body.appendChild(socketScript);
+      partySocketScript.onerror = function() {
+        showConnectionError('Failed to load PartyKit adapter');
+      };
+      document.body.appendChild(partySocketScript);
     }
 
     // Start the loading process when the page is ready
-    document.addEventListener('DOMContentLoaded', loadSocketIO);
+    document.addEventListener('DOMContentLoaded', loadApp);
   </script>
 </body>
 </html> 

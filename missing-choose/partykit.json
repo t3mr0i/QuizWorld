@@ -1,0 +1,10 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "missing-choose",
+  "main": "src/server.ts",
+  "compatibilityDate": "2025-03-31",
+  "serve": {
+    "path": "public",
+    "build": "src/client.ts"
+  }
+}
