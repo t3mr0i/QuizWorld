@@ -237,47 +237,41 @@ input[type="number"]:focus {
 #admin-controls {
   margin-top: 30px;
   text-align: center;
-  display: block;
-  border: 3px solid var(--kb-live-red);
   padding: 20px;
+  border: 3px solid var(--kb-live-red);
   border-radius: 8px;
   background-color: rgba(255, 70, 0, 0.1);
 }
 
 #start-game-btn {
+  display: inline-block;
   font-size: 1.2rem;
   padding: 15px 30px;
-  margin: 20px auto;
-  display: block;
-  width: 80%;
-  max-width: 300px;
   background-color: var(--kb-live-red);
   color: white;
-  box-shadow: 0px 4px 10px rgba(255, 70, 0, 0.5);
   border: none;
   border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(255, 70, 0, 0.5);
   transition: all 0.3s ease;
+  cursor: pointer;
   animation: pulse 2s infinite;
 }
 
 #start-game-btn:hover {
-  transform: translateY(-5px);
-  box-shadow: 0px 8px 15px rgba(255, 70, 0, 0.6);
-  background-color: #ff5e1a;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(255, 70, 0, 0.6);
 }
 
+/* Animation for the start button */
 @keyframes pulse {
   0% {
     transform: scale(1);
-    box-shadow: 0px 4px 10px rgba(255, 70, 0, 0.5);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0px 8px 15px rgba(255, 70, 0, 0.6);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0px 4px 10px rgba(255, 70, 0, 0.5);
   }
 }
 
@@ -726,4 +720,46 @@ input[type="number"]:focus {
   margin-bottom: 15px;
   color: var(--kb-dark-grey);
   font-weight: bold;
+}
+
+/* Additional styles for the revamped UI */
+
+/* Player list item */
+.player-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.player-name {
+  margin-left: 10px;
+  font-weight: 500;
+}
+
+/* Top score highlight */
+.top-score {
+  color: var(--kb-live-red);
+  font-weight: bold;
+}
+
+/* Debug and restart buttons */
+.debug-button, .restart-button {
+  background-color: #444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.debug-button:hover, .restart-button:hover {
+  background-color: #555;
+}
+
+/* Success button style */
+.btn-success {
+  background-color: #28a745 !important;
 } 

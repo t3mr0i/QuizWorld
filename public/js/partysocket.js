@@ -22,23 +22,22 @@ class GamePartySocket {
     return this._roomId;
   }
 
-  set roomId(id) {
-    this._roomId = id;
-  }
-
-  connect(roomId) {
-    // Close existing connection if any
+  // Simple method to connect to a specific room
+  connectToRoom(roomId, playerName, timeLimit) {
+    // Store data for reconnection
+    this._playerName = playerName;
+    this._timeLimit = timeLimit;
+    
+    // Always use the provided room ID or generate a random one
+    this._roomId = roomId || Math.floor(Math.random() * 1000000).toString();
+    
+    // Close any existing connection
     if (this._socket) {
       try {
         this._socket.close();
-      } catch (err) {
-        console.warn('Error closing existing socket:', err);
+      } catch (e) {
+        console.warn('Error closing socket:', e);
       }
-    }
-    
-    // Store roomId if provided
-    if (roomId) {
-      this._roomId = roomId;
     }
     
     // Determine host based on environment
@@ -46,26 +45,26 @@ class GamePartySocket {
     const host = isLocalhost ? 'localhost:1999' : window.location.host;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     
-    // Include the roomId in the URL if available
-    // IMPORTANT: PartyKit requires a room ID, so we'll create a random one if none is provided
-    let url;
-    if (this._roomId) {
-      url = `${protocol}//${host}/party/game/${this._roomId}`;
-    } else {
-      const randomRoomId = Math.floor(Math.random() * 1000000).toString();
-      this._roomId = randomRoomId;
-      url = `${protocol}//${host}/party/game/${randomRoomId}`;
-    }
+    // Create WebSocket URL with room ID
+    const url = `${protocol}//${host}/party/game/${this._roomId}`;
+    console.log(`Connecting to room ${this._roomId} at ${url}`);
     
-    console.log(`Connecting to PartyKit at ${url} with room ID: ${this._roomId}`);
-    
+    // Create the WebSocket connection
     this._socket = new WebSocket(url);
     
+    // Set up event handlers
     this._socket.onopen = () => {
       this._connected = true;
       this._reconnectAttempts = 0;
-      console.log('Connected to PartyKit in room:', this._roomId);
+      console.log(`Connected to room ${this._roomId}`);
       
+      // Auto-join the room when connection is established
+      this.emit('joinRoom', {
+        playerName: this._playerName,
+        timeLimit: this._timeLimit
+      });
+      
+      // Call connect handlers
       if (this._handlers['connect']) {
         this._handlers['connect'].forEach(handler => handler());
       }
@@ -76,16 +75,16 @@ class GamePartySocket {
         const data = JSON.parse(event.data);
         console.log('Received message:', data);
         
-        // Extract the message type and handle it
+        // Extract message type
         const type = data.type;
         
+        // Handle init message
         if (type === 'init') {
-          // Store the connection ID based on server response
-          this._id = data.connectionId || this._socket.url.split('/').pop();
-          console.log('Setting connection ID:', this._id);
+          this._id = data.connectionId;
+          console.log('Connection ID:', this._id);
         }
         
-        // Call the appropriate event handlers
+        // Call event handlers
         if (this._handlers[type]) {
           this._handlers[type].forEach(handler => handler(data));
         }
@@ -96,15 +95,17 @@ class GamePartySocket {
     
     this._socket.onclose = (event) => {
       this._connected = false;
-      console.log(`WebSocket closed with code ${event.code}`);
+      console.log(`Connection closed with code ${event.code}`);
       
       // Attempt to reconnect
       if (this._reconnectAttempts < this._maxReconnectAttempts) {
         this._reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), 30000);
+        const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), 10000);
         console.log(`Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})...`);
         
-        setTimeout(() => this.connect(), delay);
+        setTimeout(() => {
+          this.connectToRoom(this._roomId, this._playerName, this._timeLimit);
+        }, delay);
       } else {
         console.error('Maximum reconnect attempts reached');
         
@@ -126,6 +127,8 @@ class GamePartySocket {
         this._handlers['connect_error'].forEach(handler => handler(error));
       }
     };
+    
+    return this._roomId;
   }
 
   // Socket.IO compatibility layer
@@ -160,32 +163,10 @@ class GamePartySocket {
   }
 }
 
-// Create a singleton instance that mimics Socket.IO's global io() function
-function io(options = {}) {
-  // Allow resetting the socket by setting a global flag
-  if (window._resetGameSocket) {
-    // If we're resetting, completely delete the existing socket
-    if (window._gamePartySocket) {
-      try {
-        window._gamePartySocket.disconnect();
-      } catch (e) {
-        console.error('Error disconnecting socket:', e);
-      }
-    }
-    window._gamePartySocket = null;
-    window._resetGameSocket = false;
-  }
-  
-  // Create a new socket only if needed
-  if (!window._gamePartySocket) {
-    console.log('Creating new GamePartySocket instance');
-    window._gamePartySocket = new GamePartySocket();
-    
-    // Don't auto-connect when creating a new socket
-    // Let the caller explicitly connect with a room ID
-  } else {
-    console.log('Reusing existing GamePartySocket instance');
-  }
-  
-  return window._gamePartySocket;
+// Create a single global instance
+window.gameSocket = new GamePartySocket();
+
+// Backwards compatibility with Socket.IO style
+function io() {
+  return window.gameSocket;
 } 

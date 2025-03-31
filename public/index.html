@@ -3,207 +3,130 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stadt, Land, Fluss</title>
+  <title>Stadt Land Fluss</title>
+  <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Funnel+Display:wght@300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend+Giga:wght@100..900&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Add favicon -->
-  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Stadt, Land, Fluss</h1>
+      <h1>Stadt Land Fluss</h1>
+      <p class="subtitle">Complete each category with words that start with the given letter</p>
     </header>
 
     <!-- Welcome Screen -->
-    <div id="welcome-screen" class="screen active">
-      <div class="form-group">
-        <label for="player-name">Your Name:</label>
-        <input type="text" id="player-name" placeholder="Enter your name">
+    <div id="welcome-screen" class="game-screen active">
+      <h2>Welcome to Stadt Land Fluss!</h2>
+      <div class="form-container">
+        <div class="form-group">
+          <label for="player-name">Your Name:</label>
+          <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
+        </div>
+        
+        <div class="form-group">
+          <label for="room-id">Room ID:</label>
+          <input type="text" id="room-id" placeholder="Enter room ID or leave empty for new game" autocomplete="off">
+        </div>
+        
+        <div class="form-group">
+          <label for="time-limit">Time Limit (seconds):</label>
+          <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+        </div>
+        
+        <button id="join-game-btn" class="primary-btn">Join Game</button>
+        
+        <div class="helper-buttons">
+          <button id="debug-btn" class="debug-button">Having trouble? Click here</button>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="room-id">Room ID:</label>
-        <input type="text" id="room-id" placeholder="Create or join a room">
-      </div>
-      <div class="form-group">
-        <label for="time-limit">Time Limit (seconds):</label>
-        <input type="number" id="time-limit" value="60" min="10" max="300">
-      </div>
-      <button id="join-btn" class="btn btn-primary">Join Game</button>
     </div>
 
     <!-- Lobby Screen -->
-    <div id="lobby-screen" class="screen">
+    <div id="lobby-screen" class="game-screen hidden">
       <h2>Game Lobby</h2>
-      <p>Room ID: <span id="lobby-room-id"></span></p>
-      <p>Time Limit: <span id="lobby-time-limit"></span> seconds</p>
-      <h3>Players:</h3>
-      <ul id="player-list"></ul>
-      
-      <!-- Modified admin controls with more prominence -->
+      <div class="room-info">
+        <div class="room-id-display">Room ID: <span id="display-room-id">0000</span></div>
+        <button id="copy-link-btn" class="secondary-btn">Copy Invite Link</button>
+      </div>
+
+      <div class="player-section">
+        <h3>Players</h3>
+        <ul id="player-list" class="player-list"></ul>
+        <div id="waiting-message">Waiting for players to join...</div>
+      </div>
+
       <div id="admin-controls">
-        <h3>Game Controls</h3>
-        <p class="admin-message">Anyone can start the game anytime</p>
-        <button id="start-game-btn" class="btn btn-primary">Start Game</button>
+        <button id="start-game-btn">Start Game</button>
+        <p id="admin-message"></p>
       </div>
     </div>
 
     <!-- Game Screen -->
-    <div id="game-screen" class="screen">
+    <div id="game-screen" class="game-screen hidden">
       <div class="game-info">
         <div class="letter-display">
-          <h2>Current Letter: <span id="current-letter"></span></h2>
+          Letter: <span id="current-letter" class="current-letter">A</span>
         </div>
-        <div class="timer-display">
-          <h3>Time Remaining: <span id="time-remaining">60</span>s</h3>
-          <div class="progress-bar">
-            <div class="progress-fill"></div>
-          </div>
-        </div>
-        <div class="player-status">
-          <h3>Players: <span id="total-players">0</span></h3>
+        <div class="timer-container">
+          Time Left: <span id="timer">60</span>s
         </div>
       </div>
-      
+
       <form id="answers-form">
-        <div class="categories">
-          <div class="category">
-            <label for="answer-stadt">Stadt</label>
-            <input type="text" id="answer-stadt" name="Stadt" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-land">Land</label>
-            <input type="text" id="answer-land" name="Land" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-fluss">Fluss</label>
-            <input type="text" id="answer-fluss" name="Fluss" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-name">Name</label>
-            <input type="text" id="answer-name" name="Name" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-beruf">Beruf</label>
-            <input type="text" id="answer-beruf" name="Beruf" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-pflanze">Pflanze</label>
-            <input type="text" id="answer-pflanze" name="Pflanze" class="answer-input">
-          </div>
-          <div class="category">
-            <label for="answer-tier">Tier</label>
-            <input type="text" id="answer-tier" name="Tier" class="answer-input">
-          </div>
+        <div class="categories-container">
+          <!-- Categories will be filled dynamically -->
         </div>
-        <button type="submit" id="submit-answers-btn" class="btn btn-primary">Submit Answers</button>
+        <button type="submit" id="submit-btn" class="primary-btn">Submit Answers</button>
       </form>
     </div>
 
     <!-- Results Screen -->
-    <div id="results-screen" class="screen">
+    <div id="results-screen" class="game-screen hidden">
       <h2>Round Results</h2>
-      <div id="round-results"></div>
-      <div class="score-summary">
+      
+      <div class="results-container">
+        <table id="results-table" class="results-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Player</th>
+              <th>Answer</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <!-- Results will be filled dynamically -->
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="scores-container">
         <h3>Total Scores</h3>
-        <ul id="score-list"></ul>
-      </div>
-      <div id="admin-next-round">
-        <p class="admin-instructions">Anyone can start the next round anytime</p>
-        <button id="next-round-btn" class="btn btn-primary">
-          <span class="btn-icon">▶</span> Start Next Round
-        </button>
-      </div>
-    </div>
-    
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay">
-      <div class="loading-content">
-        <div class="spinner"></div>
-        <p>AI is validating answers...</p>
-      </div>
-    </div>
-    
-    <!-- Player Ready Status Modal -->
-    <div id="player-status-modal" class="modal">
-      <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h3>Player Status</h3>
-        <div id="detailed-player-status"></div>
-      </div>
-    </div>
-    
-    <!-- Connection Error Overlay -->
-    <div id="connection-error" class="connection-error" style="display: none;">
-      <div class="connection-error-content">
-        <h2>Connection Error</h2>
-        <p>Unable to connect to the game server. This might be due to:</p>
-        <ul style="text-align: left; margin-bottom: 1rem;">
-          <li>Server is temporarily down</li>
-          <li>Network connectivity issues</li>
-          <li>Firewall or security settings</li>
+        <ul id="scores-list" class="scores-list">
+          <!-- Scores will be filled dynamically -->
         </ul>
-        <p id="error-details"></p>
-        <button id="retry-connection" class="retry-button">Retry Connection</button>
+      </div>
+      
+      <button id="next-round-btn" class="primary-btn">Next Round</button>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Error</h2>
+        <p id="error-message"></p>
+        <button id="error-close-btn" class="secondary-btn">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Load PartyKit adapter -->
-  <script>
-    // Function to show connection error overlay
-    function showConnectionError(message) {
-      var errorOverlay = document.getElementById('connection-error');
-      var errorDetails = document.getElementById('error-details');
-      
-      if (message) {
-        errorDetails.textContent = 'Error details: ' + message;
-      } else {
-        errorDetails.textContent = '';
-      }
-      
-      errorOverlay.style.display = 'flex';
-    }
-    
-    // Function to hide connection error overlay
-    function hideConnectionError() {
-      document.getElementById('connection-error').style.display = 'none';
-    }
-    
-    // Add event listener for retry button
-    document.getElementById('retry-connection').addEventListener('click', function() {
-      hideConnectionError();
-      if (window._gamePartySocket) {
-        window._gamePartySocket.connect();
-      } else {
-        loadApp();
-      }
-    });
-    
-    // Function to load app.js after PartyKit adapter
-    function loadApp() {
-      var partySocketScript = document.createElement('script');
-      partySocketScript.src = 'js/partysocket.js';
-      partySocketScript.onload = function() {
-        console.log('PartyKit adapter loaded');
-        var appScript = document.createElement('script');
-        appScript.src = 'js/app.js';
-        appScript.onerror = function() {
-          showConnectionError('Failed to load application script');
-        };
-        document.body.appendChild(appScript);
-        console.log('App script loaded');
-      };
-      partySocketScript.onerror = function() {
-        showConnectionError('Failed to load PartyKit adapter');
-      };
-      document.body.appendChild(partySocketScript);
-    }
-
-    // Start the loading process when the page is ready
-    document.addEventListener('DOMContentLoaded', loadApp);
-  </script>
+  <!-- Scripts -->
+  <script src="/js/partysocket.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html> 
