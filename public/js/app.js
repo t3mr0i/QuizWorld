@@ -76,6 +76,12 @@ function showScreen(screenId) {
   
   // Show requested screen
   document.getElementById(screenId).classList.add('active');
+  
+  // Special handling for lobby screen
+  if (screenId === 'lobby-screen') {
+    // Check visibility of admin controls after the screen is shown
+    setTimeout(checkAdminControlsVisibility, 500);
+  }
 }
 
 function showLoading(show) {
@@ -176,20 +182,36 @@ function updatePlayerList() {
   // Ensure the admin-controls div is visible and only toggle the button's visibility
   document.getElementById('admin-controls').style.display = 'block';
   
-  // Always show the start button if you're the admin - Fix the display issue
-  startGameBtn.style.display = gameState.isAdmin ? 'inline-block' : 'none';
+  // Force inline-block style for the Start Game button if admin
+  if (gameState.isAdmin) {
+    startGameBtn.style.display = 'inline-block';
+    console.log('Setting Start Game button to visible (inline-block)');
+    
+    // Add an !important flag with setAttribute to override any potential CSS issues
+    startGameBtn.setAttribute('style', 'display: inline-block !important');
+  } else {
+    startGameBtn.style.display = 'none';
+    console.log('Setting Start Game button to hidden (none)');
+  }
+  
+  console.log("Start Game button display:", startGameBtn.style.display, "isAdmin:", gameState.isAdmin);
   
   // Add debug info directly to DOM if admin
   if (gameState.isAdmin) {
+    // Remove any existing debug info
+    const existingInfo = document.getElementById('admin-debug-info');
+    if (existingInfo) {
+      existingInfo.remove();
+    }
+    
     const adminInfo = document.createElement('p');
+    adminInfo.id = 'admin-debug-info';
     adminInfo.textContent = 'You are the admin and can start the game.';
     adminInfo.style.color = '#FF4600';
     adminInfo.style.fontWeight = 'bold';
     adminInfo.style.marginTop = '10px';
     document.getElementById('admin-controls').appendChild(adminInfo);
   }
-  
-  console.log("Start Game button display:", gameState.isAdmin ? "inline-block" : "none", "isAdmin:", gameState.isAdmin);
   
   // Update player count in game screen
   totalPlayersDisplay.textContent = gameState.players.length;
@@ -371,6 +393,12 @@ function submitAnswers() {
 // Socket.IO event listeners
 socket.on('connect', () => {
   console.log('Connected to Socket.IO server with ID:', socket.id);
+  
+  // Force an update of the player list if we already have player data
+  if (gameState.players.length > 0) {
+    console.log('Forcing player list update after connection');
+    updatePlayerList();
+  }
 });
 
 socket.on('connect_error', (error) => {
@@ -389,6 +417,7 @@ socket.on('playerJoined', ({ players, admin, timeLimit }) => {
   gameState.timeLimit = timeLimit;
   
   console.log('Is admin:', gameState.isAdmin);
+  console.log('Start Game button should be:', gameState.isAdmin ? 'visible' : 'hidden');
   
   // Update lobby UI
   lobbyRoomId.textContent = gameState.roomId;
@@ -397,6 +426,14 @@ socket.on('playerJoined', ({ players, admin, timeLimit }) => {
   
   // Show lobby screen
   showScreen('lobby-screen');
+  
+  // Double-check button visibility after a delay
+  setTimeout(() => {
+    console.log('Checking Start Game button visibility after delay');
+    console.log('Button display is currently:', startGameBtn.style.display);
+    console.log('Admin status is:', gameState.isAdmin);
+    updatePlayerList();
+  }, 1000);
 });
 
 socket.on('playerLeft', ({ playerId, players }) => {
@@ -476,6 +513,26 @@ socket.on('roundResults', ({ scores, players }) => {
   console.log("Next Round button display:", gameState.isAdmin ? "block" : "none");
 });
 
+socket.on('init', (data) => {
+  console.log('Received init event:', data);
+  
+  // If the init message includes admin info, update our state
+  if (data.admin) {
+    gameState.adminId = data.admin;
+    gameState.isAdmin = (data.admin === socket.id);
+    console.log('Init set admin status:', gameState.isAdmin ? 'You are admin' : 'You are not admin');
+  }
+  
+  // If init includes players, update our state
+  if (data.players && Array.isArray(data.players)) {
+    gameState.players = data.players;
+    console.log('Init received players:', gameState.players);
+    
+    // Update UI with the received data
+    updatePlayerList();
+  }
+});
+
 // Initialize UI
 joinBtn.addEventListener('click', () => {
   // Get input values
@@ -536,4 +593,37 @@ playerStatusModal.addEventListener('click', (e) => {
   if (e.target === playerStatusModal) {
     hidePlayerStatusModal();
   }
-}); 
+});
+
+// Function to check and fix admin controls visibility
+function checkAdminControlsVisibility() {
+  console.log('Checking admin controls visibility');
+  const adminControls = document.getElementById('admin-controls');
+  const startGameBtn = document.getElementById('start-game-btn');
+  
+  console.log('Admin controls display:', adminControls.style.display);
+  console.log('Start game button display:', startGameBtn.style.display);
+  console.log('Is admin:', gameState.isAdmin);
+  
+  // Force visibility if needed
+  adminControls.style.display = 'block';
+  
+  if (gameState.isAdmin) {
+    // Make absolutely sure the button is visible for admins
+    startGameBtn.style.display = 'inline-block';
+    startGameBtn.setAttribute('style', 'display: inline-block !important');
+    
+    // Add a click handler to the button just to make sure it's working
+    if (!startGameBtn._hasClickHandler) {
+      startGameBtn.addEventListener('click', () => {
+        console.log('Start Game button clicked via extra handler');
+        if (gameState.isAdmin) {
+          socket.emit('startRound');
+        }
+      });
+      startGameBtn._hasClickHandler = true;
+    }
+    
+    console.log('Start game button display after fix:', startGameBtn.style.display);
+  }
+} 
