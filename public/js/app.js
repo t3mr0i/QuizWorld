@@ -189,10 +189,14 @@ function updatePlayerList() {
   console.log("Start Game button display:", startGameBtn.style.display);
   
   // Update player count in game screen
-  totalPlayersDisplay.textContent = gameState.players.length;
-  // No need for ready players display anymore
-  if (readyPlayersDisplay) {
-    readyPlayersDisplay.parentElement.innerHTML = `<h3>Players: <span id="total-players">${gameState.players.length}</span></h3>`;
+  if (totalPlayersDisplay) {
+    totalPlayersDisplay.textContent = gameState.players.length;
+  }
+  
+  // Safely update the players display without depending on readyPlayersDisplay
+  const playerStatusEl = document.querySelector('.player-status');
+  if (playerStatusEl) {
+    playerStatusEl.innerHTML = `<h3>Players: <span id="total-players">${gameState.players.length}</span></h3>`;
   }
 }
 
@@ -360,12 +364,39 @@ function submitAnswers() {
   // Show loading overlay
   showLoading(true);
   
+  // Display immediate feedback
+  const submitStatusMessage = document.createElement('div');
+  submitStatusMessage.className = 'submit-status-message';
+  submitStatusMessage.innerHTML = '<div style="color: #FF4600; font-weight: bold; margin: 15px 0;">Your answers have been submitted!</div>';
+  submitStatusMessage.style.textAlign = 'center';
+  submitStatusMessage.style.marginTop = '20px';
+  
+  // Add message to the form
+  answersForm.appendChild(submitStatusMessage);
+  
+  // Change submit button text
+  submitAnswersBtn.textContent = 'Answers Submitted';
+  submitAnswersBtn.style.backgroundColor = '#28a745';
+  
   // Submit answers
   socket.emit('submitAnswers', answers);
   
   // Update game state
   gameState.submitted = true;
   submitAnswersBtn.disabled = true;
+  
+  // If loading takes too long, add a message with a timer
+  setTimeout(() => {
+    if (document.getElementById('loading-overlay').classList.contains('active')) {
+      const loadingContent = document.querySelector('.loading-content');
+      if (loadingContent) {
+        const timeoutMessage = document.createElement('p');
+        timeoutMessage.textContent = 'This might take a moment. Please wait...';
+        timeoutMessage.style.marginTop = '15px';
+        loadingContent.appendChild(timeoutMessage);
+      }
+    }
+  }, 5000);
 }
 
 // Socket.IO event listeners
@@ -518,6 +549,23 @@ socket.on('init', (data) => {
     
     // Update UI with the received data
     updatePlayerList();
+  }
+});
+
+// Add event handler for answerReceived
+socket.on('answerReceived', ({ playerId }) => {
+  console.log(`Player ${playerId} submitted answers`);
+  // Update UI to show that a player has submitted answers
+  const playerStatusDiv = document.querySelector('.player-status');
+  if (playerStatusDiv) {
+    const submitStatusSpan = document.getElementById('submit-status');
+    if (!submitStatusSpan) {
+      const statusMessage = document.createElement('p');
+      statusMessage.innerHTML = `<span id="submit-status" style="color: #FF4600; font-weight: bold;">Answers submitted!</span>`;
+      playerStatusDiv.appendChild(statusMessage);
+    } else {
+      submitStatusSpan.textContent = 'Answers submitted!';
+    }
   }
 });
 

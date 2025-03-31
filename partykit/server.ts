@@ -259,31 +259,27 @@ export default class StadtLandFlussServer implements Party.Server {
     
     console.log(`Player ${sender.id} submitted answers`);
     
-    // Store player answers
+    // Store player answers without setting isReady
     this.roomState.players[sender.id].answers = answers;
-    this.roomState.players[sender.id].isReady = true;
     
-    // Check if all players are ready
-    const allReady = Object.values(this.roomState.players).every(player => player.isReady);
+    // Immediately process results for this player
+    this.party.broadcast(JSON.stringify({
+      type: "answerReceived",
+      playerId: sender.id
+    }));
     
-    if (allReady) {
-      // Process round results
-      this.processRoundEnd();
-    } else {
-      // Notify others that this player is ready
-      this.party.broadcast(JSON.stringify({
-        type: "playerReady",
-        playerId: sender.id,
-        players: Object.values(this.roomState.players)
-      }));
-    }
+    // Start validation process
+    this.processRoundEnd();
   }
 
   private async processRoundEnd() {
+    // Only process if a round is in progress
     if (!this.roomState.roundInProgress) return;
     
-    // Mark round as no longer in progress
+    // Mark round as no longer in progress to prevent multiple validations
     this.roomState.roundInProgress = false;
+    
+    console.log('Processing round end');
     
     // Validate and score the round
     await this.validateAndScoreRound();
