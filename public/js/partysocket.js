@@ -5,6 +5,7 @@ class GamePartySocket {
     this._connected = false;
     this._socket = null;
     this._id = null;
+    this._roomId = null;
     this._reconnectAttempts = 0;
     this._maxReconnectAttempts = 5;
   }
@@ -17,13 +18,30 @@ class GamePartySocket {
     return this._connected;
   }
 
-  connect() {
+  get roomId() {
+    return this._roomId;
+  }
+
+  set roomId(id) {
+    this._roomId = id;
+  }
+
+  connect(roomId) {
+    // Store roomId if provided
+    if (roomId) {
+      this._roomId = roomId;
+    }
+    
     // Determine host based on environment
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const host = isLocalhost ? 'localhost:1999' : window.location.host;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     
-    const url = `${protocol}//${host}/party/game`;
+    // Include the roomId in the URL if available
+    let url = `${protocol}//${host}/party/game`;
+    if (this._roomId) {
+      url = `${protocol}//${host}/party/game/${this._roomId}`;
+    }
     
     console.log(`Connecting to PartyKit at ${url}`);
     
@@ -132,7 +150,11 @@ class GamePartySocket {
 function io() {
   if (!window._gamePartySocket) {
     window._gamePartySocket = new GamePartySocket();
-    window._gamePartySocket.connect();
+    // Only connect if no room ID is set yet
+    // Otherwise wait for explicit connect call with room ID
+    if (!window._gamePartySocket.roomId) {
+      window._gamePartySocket.connect();
+    }
   }
   
   return window._gamePartySocket;

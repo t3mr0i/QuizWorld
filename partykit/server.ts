@@ -45,7 +45,9 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 export default class StadtLandFlussServer implements Party.Server {
-  constructor(readonly party: Party.Party) {}
+  constructor(readonly party: Party.Party) {
+    console.log(`PartyKit server created for room: ${this.party.id}`);
+  }
 
   // Store for the game state
   private roomState: RoomState = {
@@ -187,9 +189,10 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   private handleJoinRoom(data: any, sender: Party.Connection) {
-    const { playerName, roomId, timeLimit } = data;
+    const { playerName, timeLimit } = data;
+    const roomId = this.party.id; // Use the PartyKit room ID
     
-    console.log(`${playerName} (${sender.id}) is joining room`);
+    console.log(`${playerName} (${sender.id}) is joining room ${roomId}`);
     
     // Initialize admin if this is the first player
     if (Object.keys(this.roomState.players).length === 0) {
@@ -208,7 +211,7 @@ export default class StadtLandFlussServer implements Party.Server {
     };
     
     // Log players for debugging
-    console.log(`Room now has ${Object.keys(this.roomState.players).length} players`);
+    console.log(`Room ${roomId} now has ${Object.keys(this.roomState.players).length} players`);
     
     // Notify everyone in the room
     this.party.broadcast(JSON.stringify({

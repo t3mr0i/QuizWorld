@@ -34,7 +34,6 @@ const startGameBtn = document.getElementById('start-game-btn');
 const currentLetterDisplay = document.getElementById('current-letter');
 const timeRemainingDisplay = document.getElementById('time-remaining');
 const progressFill = document.querySelector('.progress-fill');
-const readyPlayersDisplay = document.getElementById('ready-players');
 const totalPlayersDisplay = document.getElementById('total-players');
 const answersForm = document.getElementById('answers-form');
 const submitAnswersBtn = document.getElementById('submit-answers-btn');
@@ -591,6 +590,20 @@ joinBtn.addEventListener('click', () => {
   gameState.playerName = playerName;
   gameState.roomId = roomId;
   gameState.timeLimit = timeLimit;
+  
+  // Disconnect existing socket if any
+  if (socket && socket.disconnect) {
+    socket.disconnect();
+  }
+  
+  // Reconnect with room ID
+  socket = io();
+  socket.roomId = roomId; // Set room ID property
+  
+  // Connect to specific room with room ID
+  if (socket.connect) {
+    socket.connect(roomId);
+  }
   
   // Join room
   socket.emit('joinRoom', { roomId, playerName, timeLimit });
