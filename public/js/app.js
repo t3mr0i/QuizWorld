@@ -411,6 +411,7 @@ socket.on('connect', () => {
   // Force a fix for the admin message and button
   setTimeout(() => {
     forceFixAdminControls();
+    fixPlayerDisplay();
   }, 1000);
 });
 
@@ -572,7 +573,7 @@ socket.on('answerReceived', ({ playerId }) => {
 joinBtn.addEventListener('click', () => {
   // Get input values
   const playerName = playerNameInput.value.trim();
-  const roomId = roomIdInput.value.trim();
+  const roomId = roomIdInput.value.trim() || Math.floor(Math.random() * 1000000).toString();
   const timeLimit = parseInt(timeLimitInput.value);
   
   // Validate inputs
@@ -581,9 +582,10 @@ joinBtn.addEventListener('click', () => {
     return;
   }
   
-  if (!roomId) {
-    alert('Please enter a room ID');
-    return;
+  // If user didn't enter a room ID, use the generated one and show it
+  if (!roomIdInput.value.trim()) {
+    roomIdInput.value = roomId;
+    console.log(`Generated room ID: ${roomId}`);
   }
   
   // Store in game state
@@ -596,19 +598,27 @@ joinBtn.addEventListener('click', () => {
     socket.disconnect();
   }
   
-  // Reconnect with room ID
+  // Clear and remake socket connection to ensure clean state
+  window._gamePartySocket = null;
+  
+  // Connect new socket with proper room ID
   socket = io();
-  socket.roomId = roomId; // Set room ID property
+  socket.roomId = roomId;
   
-  // Connect to specific room with room ID
-  if (socket.connect) {
-    socket.connect(roomId);
-  }
+  // Explicitly connect to room
+  console.log(`Connecting to room ID: ${roomId}`);
+  socket.connect(roomId);
   
-  // Join room
-  socket.emit('joinRoom', { roomId, playerName, timeLimit });
+  // Join room once connected
+  socket.on('connect', function onConnect() {
+    console.log(`Connected, now joining room: ${roomId}`);
+    socket.emit('joinRoom', { playerName, timeLimit });
+    
+    // Remove this one-time handler to avoid duplicates
+    socket._handlers.connect = socket._handlers.connect.filter(h => h !== onConnect);
+  });
   
-  // Show lobby screen
+  // Update UI
   lobbyRoomId.textContent = roomId;
   lobbyTimeLimit.textContent = timeLimit;
   showScreen('lobby-screen');
@@ -676,56 +686,70 @@ function checkAdminControlsVisibility() {
 function forceFixAdminControls() {
   console.log('Forcing fix for admin controls');
   
-  // Update admin message regardless of current text
-  const adminMessage = document.querySelector('.admin-message');
-  if (adminMessage) {
-    adminMessage.textContent = 'Anyone can start the game anytime';
-    adminMessage.style.color = '#FF4600';
-    adminMessage.style.fontWeight = 'bold';
-  }
-  
-  // Fix for admin instructions in results screen
-  const adminInstructions = document.querySelector('.admin-instructions');
-  if (adminInstructions) {
-    adminInstructions.textContent = 'Anyone can start the next round anytime';
-  }
-  
-  // Fix Start Game button for everyone
-  const adminControls = document.getElementById('admin-controls');
-  const startGameBtn = document.getElementById('start-game-btn');
-  
-  if (adminControls && startGameBtn) {
-    // Make controls extremely visible
-    adminControls.style.display = 'block';
-    adminControls.style.border = '3px solid #FF4600';
-    adminControls.style.padding = '20px';
-    adminControls.style.backgroundColor = 'rgba(255, 70, 0, 0.1)';
-    
-    // Make button extremely visible
-    startGameBtn.style.display = 'inline-block';
-    startGameBtn.style.fontSize = '1.5rem';
-    startGameBtn.style.padding = '20px 40px';
-    startGameBtn.style.backgroundColor = '#FF4600';
-    startGameBtn.style.color = 'white';
-    startGameBtn.style.boxShadow = '0 0 20px rgba(255, 70, 0, 0.8)';
-    startGameBtn.style.cursor = 'pointer';
-    
-    // Add big text explaining what to do
-    const existingBigText = adminControls.querySelector('div > strong');
-    if (!existingBigText) {
-      const bigText = document.createElement('div');
-      bigText.innerHTML = '<strong>CLICK THIS BUTTON TO START THE GAME!</strong>';
-      bigText.style.fontSize = '1.2rem';
-      bigText.style.marginBottom = '15px';
-      bigText.style.color = '#FF4600';
-      adminControls.insertBefore(bigText, startGameBtn);
+  try {
+    // Update admin message regardless of current text
+    const adminMessage = document.querySelector('.admin-message');
+    if (adminMessage) {
+      adminMessage.textContent = 'Anyone can start the game anytime';
+      adminMessage.style.color = '#FF4600';
+      adminMessage.style.fontWeight = 'bold';
     }
     
-    // Add direct click listener to ensure it works
-    startGameBtn.onclick = () => {
-      console.log('Start Game button clicked directly');
-      socket.emit('startRound');
-    };
+    // Fix for admin instructions in results screen
+    const adminInstructions = document.querySelector('.admin-instructions');
+    if (adminInstructions) {
+      adminInstructions.textContent = 'Anyone can start the next round anytime';
+    }
+    
+    // Fix Start Game button for everyone
+    const adminControls = document.getElementById('admin-controls');
+    const startGameBtn = document.getElementById('start-game-btn');
+    
+    if (adminControls && startGameBtn) {
+      // Make controls extremely visible
+      adminControls.style.display = 'block';
+      adminControls.style.border = '3px solid #FF4600';
+      adminControls.style.padding = '20px';
+      adminControls.style.backgroundColor = 'rgba(255, 70, 0, 0.1)';
+      
+      // Make button extremely visible
+      startGameBtn.style.display = 'inline-block';
+      startGameBtn.style.fontSize = '1.5rem';
+      startGameBtn.style.padding = '20px 40px';
+      startGameBtn.style.backgroundColor = '#FF4600';
+      startGameBtn.style.color = 'white';
+      startGameBtn.style.boxShadow = '0 0 20px rgba(255, 70, 0, 0.8)';
+      startGameBtn.style.cursor = 'pointer';
+      
+      // Add big text explaining what to do
+      const existingBigText = adminControls.querySelector('div > strong');
+      if (!existingBigText) {
+        const bigText = document.createElement('div');
+        bigText.innerHTML = '<strong>CLICK THIS BUTTON TO START THE GAME!</strong>';
+        bigText.style.fontSize = '1.2rem';
+        bigText.style.marginBottom = '15px';
+        bigText.style.color = '#FF4600';
+        adminControls.insertBefore(bigText, startGameBtn);
+      }
+      
+      // Add direct click listener to ensure it works
+      startGameBtn.onclick = () => {
+        console.log('Start Game button clicked directly');
+        socket.emit('startRound');
+      };
+    }
+  } catch (error) {
+    console.error('Error in forceFixAdminControls:', error);
+  }
+}
+
+// Add a new function to fix player display and avoid readyPlayersDisplay error
+function fixPlayerDisplay() {
+  const playerStatusDiv = document.querySelector('.player-status');
+  if (playerStatusDiv) {
+    // Directly update the HTML without depending on readyPlayersDisplay
+    playerStatusDiv.innerHTML = `<h3>Players: <span id="total-players">${gameState.players.length}</span></h3>`;
+    console.log('Fixed player display');
   }
 }
 
