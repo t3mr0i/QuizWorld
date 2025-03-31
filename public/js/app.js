@@ -425,13 +425,17 @@ socket.on('playerJoined', ({ players, admin, timeLimit }) => {
   console.log('Admin ID:', admin);
   console.log('Socket ID:', socket.id);
   
+  // Hide loading if it's showing
+  showLoading(false);
+  
+  // Update game state
   gameState.players = players;
   gameState.isAdmin = (admin === socket.id);
   gameState.adminId = admin;
   gameState.timeLimit = timeLimit;
   
   console.log('Is admin:', gameState.isAdmin);
-  console.log('Start Game button should be:', gameState.isAdmin ? 'visible' : 'hidden');
+  console.log('Room ID:', gameState.roomId);
   
   // Update lobby UI
   lobbyRoomId.textContent = gameState.roomId;
@@ -443,10 +447,29 @@ socket.on('playerJoined', ({ players, admin, timeLimit }) => {
   
   // Double-check button visibility after a delay
   setTimeout(() => {
-    console.log('Checking Start Game button visibility after delay');
-    console.log('Button display is currently:', startGameBtn.style.display);
-    console.log('Admin status is:', gameState.isAdmin);
-    updatePlayerList();
+    console.log('Checking UI elements...');
+    const adminControls = document.getElementById('admin-controls');
+    if (adminControls) {
+      adminControls.style.display = 'block'; // Make sure controls are visible
+    }
+    
+    const startBtn = document.getElementById('start-game-btn');
+    if (startBtn) {
+      startBtn.style.display = 'inline-block'; // Make sure button is visible
+      startBtn.style.visibility = 'visible';   // Extra visibility property
+      
+      // Check if button is active
+      console.log('Start button status:', {
+        display: startBtn.style.display,
+        visibility: startBtn.style.visibility,
+        offsetWidth: startBtn.offsetWidth,
+        offsetHeight: startBtn.offsetHeight,
+        clickable: !!startBtn.onclick
+      });
+    }
+    
+    updatePlayerList(); // Call it again to be sure
+    forceFixAdminControls(); // Force fix the controls
   }, 1000);
 });
 
@@ -593,35 +616,65 @@ joinBtn.addEventListener('click', () => {
   gameState.roomId = roomId;
   gameState.timeLimit = timeLimit;
   
-  // Disconnect existing socket if any
-  if (socket && socket.disconnect) {
-    socket.disconnect();
-  }
+  console.log(`Joining game as ${playerName} in room ${roomId}`);
   
-  // Clear and remake socket connection to ensure clean state
-  window._gamePartySocket = null;
-  
-  // Connect new socket with proper room ID
-  socket = io();
-  socket.roomId = roomId;
-  
-  // Explicitly connect to room
-  console.log(`Connecting to room ID: ${roomId}`);
-  socket.connect(roomId);
-  
-  // Join room once connected
-  socket.on('connect', function onConnect() {
-    console.log(`Connected, now joining room: ${roomId}`);
-    socket.emit('joinRoom', { playerName, timeLimit });
+  try {
+    // Completely reset socket connection to ensure clean state
+    if (window._gamePartySocket) {
+      try {
+        window._gamePartySocket.disconnect();
+      } catch (e) {
+        console.error('Error disconnecting existing socket:', e);
+      }
+      window._gamePartySocket = null;
+    }
     
-    // Remove this one-time handler to avoid duplicates
-    socket._handlers.connect = socket._handlers.connect.filter(h => h !== onConnect);
-  });
-  
-  // Update UI
-  lobbyRoomId.textContent = roomId;
-  lobbyTimeLimit.textContent = timeLimit;
-  showScreen('lobby-screen');
+    // Create a fresh socket with the room ID
+    socket = io();
+    
+    if (!socket) {
+      console.error('Failed to create socket');
+      alert('Failed to connect to the game server. Please try again.');
+      return;
+    }
+    
+    // Wait for connection to establish before joining room
+    const joinRoom = () => {
+      console.log(`Socket connected (${socket.id}), sending joinRoom event to room ${roomId}`);
+      socket.emit('joinRoom', {
+        playerName: playerName,
+        timeLimit: timeLimit
+      });
+    };
+    
+    socket.on('connect', joinRoom);
+    
+    // Connect to the specific room
+    console.log(`Connecting to room ID: ${roomId}`);
+    socket.roomId = roomId;
+    socket.connect(roomId);
+    
+    // Update UI right away
+    lobbyRoomId.textContent = roomId;
+    lobbyTimeLimit.textContent = timeLimit;
+    
+    // Show loading indicator first
+    showLoading(true);
+    
+    // Will show lobby once we get playerJoined event
+    
+    // Add a timeout to check if we got stuck
+    setTimeout(() => {
+      if (loadingOverlay.classList.contains('active')) {
+        console.log('Connection seems slow, hiding loading and showing lobby...');
+        showLoading(false);
+        showScreen('lobby-screen');
+      }
+    }, 3000);
+  } catch (error) {
+    console.error('Error joining game:', error);
+    alert(`Error joining game: ${error.message}. Please refresh and try again.`);
+  }
 });
 
 startGameBtn.addEventListener('click', () => {
@@ -816,4 +869,62 @@ document.addEventListener('DOMContentLoaded', () => {
   restartButton.onclick = window.restartGame;
   
   document.body.appendChild(restartButton);
-}); 
+});
+
+// Add a hard reset function for critical errors
+window.hardResetGame = function() {
+  console.warn('HARD RESETTING GAME...');
+  
+  // Set reset flag
+  window._resetGameSocket = true;
+  
+  // Disconnect and clear socket
+  if (window._gamePartySocket) {
+    try {
+      window._gamePartySocket.disconnect();
+    } catch (e) {
+      console.error('Error disconnecting socket:', e);
+    }
+    window._gamePartySocket = null;
+  }
+  
+  // Clear game state
+  gameState = {
+    playerName: '',
+    roomId: '',
+    isAdmin: false,
+    adminId: null,
+    currentLetter: null,
+    submitted: false,
+    timeLimit: 60,
+    timer: null,
+    players: [],
+    timerInterval: null
+  };
+  
+  // Show welcome screen
+  showScreen('welcome-screen');
+  
+  // Clear any timers
+  if (gameState.timerInterval) {
+    clearInterval(gameState.timerInterval);
+  }
+  
+  // Add a button for users to try again
+  const resetMessage = document.createElement('div');
+  resetMessage.innerHTML = '<p style="color: #FF4600; font-weight: bold; margin: 20px 0;">Game was reset due to connection issues. Please try again.</p>';
+  resetMessage.style.textAlign = 'center';
+  welcomeScreen.prepend(resetMessage);
+  
+  // Auto-remove message after 5 seconds
+  setTimeout(() => {
+    if (resetMessage.parentNode) {
+      resetMessage.remove();
+    }
+  }, 5000);
+  
+  // Auto reload the page after a delay
+  setTimeout(() => {
+    location.reload();
+  }, 1000);
+}; 

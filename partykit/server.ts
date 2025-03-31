@@ -69,7 +69,8 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   async onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    console.log(`Player connected: ${conn.id}`);
+    console.log(`Player connected: ${conn.id} in room: ${this.party.id}`);
+    
     // Send current state to the new connection
     conn.send(JSON.stringify({
       type: "init",
@@ -79,7 +80,8 @@ export default class StadtLandFlussServer implements Party.Server {
       timeLimit: this.roomState.timeLimit,
       roundInProgress: this.roomState.roundInProgress,
       currentLetter: this.roomState.currentLetter,
-      timerEnd: this.roomState.timerEnd
+      timerEnd: this.roomState.timerEnd,
+      roomId: this.party.id
     }));
   }
 

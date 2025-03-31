@@ -27,6 +27,15 @@ class GamePartySocket {
   }
 
   connect(roomId) {
+    // Close existing connection if any
+    if (this._socket) {
+      try {
+        this._socket.close();
+      } catch (err) {
+        console.warn('Error closing existing socket:', err);
+      }
+    }
+    
     // Store roomId if provided
     if (roomId) {
       this._roomId = roomId;
@@ -38,19 +47,24 @@ class GamePartySocket {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     
     // Include the roomId in the URL if available
-    let url = `${protocol}//${host}/party/game`;
+    // IMPORTANT: PartyKit requires a room ID, so we'll create a random one if none is provided
+    let url;
     if (this._roomId) {
       url = `${protocol}//${host}/party/game/${this._roomId}`;
+    } else {
+      const randomRoomId = Math.floor(Math.random() * 1000000).toString();
+      this._roomId = randomRoomId;
+      url = `${protocol}//${host}/party/game/${randomRoomId}`;
     }
     
-    console.log(`Connecting to PartyKit at ${url}`);
+    console.log(`Connecting to PartyKit at ${url} with room ID: ${this._roomId}`);
     
     this._socket = new WebSocket(url);
     
     this._socket.onopen = () => {
       this._connected = true;
       this._reconnectAttempts = 0;
-      console.log('Connected to PartyKit');
+      console.log('Connected to PartyKit in room:', this._roomId);
       
       if (this._handlers['connect']) {
         this._handlers['connect'].forEach(handler => handler());
@@ -147,14 +161,23 @@ class GamePartySocket {
 }
 
 // Create a singleton instance that mimics Socket.IO's global io() function
-function io() {
+function io(options = {}) {
+  // Allow resetting the socket by setting a global flag
+  if (window._resetGameSocket) {
+    window._gamePartySocket = null;
+    window._resetGameSocket = false;
+  }
+  
   if (!window._gamePartySocket) {
+    console.log('Creating new GamePartySocket instance');
     window._gamePartySocket = new GamePartySocket();
-    // Only connect if no room ID is set yet
-    // Otherwise wait for explicit connect call with room ID
-    if (!window._gamePartySocket.roomId) {
+    
+    // Only auto-connect if we don't have a specific room ID
+    if (!options.roomId) {
       window._gamePartySocket.connect();
     }
+  } else {
+    console.log('Reusing existing GamePartySocket instance');
   }
   
   return window._gamePartySocket;
