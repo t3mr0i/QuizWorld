@@ -361,7 +361,7 @@ export default class StadtLandFlussServer implements Party.Server {
     
     // Notify that answers were received
     this.party.broadcast(JSON.stringify({
-      type: "answerReceived",
+      type: "playerSubmitted",
       playerId: sender.id,
       players: Object.values(this.roomState.players)
     }));

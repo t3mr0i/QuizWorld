@@ -241,10 +241,10 @@ function submitAnswers() {
   gameState.submitted = true;
   
   // Send answers to server
-  socket.send(JSON.stringify({
+  socket.send({
     type: 'submitAnswers',
     answers: answers
-  }));
+  });
 }
 
 // Socket event handlers
@@ -447,11 +447,11 @@ socket.on('connect', () => {
   // Check if reconnecting to existing game
   if (gameState.roomId) {
     // Re-join with existing data
-    socket.send(JSON.stringify({
+    socket.send({
       type: 'joinRoom',
       roomId: gameState.roomId,
       playerName: gameState.playerName
-    }));
+    });
   }
 });
 
@@ -526,9 +526,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const startGameBtn = document.getElementById('start-game-btn');
   if (startGameBtn) {
     startGameBtn.addEventListener('click', () => {
-      socket.send(JSON.stringify({
+      socket.send({
         type: 'startRound'
-      }));
+      });
     });
   }
   
@@ -545,9 +545,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const nextRoundBtn = document.getElementById('next-round-btn');
   if (nextRoundBtn) {
     nextRoundBtn.addEventListener('click', () => {
-      socket.send(JSON.stringify({
+      socket.send({
         type: 'startRound'
-      }));
+      });
     });
   }
   
