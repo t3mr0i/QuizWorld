@@ -7,121 +7,168 @@
   <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Funnel+Display:wght@300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend+Giga:wght@100..900&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Add favicon -->
   <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
 </head>
 <body>
-  <div class="container">
+  <div class="app-container">
     <header>
-      <h1>Stadt Land Fluss</h1>
-      <p class="subtitle">Complete each category with words that start with the given letter</p>
+      <div class="logo">
+        <h1>Stadt Land Fluss</h1>
+      </div>
+      <p class="tagline">Complete each category with words that start with the given letter</p>
     </header>
 
-    <!-- Welcome Screen -->
-    <div id="welcome-screen" class="game-screen active">
-      <h2>Welcome to Stadt Land Fluss!</h2>
-      <div class="form-container">
-        <div class="form-group">
-          <label for="player-name">Your Name:</label>
-          <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
-        </div>
-        
-        <div class="form-group">
-          <label for="room-id">Room ID:</label>
-          <input type="text" id="room-id" placeholder="Enter room ID or leave empty for new game" autocomplete="off">
-        </div>
-        
-        <div class="form-group">
-          <label for="time-limit">Time Limit (seconds):</label>
-          <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
-        </div>
-        
-        <button id="join-game-btn" class="primary-btn">Join Game</button>
-        
-        <div class="helper-buttons">
-          <button id="debug-btn" class="debug-button">Having trouble? Click here</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Lobby Screen -->
-    <div id="lobby-screen" class="game-screen hidden">
-      <h2>Game Lobby</h2>
-      <div class="room-info">
-        <div class="room-id-display">Room ID: <span id="display-room-id">0000</span></div>
-        <button id="copy-link-btn" class="secondary-btn">Copy Invite Link</button>
-      </div>
-
-      <div class="player-section">
-        <h3>Players</h3>
-        <ul id="player-list" class="player-list"></ul>
-        <div id="waiting-message">Waiting for players to join...</div>
-      </div>
-
-      <div id="admin-controls">
-        <button id="start-game-btn">Start Game</button>
-        <p id="admin-message"></p>
-      </div>
-    </div>
-
-    <!-- Game Screen -->
-    <div id="game-screen" class="game-screen hidden">
-      <div class="game-info">
-        <div class="letter-display">
-          Letter: <span id="current-letter" class="current-letter">A</span>
-        </div>
-        <div class="timer-container">
-          Time Left: <span id="timer">60</span>s
+    <main class="game-container">
+      <!-- Welcome Screen -->
+      <div id="welcome-screen" class="game-screen active">
+        <div class="card">
+          <div class="card-header">
+            <h2>Join a Game</h2>
+          </div>
+          <div class="card-body">
+            <form class="join-form">
+              <div class="form-group">
+                <label for="player-name">Your Name</label>
+                <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
+              </div>
+              
+              <div class="form-group">
+                <label for="room-id">Room ID</label>
+                <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
+                <small>Leave empty to create a new game room</small>
+              </div>
+              
+              <div class="form-group">
+                <label for="time-limit">Time Limit (seconds)</label>
+                <div class="time-selector">
+                  <button type="button" class="time-btn decrease">−</button>
+                  <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+                  <button type="button" class="time-btn increase">+</button>
+                </div>
+              </div>
+              
+              <button type="button" id="join-game-btn" class="btn btn-primary btn-large">Join Game</button>
+            </form>
+          </div>
+          <div class="card-footer">
+            <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+          </div>
         </div>
       </div>
 
-      <form id="answers-form">
-        <div class="categories-container">
-          <!-- Categories will be dynamically populated -->
-        </div>
-        <button type="submit" id="submit-btn" class="primary-btn">Submit Answers</button>
-      </form>
-    </div>
+      <!-- Lobby Screen -->
+      <div id="lobby-screen" class="game-screen hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2>Game Lobby</h2>
+            <div class="room-info">
+              <span class="room-label">Room ID:</span>
+              <span id="display-room-id" class="room-id">0000</span>
+              <button id="copy-link-btn" class="btn btn-icon" title="Copy invite link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <div class="player-section">
+              <h3>Players</h3>
+              <ul id="player-list" class="player-list"></ul>
+              <div id="waiting-message" class="waiting-message">Waiting for players to join...</div>
+            </div>
 
-    <!-- Results Screen -->
-    <div id="results-screen" class="game-screen hidden">
-      <h2>Round Results</h2>
-      
-      <div class="results-container">
-        <table id="results-table" class="results-table">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Player</th>
-              <th>Answer</th>
-              <th>Score</th>
-            </tr>
-          </thead>
-          <tbody id="results-body">
-            <!-- Results will be filled dynamically -->
-          </tbody>
-        </table>
+            <div id="admin-controls" class="admin-controls">
+              <button id="start-game-btn" class="btn btn-primary btn-large">Start Game</button>
+              <p id="admin-message" class="admin-message"></p>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      <div class="scores-container">
-        <h3>Total Scores</h3>
-        <ul id="scores-list" class="scores-list">
-          <!-- Scores will be filled dynamically -->
-        </ul>
+
+      <!-- Game Screen -->
+      <div id="game-screen" class="game-screen hidden">
+        <div class="card">
+          <div class="card-header game-header">
+            <div class="letter-display">
+              <span class="label">Letter:</span>
+              <span id="current-letter" class="current-letter">A</span>
+            </div>
+            <div class="timer-container">
+              <span class="label">Time Left:</span>
+              <span id="timer" class="timer">60</span>s
+            </div>
+          </div>
+
+          <div class="card-body">
+            <form id="answers-form" class="answers-form">
+              <div class="categories-container">
+                <!-- Categories will be dynamically populated -->
+              </div>
+              <button type="submit" id="submit-btn" class="btn btn-primary btn-large">Submit Answers</button>
+            </form>
+          </div>
+        </div>
       </div>
-      
-      <button id="next-round-btn" class="primary-btn">Next Round</button>
-    </div>
+
+      <!-- Results Screen -->
+      <div id="results-screen" class="game-screen hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2>Round Results</h2>
+          </div>
+          
+          <div class="card-body">
+            <div class="results-container">
+              <table id="results-table" class="results-table">
+                <thead>
+                  <tr>
+                    <th>Player</th>
+                    <th>Answer</th>
+                    <th>Points</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody id="results-body">
+                  <!-- Results will be filled dynamically -->
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="scores-container">
+              <h3>Total Scores</h3>
+              <ul id="scores-list" class="scores-list">
+                <!-- Scores will be filled dynamically -->
+              </ul>
+            </div>
+            
+            <button id="next-round-btn" class="btn btn-primary btn-large">Next Round</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <p>Stadt Land Fluss &copy; 2023</p>
+    </footer>
 
     <!-- Error Modal -->
     <div id="error-modal" class="modal hidden">
       <div class="modal-content">
-        <h2>Error</h2>
-        <p id="error-message"></p>
-        <button id="error-close-btn" class="secondary-btn">Close</button>
+        <div class="modal-header">
+          <h3>Error</h3>
+          <button class="modal-close" id="error-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="error-message"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="error-ok-btn">OK</button>
+        </div>
       </div>
+      <div class="modal-overlay"></div>
     </div>
   </div>
 

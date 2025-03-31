@@ -13,6 +13,9 @@ class GamePartySocket {
     this.reconnectAttempts = 0;
     this.playerData = null;
     this.eventHandlers = {};
+    this.ws = null;
+    this.connectionState = 'disconnected';
+    this.events = {};
     
     console.log(`GamePartySocket initialized with host: ${this.host}`);
   }
@@ -188,6 +191,16 @@ class GamePartySocket {
         console.error(`Error in ${eventName} event handler:`, error);
       }
     });
+  }
+  
+  // Get current connection state
+  getState() {
+    return {
+      connectionState: this.connectionState,
+      reconnectAttempts: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      playerData: this.playerData
+    };
   }
 }
 
