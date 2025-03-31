@@ -220,10 +220,10 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   private handleStartRound(sender: Party.Connection) {
-    // Only admin can start the round
-    if (this.roomState.admin !== sender.id) return;
+    // Allow any player to start the round, not just admin
+    // if (this.roomState.admin !== sender.id) return;
     
-    console.log(`Admin ${sender.id} started new round`);
+    console.log(`Player ${sender.id} started new round`);
     
     // Select a random letter
     const randomIndex = Math.floor(Math.random() * LETTERS.length);

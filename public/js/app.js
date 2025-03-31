@@ -176,39 +176,17 @@ function updatePlayerList() {
     playerList.appendChild(listItem);
   });
   
-  // Ensure the admin-controls div is visible and only toggle the button's visibility
+  // Ensure the admin-controls div is visible for everyone
   document.getElementById('admin-controls').style.display = 'block';
   
-  // Force inline-block style for the Start Game button if admin
-  if (gameState.isAdmin) {
-    startGameBtn.style.display = 'inline-block';
-    console.log('Setting Start Game button to visible (inline-block)');
-    
-    // Add an !important flag with setAttribute to override any potential CSS issues
-    startGameBtn.setAttribute('style', 'display: inline-block !important');
-  } else {
-    startGameBtn.style.display = 'none';
-    console.log('Setting Start Game button to hidden (none)');
-  }
+  // Make Start Game button visible for everyone
+  startGameBtn.style.display = 'inline-block';
+  console.log('Setting Start Game button to visible for everyone');
   
-  console.log("Start Game button display:", startGameBtn.style.display, "isAdmin:", gameState.isAdmin);
+  // Add an !important flag with setAttribute to override any potential CSS issues
+  startGameBtn.setAttribute('style', 'display: inline-block !important');
   
-  // Add debug info directly to DOM if admin
-  if (gameState.isAdmin) {
-    // Remove any existing debug info
-    const existingInfo = document.getElementById('admin-debug-info');
-    if (existingInfo) {
-      existingInfo.remove();
-    }
-    
-    const adminInfo = document.createElement('p');
-    adminInfo.id = 'admin-debug-info';
-    adminInfo.textContent = 'You are the admin and can start the game anytime.';
-    adminInfo.style.color = '#FF4600';
-    adminInfo.style.fontWeight = 'bold';
-    adminInfo.style.marginTop = '10px';
-    document.getElementById('admin-controls').appendChild(adminInfo);
-  }
+  console.log("Start Game button display:", startGameBtn.style.display);
   
   // Update player count in game screen
   totalPlayersDisplay.textContent = gameState.players.length;
@@ -518,9 +496,9 @@ socket.on('roundResults', ({ scores, players }) => {
   // Show results screen
   showScreen('results-screen');
   
-  // Show/hide next round button
-  nextRoundBtn.style.display = gameState.isAdmin ? 'block' : 'none';
-  console.log("Next Round button display:", gameState.isAdmin ? "block" : "none");
+  // Show next round button to everyone
+  nextRoundBtn.style.display = 'block';
+  console.log("Next Round button display: block (for everyone)");
 });
 
 socket.on('init', (data) => {
@@ -576,9 +554,8 @@ joinBtn.addEventListener('click', () => {
 });
 
 startGameBtn.addEventListener('click', () => {
-  if (gameState.isAdmin) {
-    socket.emit('startRound');
-  }
+  // Allow any player to start the game, not just admin
+  socket.emit('startRound');
 });
 
 answersForm.addEventListener('submit', (e) => {
@@ -587,13 +564,9 @@ answersForm.addEventListener('submit', (e) => {
 });
 
 nextRoundBtn.addEventListener('click', () => {
-  console.log("Next Round button clicked, isAdmin:", gameState.isAdmin);
-  if (gameState.isAdmin) {
-    console.log("Emitting startRound event");
-    socket.emit('startRound');
-  } else {
-    console.log("Not admin, can't start next round");
-  }
+  console.log("Next Round button clicked");
+  console.log("Emitting startRound event");
+  socket.emit('startRound');
 });
 
 closeModalBtn.addEventListener('click', hidePlayerStatusModal);
@@ -645,7 +618,7 @@ function forceFixAdminControls() {
   // Update admin message regardless of current text
   const adminMessage = document.querySelector('.admin-message');
   if (adminMessage) {
-    adminMessage.textContent = 'As the admin, you can start the game anytime';
+    adminMessage.textContent = 'Anyone can start the game anytime';
     adminMessage.style.color = '#FF4600';
     adminMessage.style.fontWeight = 'bold';
   }
@@ -653,44 +626,45 @@ function forceFixAdminControls() {
   // Fix for admin instructions in results screen
   const adminInstructions = document.querySelector('.admin-instructions');
   if (adminInstructions) {
-    adminInstructions.textContent = 'As the admin, you can start the next round anytime';
+    adminInstructions.textContent = 'Anyone can start the next round anytime';
   }
   
-  // Fix Start Game button for admin
-  if (gameState.isAdmin) {
-    const adminControls = document.getElementById('admin-controls');
-    const startGameBtn = document.getElementById('start-game-btn');
+  // Fix Start Game button for everyone
+  const adminControls = document.getElementById('admin-controls');
+  const startGameBtn = document.getElementById('start-game-btn');
+  
+  if (adminControls && startGameBtn) {
+    // Make controls extremely visible
+    adminControls.style.display = 'block';
+    adminControls.style.border = '3px solid #FF4600';
+    adminControls.style.padding = '20px';
+    adminControls.style.backgroundColor = 'rgba(255, 70, 0, 0.1)';
     
-    if (adminControls && startGameBtn) {
-      // Make controls extremely visible
-      adminControls.style.display = 'block';
-      adminControls.style.border = '3px solid #FF4600';
-      adminControls.style.padding = '20px';
-      adminControls.style.backgroundColor = 'rgba(255, 70, 0, 0.1)';
-      
-      // Make button extremely visible
-      startGameBtn.style.display = 'inline-block';
-      startGameBtn.style.fontSize = '1.5rem';
-      startGameBtn.style.padding = '20px 40px';
-      startGameBtn.style.backgroundColor = '#FF4600';
-      startGameBtn.style.color = 'white';
-      startGameBtn.style.boxShadow = '0 0 20px rgba(255, 70, 0, 0.8)';
-      startGameBtn.style.cursor = 'pointer';
-      
-      // Add big text explaining what to do
+    // Make button extremely visible
+    startGameBtn.style.display = 'inline-block';
+    startGameBtn.style.fontSize = '1.5rem';
+    startGameBtn.style.padding = '20px 40px';
+    startGameBtn.style.backgroundColor = '#FF4600';
+    startGameBtn.style.color = 'white';
+    startGameBtn.style.boxShadow = '0 0 20px rgba(255, 70, 0, 0.8)';
+    startGameBtn.style.cursor = 'pointer';
+    
+    // Add big text explaining what to do
+    const existingBigText = adminControls.querySelector('div > strong');
+    if (!existingBigText) {
       const bigText = document.createElement('div');
       bigText.innerHTML = '<strong>CLICK THIS BUTTON TO START THE GAME!</strong>';
       bigText.style.fontSize = '1.2rem';
       bigText.style.marginBottom = '15px';
       bigText.style.color = '#FF4600';
       adminControls.insertBefore(bigText, startGameBtn);
-      
-      // Add direct click listener to ensure it works
-      startGameBtn.onclick = () => {
-        console.log('Start Game button clicked directly');
-        socket.emit('startRound');
-      };
     }
+    
+    // Add direct click listener to ensure it works
+    startGameBtn.onclick = () => {
+      console.log('Start Game button clicked directly');
+      socket.emit('startRound');
+    };
   }
 }
 
