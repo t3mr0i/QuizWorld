@@ -14,8 +14,21 @@ const gameState = {
   submitted: false,
   timeLimit: 60,
   players: [],
-  timerInterval: null
+  timerInterval: null,
+  offlineMode: socket.offlineMode
 };
+
+// Check if in offline mode
+if (gameState.offlineMode) {
+  console.log('Game running in offline mode');
+  // Add offline mode indicator to the UI
+  document.addEventListener('DOMContentLoaded', () => {
+    const indicator = document.createElement('div');
+    indicator.className = 'offline-mode-indicator';
+    indicator.innerHTML = 'Offline Mode';
+    document.body.appendChild(indicator);
+  });
+}
 
 // DOM elements - get references to all screens
 const screens = {
@@ -500,6 +513,22 @@ socket.on('disconnect', () => {
 
 socket.on('error', (error) => {
   console.error('Socket error:', error);
+  
+  // Update server status indicator if it exists
+  const statusElement = document.getElementById('server-status');
+  if (statusElement) {
+    statusElement.className = 'server-status offline';
+    statusElement.innerHTML = 'Connection error: ' + (error.message || 'Unknown error');
+  }
+  
+  // Show error message with offline mode options if server appears to be down
+  if (error.isServerDown) {
+    const errorActions = document.getElementById('error-actions');
+    if (errorActions) {
+      errorActions.classList.remove('hidden');
+    }
+  }
+  
   showError('Connection error: ' + (error.message || 'Unknown error'));
 });
 
@@ -546,12 +575,62 @@ document.addEventListener('DOMContentLoaded', function() {
       joinGameBtn.disabled = true;
       joinGameBtn.textContent = 'Connecting...';
       
-      // Check server connection first
+      // Special handling for offline mode
+      if (gameState.offlineMode) {
+        // Skip server connection test in offline mode
+        gameState.playerName = nameInput.value.trim();
+        gameState.roomId = roomInput.value.trim() || Math.floor(Math.random() * 1000000).toString();
+        gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
+        
+        socket.connectToRoom(
+          gameState.roomId,
+          gameState.playerName,
+          gameState.timeLimit
+        );
+        
+        return;
+      }
+      
+      // Online mode - Check server connection first
       try {
+        // Update server status indicator if it exists
+        const statusElement = document.getElementById('server-status');
+        if (statusElement) {
+          statusElement.className = 'server-status checking';
+          statusElement.innerHTML = 'Checking server connection...';
+        }
+        
+        // First test if the server is accessible at all
         const isServerOnline = await socket.testConnection();
         
         if (!isServerOnline) {
+          // Update server status indicator
+          if (statusElement) {
+            statusElement.className = 'server-status offline';
+            statusElement.innerHTML = 'Game server is currently offline. Please try again later.';
+          }
+          
+          // Show server status banner with offline mode options
+          const serverBanner = document.createElement('div');
+          serverBanner.className = 'server-banner';
+          serverBanner.innerHTML = `
+            <div class="banner-content">
+              <strong>Server Status:</strong> The game server appears to be offline.
+              <div class="banner-actions">
+                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
+                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
+              </div>
+            </div>
+          `;
+          document.querySelector('.app-container').prepend(serverBanner);
+          
           throw new Error('Game server appears to be offline. Please try again later.');
+        }
+        
+        // Update server status
+        if (statusElement) {
+          statusElement.className = 'server-status online';
+          statusElement.innerHTML = 'Connected to game server';
         }
         
         // Update game state
@@ -712,6 +791,7 @@ function showError(message) {
   
   const errorModal = document.getElementById('error-modal');
   const errorMessage = document.getElementById('error-message');
+  const errorActions = document.getElementById('error-actions');
   
   if (!errorModal || !errorMessage) {
     console.error('Error modal elements not found');
@@ -720,6 +800,16 @@ function showError(message) {
   }
   
   errorMessage.textContent = message;
+  
+  // Show offline options if the message indicates server issues
+  if (errorActions) {
+    if (message.includes('offline') || message.includes('unavailable') || message.includes('Connection')) {
+      errorActions.classList.remove('hidden');
+    } else {
+      errorActions.classList.add('hidden');
+    }
+  }
+  
   errorModal.classList.remove('hidden');
   
   // Reset join game button if it was disabled

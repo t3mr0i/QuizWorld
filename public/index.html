@@ -14,8 +14,18 @@
   
   <!-- PartyKit Configuration -->
   <script>
-    // This value will be replaced by environment variables during build or set by the server
+    // Hard-code the PartyKit host to avoid placeholder issues
     window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
+    
+    // Enable dev mode to try local server if URL has ?dev parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('dev') || urlParams.has('local')) {
+      window.PARTYKIT_HOST = 'localhost:1999';
+      console.log('Using local development server:', window.PARTYKIT_HOST);
+    }
+    
+    // Check if in offline mode
+    const isOfflineMode = urlParams.has('offline');
     
     // Check if server is accessible by making a simple fetch request
     document.addEventListener('DOMContentLoaded', function() {
@@ -25,11 +35,29 @@
         const statusElement = document.createElement('div');
         statusElement.id = 'server-status';
         statusElement.className = 'server-status checking';
+        
+        if (isOfflineMode) {
+          statusElement.className = 'server-status offline';
+          statusElement.innerHTML = 'Running in offline mode (single player)';
+          welcomeCard.prepend(statusElement);
+          
+          // Add a button to return to online mode
+          const onlineLink = document.createElement('a');
+          onlineLink.href = window.location.pathname;
+          onlineLink.className = 'btn btn-secondary';
+          onlineLink.innerHTML = 'Try Online Mode';
+          onlineLink.style.marginTop = '10px';
+          welcomeCard.appendChild(onlineLink);
+          
+          return;
+        }
+        
         statusElement.innerHTML = 'Checking server status...';
         welcomeCard.prepend(statusElement);
         
         // Try to fetch the server status
-        fetch(`https://${window.PARTYKIT_HOST}`, { 
+        const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'http://' : 'https://';
+        fetch(`${protocol}${window.PARTYKIT_HOST}`, { 
           method: 'HEAD',
           mode: 'no-cors',
           cache: 'no-cache'
@@ -40,8 +68,22 @@
         })
         .catch(err => {
           statusElement.className = 'server-status offline';
-          statusElement.innerHTML = 'Game server appears to be offline. Please try again later.';
+          statusElement.innerHTML = 'Game server appears to be offline';
           console.error('Server status check failed:', err);
+          
+          // Add server status banner
+          const serverBanner = document.createElement('div');
+          serverBanner.className = 'server-banner';
+          serverBanner.innerHTML = `
+            <div class="banner-content">
+              <strong>Server Status:</strong> The game server appears to be offline.
+              <div class="banner-actions">
+                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
+                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
+              </div>
+            </div>
+          `;
+          document.querySelector('.app-container').prepend(serverBanner);
         });
       }
     });
@@ -90,7 +132,13 @@
             </form>
           </div>
           <div class="card-footer">
-            <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+            <div class="connection-options">
+              <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+              <div class="connection-modes">
+                <a href="?offline" class="btn btn-text">Play Offline</a>
+                <a href="?dev" class="btn btn-text">Use Local Server</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -211,6 +259,10 @@
         </div>
         <div class="modal-body">
           <p id="error-message"></p>
+          <div id="error-actions" class="error-actions hidden">
+            <a href="?offline" class="btn btn-accent">Play Offline</a>
+            <a href="?dev" class="btn btn-secondary">Try Local Server</a>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" id="error-ok-btn">OK</button>

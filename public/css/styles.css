@@ -1881,12 +1881,33 @@ small {
 }
 
 .server-status.offline {
-  background-color: rgba(var(--kb-live-red), 0.1);
+  background-color: rgba(255, 70, 0, 0.1);
   color: var(--kb-live-red);
 }
 
 .server-status.offline:before {
   background-color: var(--kb-live-red);
+}
+
+/* Offline Message */
+.offline-message {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: #f8f9fa;
+  border-radius: var(--border-radius-md);
+  border-left: 3px solid var(--kb-live-red);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.offline-message a {
+  color: var(--kb-live-red);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.offline-message a:hover {
+  color: var(--primary-dark);
 }
 
 /* Card Footer */
@@ -1896,4 +1917,76 @@ small {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* Server Banner */
+.server-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(255, 70, 0, 0.95);
+  color: white;
+  padding: var(--spacing-md);
+  text-align: center;
+  z-index: 9999;
+  font-weight: 500;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.banner-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.banner-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.banner-actions .btn {
+  margin: 0 var(--spacing-xs);
+}
+
+/* Connection Options */
+.connection-options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.connection-modes {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+/* Error Actions */
+.error-actions {
+  margin-top: var(--spacing-md);
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+.error-actions.hidden {
+  display: none;
+}
+
+/* Offline Mode Indicator */
+.offline-mode-indicator {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-top-left-radius: var(--border-radius-md);
+  font-size: 0.8rem;
+  z-index: 999;
 } 
