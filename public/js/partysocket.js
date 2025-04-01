@@ -49,16 +49,21 @@ class GamePartySocket {
     }
     
     try {
-      // Create new PartySocket connection using the correct URL format
-      // Determine protocol based on current page
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Determine protocol based on the host
+      // When connecting to external PartyKit server, always use wss:// protocol
+      // When on localhost, use the current page protocol
+      let protocol;
+      if (this.host.includes('localhost') || this.host.includes('127.0.0.1')) {
+        protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      } else {
+        // Always use secure WebSocket for external hosts
+        protocol = 'wss:';
+      }
       
-      // Use the configured host instead of always using window.location.host
-      const host = this.host;
+      console.log(`Using protocol ${protocol} for host ${this.host}`);
       
       // Create URL with the party ID (room ID)
-      // We need to use 'game' as the party name and pass the room ID as a parameter
-      const url = `${protocol}//${host}/party/game?roomId=${this.playerData.roomId}`;
+      const url = `${protocol}//${this.host}/party/game?roomId=${this.playerData.roomId}`;
       console.log(`Connecting to: ${url}`);
       
       this.connection = new WebSocket(url);

@@ -166,7 +166,7 @@ async function waitForRunCompletion(threadId, runId) {
 async function validateAnswers(letter, answers) {
   if (!API_KEY || !ASSISTANT_ID) {
     console.warn('OpenAI API Key or Assistant ID not set. Skipping validation.');
-    return { valid: true, errors: [], suggestions: {} };
+    return { valid: true, errors: [], suggestions: {}, explanations: {} };
   }
 
   try {
@@ -174,15 +174,15 @@ async function validateAnswers(letter, answers) {
     const validationPrompt = JSON.stringify({
       task: "Validate user-submitted answers for the game 'Stadt, Land, Fluss'.",
       rules: {
-        general: "Each answer must start with the specified letter and fit the category. Be VERY strict with validation.",
+        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE.",
         categories: {
-          Stadt: "Must be a real, existing city or town with official city rights. Include a brief description of the city.",
-          Land: "Must be a recognized sovereign country, federal state, or well-known historical region. Include a brief description.",
-          Fluss: "Must be a real, existing river. Streams, creeks, lakes, or fictional rivers are invalid. Include a brief description.",
-          Name: "Must be a common first name used for people. Nicknames are valid only if widely recognized. Include origin information if possible.",
-          Beruf: "Must be a recognized official profession or occupation. Obsolete, fictional, or made-up jobs are invalid. Include a brief description.",
-          Pflanze: "Must be a specific plant species, including trees, flowers, or crops. Generic terms are invalid. Include a brief description.",
-          Tier: "Must be a specific animal species, using either scientific or common name. Include a brief description."
+          Stadt: "Must be a real, existing city or town with official city rights. Fictional cities, neighborhoods, districts, misspellings, or made-up names are INVALID. Check for misspellings like 'Föln' instead of 'Köln' and mark them as INVALID. Include geographic location in explanation.",
+          Land: "Must be a recognized sovereign country, federal state, or well-known historical region. Fictional countries or misspellings are INVALID. Include geographic location in explanation.",
+          Fluss: "Must be a real, existing river. Streams, creeks, lakes, or fictional rivers are INVALID. Made-up or misspelled river names are INVALID. Include geographic location in explanation.",
+          Name: "Must be a commonly recognized first name used for people. Nicknames are valid only if widely recognized. Fictional or made-up names are INVALID. Include origin information in explanation.",
+          Beruf: "Must be a recognized official profession or occupation. Obsolete, fictional, or made-up jobs are INVALID. Include a brief description of the profession in explanation.",
+          Pflanze: "Must be a specific plant species, including trees, flowers, or crops. Generic terms are INVALID. Made-up or misspelled plant names are INVALID. Include scientific details in explanation.",
+          Tier: "Must be a specific animal species, using either scientific or common name. Generic terms, fictional, or made-up animal names are INVALID. Include habitat information in explanation."
         }
       },
       letter,
@@ -191,9 +191,9 @@ async function validateAnswers(letter, answers) {
         valid: "Boolean indicating if ALL answers are valid",
         errors: "Array of strings describing validation errors for specific answers",
         suggestions: "Object with category keys and string values containing alternate suggestions that start with the required letter",
-        explanations: "Object with category keys and string values containing brief explanations for each valid answer"
+        explanations: "Object with category keys and string values containing brief explanations for each valid answer AND invalid answer"
       },
-      important_instruction: "IMPORTANT: Be VERY strict in your validation. The answers MUST start with the letter provided. If they don't, they are invalid. Generic terms, made-up words, or incorrect category matches are invalid. For valid answers, provide a brief explanation or description (1-2 sentences). For invalid answers, suggest valid alternatives that start with the required letter."
+      important_instruction: "IMPORTANT: Be EXTREMELY strict in your validation. First check if answers start with the specified letter (case-insensitive). Then verify each answer exists in reality and is correctly spelled - misspelled entries like 'Föln' instead of 'Köln' are INVALID. For each answer, provide an explanation whether it's valid or invalid (1-2 sentences). For invalid answers, explain why it's invalid and suggest valid alternatives that start with the required letter. If an answer looks like a misspelling of a real entity, explicitly point this out in your explanation."
     });
 
     console.log(`Sending validation request for letter ${letter} with answers:`, answers);
@@ -234,6 +234,68 @@ async function validateAnswers(letter, answers) {
       // Try to parse the response as JSON
       const parsedResponse = JSON.parse(cleanedJson);
       console.log('Parsed validation result:', parsedResponse);
+      
+      // Ensure explanations object exists
+      if (!parsedResponse.explanations) {
+        parsedResponse.explanations = {};
+      }
+      
+      // Generate explanations for any missing categories
+      Object.keys(answers).forEach(category => {
+        const answer = answers[category];
+        if (answer && !parsedResponse.explanations[category]) {
+          if (parsedResponse.errors && parsedResponse.errors.some(err => err.includes(category))) {
+            // Find matching error
+            const matchingError = parsedResponse.errors.find(err => err.includes(category));
+            parsedResponse.explanations[category] = matchingError || 
+              `"${answer}" is not a valid ${category} starting with "${letter}". It may be misspelled or not exist.`;
+          } else if (parsedResponse.valid) {
+            // Generate basic explanation for valid answer
+            parsedResponse.explanations[category] = 
+              `"${answer}" is a valid ${category} starting with "${letter}".`;
+          }
+        }
+      });
+      
+      // Check for common misspellings in Stadt category
+      if (answers.Stadt && typeof answers.Stadt === 'string') {
+        const stadtAnswer = answers.Stadt.trim();
+        
+        // List of commonly misspelled German cities
+        const misspellings = {
+          "Föln": "Köln",
+          "Koln": "Köln",
+          "Muenchen": "München",
+          "Munchen": "München",
+          "Frankfort": "Frankfurt",
+          "Nurnberg": "Nürnberg",
+          "Nurenberg": "Nürnberg",
+          "Dusseldorf": "Düsseldorf"
+        };
+        
+        // Check if answer is a known misspelling
+        if (Object.keys(misspellings).includes(stadtAnswer)) {
+          const correctCity = misspellings[stadtAnswer];
+          
+          // Only mark as invalid if the correct spelling starts with the same letter
+          if (correctCity.toLowerCase().startsWith(letter.toLowerCase())) {
+            if (!parsedResponse.errors) parsedResponse.errors = [];
+            
+            const errorMsg = `Stadt: "${stadtAnswer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
+            if (!parsedResponse.errors.includes(errorMsg)) {
+              parsedResponse.errors.push(errorMsg);
+            }
+            
+            parsedResponse.explanations.Stadt = errorMsg;
+            parsedResponse.valid = false;
+            
+            // Add a suggestion
+            if (!parsedResponse.suggestions) parsedResponse.suggestions = {};
+            parsedResponse.suggestions.Stadt = correctCity;
+          }
+        }
+      }
+      
       return parsedResponse;
     } catch (e) {
       console.error('Failed to parse assistant response as JSON:', content);
@@ -246,6 +308,8 @@ async function validateAnswers(letter, answers) {
       const categories = Object.keys(answers);
       const errors = [];
       let allValid = true;
+      const explanations = {};
+      const suggestions = {};
       
       categories.forEach(category => {
         const answer = answers[category];
@@ -253,53 +317,102 @@ async function validateAnswers(letter, answers) {
         
         // Check if answer starts with the correct letter (case insensitive)
         if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
-          errors.push(`${category}: "${answer}" does not start with the letter "${letter}"`);
+          const errorMsg = `${category}: "${answer}" does not start with the letter "${letter}"`;
+          errors.push(errorMsg);
+          explanations[category] = errorMsg;
           allValid = false;
-        }
-        
-        // Look for category-specific validation issues in the text
-        if (content.toLowerCase().includes(`${category.toLowerCase()}`) && 
-            content.toLowerCase().includes(`${answer.toLowerCase()}`) && 
-            (content.toLowerCase().includes('invalid') || 
-             content.toLowerCase().includes('error') || 
-             content.toLowerCase().includes('not valid'))) {
-          
-          // Find specific error message for this category
-          const lines = content.split('\n');
-          for (const line of lines) {
-            if (line.toLowerCase().includes(category.toLowerCase()) && 
-                (line.toLowerCase().includes('invalid') || 
-                 line.toLowerCase().includes('error') || 
-                 line.toLowerCase().includes('not valid'))) {
+        } else {
+          // Look for category-specific validation issues in the text
+          if (content.toLowerCase().includes(`${category.toLowerCase()}`) && 
+              content.toLowerCase().includes(`${answer.toLowerCase()}`)) {
+            
+            // Find specific error message for this category
+            const lines = content.split('\n');
+            let foundExplanation = false;
+            
+            for (const line of lines) {
+              if (line.toLowerCase().includes(category.toLowerCase()) && 
+                  line.toLowerCase().includes(answer.toLowerCase())) {
+                
+                if (line.toLowerCase().includes('invalid') || 
+                    line.toLowerCase().includes('error') || 
+                    line.toLowerCase().includes('not valid') ||
+                    line.toLowerCase().includes('misspell')) {
+                  errors.push(`${category}: ${line.trim()}`);
+                  explanations[category] = line.trim();
+                  allValid = false;
+                  foundExplanation = true;
+                  
+                  // Look for suggested alternatives
+                  const suggestionMatch = line.match(/suggest\w*\s+['""]?([^'""]+)['""]?/i) || 
+                                         content.match(new RegExp(`${category}[^.]*suggest\\w*\\s+['"\`]?([^'"\`]+)['"\`]?`, 'i'));
+                  if (suggestionMatch && suggestionMatch[1]) {
+                    suggestions[category] = suggestionMatch[1].trim();
+                  }
+                } else {
+                  explanations[category] = line.trim();
+                  foundExplanation = true;
+                }
+                break;
+              }
+            }
+            
+            if (!foundExplanation) {
+              explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
+            }
+          } else {
+            // Check for common misspellings in Stadt category
+            if (category === 'Stadt') {
+              const misspellings = {
+                "Föln": "Köln",
+                "Koln": "Köln",
+                "Muenchen": "München",
+                "Munchen": "München",
+                "Frankfort": "Frankfurt",
+                "Nurnberg": "Nürnberg",
+                "Nurenberg": "Nürnberg",
+                "Dusseldorf": "Düsseldorf"
+              };
               
-              errors.push(`${category}: ${line.trim()}`);
-              allValid = false;
-              break;
+              if (Object.keys(misspellings).includes(answer)) {
+                const correctCity = misspellings[answer];
+                const errorMsg = `${category}: "${answer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
+                errors.push(errorMsg);
+                explanations[category] = errorMsg;
+                suggestions[category] = correctCity;
+                allValid = false;
+              } else {
+                explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
+              }
+            } else {
+              explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
             }
           }
         }
       });
       
-      // Create suggestions object
-      const suggestions = {};
-      categories.forEach(category => {
-        const lines = content.split('\n');
-        for (const line of lines) {
-          if (line.toLowerCase().includes(category.toLowerCase()) && 
-              line.toLowerCase().includes('suggest')) {
-            const suggestionMatch = line.match(/suggest\w*\s+['""]?([^'""]+)['""]?/i);
-            if (suggestionMatch && suggestionMatch[1]) {
-              suggestions[category] = suggestionMatch[1].trim();
+      // Create suggestions object from content if not already populated
+      if (Object.keys(suggestions).length === 0) {
+        categories.forEach(category => {
+          const lines = content.split('\n');
+          for (const line of lines) {
+            if (line.toLowerCase().includes(category.toLowerCase()) && 
+                line.toLowerCase().includes('suggest')) {
+              const suggestionMatch = line.match(/suggest\w*\s+['""]?([^'""]+)['""]?/i);
+              if (suggestionMatch && suggestionMatch[1]) {
+                suggestions[category] = suggestionMatch[1].trim();
+              }
             }
           }
-        }
-      });
+        });
+      }
       
       // If parsing fails, return a structured response
       const result = {
         valid: allValid,
         errors,
-        suggestions
+        suggestions,
+        explanations
       };
       
       console.log('Extracted validation result from text:', result);
@@ -311,19 +424,51 @@ async function validateAnswers(letter, answers) {
     // Fallback validation if API fails
     const errors = [];
     let allValid = true;
+    const explanations = {};
+    const suggestions = {};
     
     // Basic validation: check if answers start with the correct letter
     Object.entries(answers).forEach(([category, answer]) => {
-      if (answer && !answer.toLowerCase().startsWith(letter.toLowerCase())) {
-        errors.push(`${category}: "${answer}" does not start with the letter "${letter}"`);
+      if (!answer) return;
+      
+      if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
+        const errorMsg = `${category}: "${answer}" does not start with the letter "${letter}"`;
+        errors.push(errorMsg);
+        explanations[category] = errorMsg;
         allValid = false;
+      } else if (category === 'Stadt') {
+        // Check for common misspellings in Stadt category
+        const misspellings = {
+          "Föln": "Köln",
+          "Koln": "Köln",
+          "Muenchen": "München",
+          "Munchen": "München",
+          "Frankfort": "Frankfurt",
+          "Nurnberg": "Nürnberg",
+          "Nurenberg": "Nürnberg",
+          "Dusseldorf": "Düsseldorf"
+        };
+        
+        if (Object.keys(misspellings).includes(answer)) {
+          const correctCity = misspellings[answer];
+          const errorMsg = `${category}: "${answer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
+          errors.push(errorMsg);
+          explanations[category] = errorMsg;
+          suggestions[category] = correctCity;
+          allValid = false;
+        } else {
+          explanations[category] = `"${answer}" starts with the letter "${letter}".`;
+        }
+      } else {
+        explanations[category] = `"${answer}" starts with the letter "${letter}".`;
       }
     });
     
     const result = {
       valid: allValid,
       errors,
-      suggestions: {}
+      suggestions,
+      explanations
     };
     
     console.log('Fallback validation result:', result);

@@ -27,14 +27,20 @@ const screens = {
 
 // Helper functions
 function showScreen(screenId) {
-  document.querySelectorAll('.game-screen').forEach(screen => {
-    screen.classList.add('hidden');
+  // Hide all screens first
+  document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');
+    screen.classList.add('hidden');
   });
-  const targetScreen = document.getElementById(`${screenId}-screen`);
+  
+  // Then show the requested screen with a fade-in animation
+  const targetScreen = document.getElementById(screenId);
   if (targetScreen) {
     targetScreen.classList.remove('hidden');
-    targetScreen.classList.add('active');
+    // Small delay to allow the DOM to update before adding the active class
+    setTimeout(() => {
+      targetScreen.classList.add('active');
+    }, 50);
   }
 }
 
@@ -102,44 +108,59 @@ function updatePlayerList(players, adminId) {
   }
 }
 
-function updateScores() {
+function updateScores(players) {
   const scoresList = document.getElementById('scores-list');
   if (!scoresList) return;
   
-  // Get players and sort by score
-  const sortedPlayers = [...gameState.players].sort((a, b) => {
-    return (b.score || 0) - (a.score || 0);
-  });
-  
+  // Clear previous scores
   scoresList.innerHTML = '';
   
+  // Get players array either from parameter or gameState
+  const playerArray = players || gameState.players;
+  
+  // Sort players by score in descending order
+  const sortedPlayers = [...playerArray].sort((a, b) => (b.score || 0) - (a.score || 0));
+  
+  // Create and append list items for each player
   sortedPlayers.forEach((player, index) => {
     const li = document.createElement('li');
-    li.classList.add('score-item');
+    li.className = 'player-item';
     
-    // Highlight current player
+    // Add 'current-player' class if this is the current user
     if (player.id === socket.id) {
       li.classList.add('current-player');
     }
     
-    // Add ranking
-    const rankBadge = document.createElement('span');
-    rankBadge.classList.add('rank');
-    rankBadge.textContent = `#${index + 1}`;
-    li.appendChild(rankBadge);
+    // Create rank badge with appropriate class
+    const rankDiv = document.createElement('div');
+    rankDiv.className = `rank-badge${index === 0 ? ' rank-1' : ''}`;
+    rankDiv.id = `rank-${index + 1}`;
+    rankDiv.textContent = index + 1;
     
-    // Add player name
-    const playerName = document.createElement('span');
-    playerName.classList.add('player-name');
-    playerName.textContent = `${player.name}${player.id === socket.id ? ' (You)' : ''}`;
-    li.appendChild(playerName);
+    // Create player name div
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'player-name';
+    nameDiv.textContent = player.name;
     
-    // Add score
-    const scoreSpan = document.createElement('span');
-    scoreSpan.classList.add('score');
-    scoreSpan.textContent = `${player.score || 0} pts`;
-    li.appendChild(scoreSpan);
+    // Add indication if this is the current player
+    if (player.id === socket.id) {
+      const youSpan = document.createElement('span');
+      youSpan.className = 'you-label';
+      youSpan.textContent = ' (You)';
+      nameDiv.appendChild(youSpan);
+    }
     
+    // Create score div
+    const scoreDiv = document.createElement('div');
+    scoreDiv.className = 'player-score';
+    scoreDiv.textContent = `${player.score || 0} pts`;
+    
+    // Add all elements to the list item
+    li.appendChild(rankDiv);
+    li.appendChild(nameDiv);
+    li.appendChild(scoreDiv);
+    
+    // Add the list item to the scores list
     scoresList.appendChild(li);
   });
 }
@@ -440,100 +461,8 @@ socket.on('message', (data) => {
         resultLetterEl.textContent = gameState.currentLetter;
       }
       
-      // Create improved results table with categories in columns
-      const resultsBody = document.getElementById('results-body');
-      if (resultsBody) {
-        resultsBody.innerHTML = '';
-        
-        // Get all players
-        const players = gameState.players;
-        
-        // Check if we have scores data
-        if (!data.scores || Object.keys(data.scores).length === 0) {
-          // No scores data, display a message
-          const noResultsRow = document.createElement('tr');
-          noResultsRow.innerHTML = `
-            <td colspan="4" style="text-align: center; padding: 2rem;">
-              <p>No results available for this round.</p>
-            </td>
-          `;
-          resultsBody.appendChild(noResultsRow);
-        } else {
-          // For each category, create a section in the results table
-          CATEGORIES.forEach(category => {
-            // Add a category header row
-            const categoryRow = document.createElement('tr');
-            categoryRow.className = 'category-header';
-            categoryRow.innerHTML = `
-              <td colspan="4" class="category-name">${category}</td>
-            `;
-            resultsBody.appendChild(categoryRow);
-            
-            // Check if we have results for this category
-            let hasResultsForCategory = false;
-            
-            // For each player, show their answer and score for this category
-            Object.values(players).forEach(player => {
-              // Verify the data structure and ensure we have scores for this category and player
-              if (data.scores[category] && data.scores[category][player.id]) {
-                hasResultsForCategory = true;
-                const scoreData = data.scores[category][player.id];
-                
-                const row = document.createElement('tr');
-                
-                // Highlight current player's rows
-                if (player.id === socket.id) {
-                  row.classList.add('current-player');
-                }
-                
-                // Determine score class based on points
-                let scoreClass = '';
-                const points = scoreData.score || 0;
-                
-                if (points === 20) {
-                  scoreClass = 'score-unique';
-                } else if (points === 10) {
-                  scoreClass = 'score-valid';
-                } else {
-                  scoreClass = 'score-invalid';
-                }
-                
-                row.innerHTML = `
-                  <td>${player.name}${player.id === socket.id ? ' (You)' : ''}</td>
-                  <td>${scoreData.answer || '-'}</td>
-                  <td><span class="${scoreClass}">${points} points</span></td>
-                  <td>${scoreData.explanation || ''}</td>
-                `;
-                
-                resultsBody.appendChild(row);
-              }
-            });
-            
-            // If no results for this category, show a message
-            if (!hasResultsForCategory) {
-              const noResultsRow = document.createElement('tr');
-              noResultsRow.innerHTML = `
-                <td colspan="4" style="text-align: center; padding: 1rem; color: var(--text-secondary);">
-                  No valid answers for this category
-                </td>
-              `;
-              resultsBody.appendChild(noResultsRow);
-            }
-            
-            // Add a spacer row after each category
-            const spacerRow = document.createElement('tr');
-            spacerRow.className = 'category-spacer';
-            spacerRow.innerHTML = '<td colspan="4"></td>';
-            resultsBody.appendChild(spacerRow);
-          });
-        }
-      }
-      
-      // Update scores list
-      updateScores();
-      
-      // Switch to results screen
-      showScreen('results');
+      // Add animation to the round results display
+      displayRoundResults(data);
       break;
       
     case 'error':
@@ -731,4 +660,176 @@ function showError(message) {
   
   errorMessage.textContent = message;
   errorModal.classList.remove('hidden');
+}
+
+// Add animation to the round results display
+function displayRoundResults(data) {
+  if (gameState.timerInterval) {
+    clearInterval(gameState.timerInterval);
+    gameState.timerInterval = null;
+  }
+  
+  // Update player data with the new scores
+  gameState.players = data.players;
+  
+  console.log("Scores data structure:", data.scores);
+  
+  // Clear the results area first
+  const resultsTable = document.getElementById('results-table');
+  resultsTable.innerHTML = '';
+  
+  if (!data.scores || Object.keys(data.scores).length === 0) {
+    const noResultsMsg = document.createElement('div');
+    noResultsMsg.className = 'no-results-message';
+    noResultsMsg.textContent = 'No results available for this round.';
+    resultsTable.appendChild(noResultsMsg);
+  } else {
+    // Create an improved results table with categories in columns
+    const table = document.createElement('table');
+    table.className = 'results-grid animated-table';
+    
+    // Create header row with categories
+    const headerRow = document.createElement('tr');
+    
+    // Add player name column header
+    const playerHeader = document.createElement('th');
+    playerHeader.textContent = 'Player';
+    headerRow.appendChild(playerHeader);
+    
+    // Get all unique categories
+    const allCategories = new Set();
+    Object.values(data.scores).forEach(playerScores => {
+      Object.keys(playerScores).forEach(category => {
+        if (category !== 'total') {
+          allCategories.add(category);
+        }
+      });
+    });
+    
+    // Add category headers
+    Array.from(allCategories).sort().forEach(category => {
+      const th = document.createElement('th');
+      th.textContent = category;
+      headerRow.appendChild(th);
+    });
+    
+    // Add total score header
+    const totalHeader = document.createElement('th');
+    totalHeader.textContent = 'Total';
+    headerRow.appendChild(totalHeader);
+    
+    table.appendChild(headerRow);
+    
+    // Create a row for each player
+    Object.keys(data.scores).forEach((playerId, index) => {
+      const playerScores = data.scores[playerId];
+      const playerName = data.players.find(p => p.id === playerId)?.name || 'Unknown Player';
+      
+      const row = document.createElement('tr');
+      
+      // Add animation delay for staggered appearance
+      row.style.animationDelay = `${index * 0.1}s`;
+      
+      // If this is the current player, highlight the row
+      if (playerId === socket.id) {
+        row.classList.add('current-player-row');
+      }
+      
+      // Add player name cell
+      const nameCell = document.createElement('td');
+      nameCell.className = 'player-name-cell';
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = playerName;
+      
+      if (playerId === socket.id) {
+        nameSpan.innerHTML += ' <span class="you-label">(You)</span>';
+      }
+      
+      nameCell.appendChild(nameSpan);
+      row.appendChild(nameCell);
+      
+      // Add cells for each category
+      Array.from(allCategories).sort().forEach(category => {
+        const td = document.createElement('td');
+        
+        if (playerScores[category]) {
+          const pointsObj = playerScores[category];
+          const answerText = pointsObj.answer || '-';
+          const points = pointsObj.points || 0;
+          const explanation = pointsObj.explanation || '';
+          
+          // Create wrapper for answer and points
+          const answerDiv = document.createElement('div');
+          answerDiv.className = 'answer-container';
+          
+          // Add the answer text
+          const answerSpan = document.createElement('span');
+          answerSpan.className = `answer-text score-${points > 0 ? 'valid' : 'invalid'}`;
+          answerSpan.textContent = answerText;
+          answerDiv.appendChild(answerSpan);
+          
+          // Add the points badge
+          const pointsBadge = document.createElement('span');
+          pointsBadge.className = `points-badge ${points > 0 ? 'valid-points' : 'invalid-points'}`;
+          pointsBadge.textContent = points;
+          answerDiv.appendChild(pointsBadge);
+          
+          td.appendChild(answerDiv);
+          
+          // Format and add explanation if available
+          if (explanation) {
+            const explanationDiv = document.createElement('div');
+            explanationDiv.className = 'answer-explanation';
+            
+            // Format the explanation based on validity
+            if (points > 0) {
+              explanationDiv.innerHTML = `<strong>✓ Valid:</strong> ${explanation}`;
+            } else {
+              const parts = explanation.split(/\s*\.\s*/);
+              let formattedExplanation = `<strong>✗ Invalid:</strong> ${parts[0]}.`;
+              
+              // Add suggestions in a highlighted way if they exist
+              if (explanation.toLowerCase().includes('suggest')) {
+                const suggestionMatch = explanation.match(/suggest\w*\s+['"]?([^'"]+)['"]?/i);
+                if (suggestionMatch && suggestionMatch[1]) {
+                  formattedExplanation += ` <span class="suggestion">Suggestion: ${suggestionMatch[1]}</span>`;
+                }
+              } else if (parts.length > 1) {
+                formattedExplanation += ` ${parts.slice(1).join('. ')}`;
+              }
+              
+              explanationDiv.innerHTML = formattedExplanation;
+            }
+            
+            td.appendChild(explanationDiv);
+          }
+          
+          // Add appropriate class based on points
+          td.classList.add(points > 0 ? 'valid-answer' : 'invalid-answer');
+        } else {
+          td.textContent = '-';
+          td.classList.add('no-answer');
+        }
+        
+        row.appendChild(td);
+      });
+      
+      // Add total score cell
+      const totalCell = document.createElement('td');
+      totalCell.className = 'total-score';
+      totalCell.textContent = playerScores.total || '0';
+      row.appendChild(totalCell);
+      
+      table.appendChild(row);
+    });
+    
+    resultsTable.appendChild(table);
+  }
+  
+  // Update the leaderboard with the new scores
+  updateScores(data.players);
+  
+  // Show results screen
+  showScreen('results');
 } 
