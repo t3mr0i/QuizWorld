@@ -524,6 +524,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  // Setup dynamic button text for join/create game
+  setupDynamicJoinButton();
+
   // Join Game button
   const joinGameBtn = document.getElementById('join-game-btn');
   if (joinGameBtn) {
@@ -626,6 +629,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const roomInput = document.getElementById('room-id');
     if (roomInput) {
       roomInput.value = roomParam;
+      // Update button text after setting room ID from URL
+      updateJoinButtonText();
     }
   }
   
@@ -644,6 +649,41 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// Function to setup the dynamic join/create button functionality
+function setupDynamicJoinButton() {
+  const roomIdInput = document.getElementById('room-id');
+  const joinGameBtn = document.getElementById('join-game-btn');
+  
+  if (roomIdInput && joinGameBtn) {
+    // Set initial button text based on room ID input
+    updateJoinButtonText();
+    
+    // Update button text when room ID input changes
+    roomIdInput.addEventListener('input', updateJoinButtonText);
+  }
+}
+
+// Function to update the join/create button text and help text based on room ID input
+function updateJoinButtonText() {
+  const roomIdInput = document.getElementById('room-id');
+  const joinGameBtn = document.getElementById('join-game-btn');
+  
+  if (!roomIdInput || !joinGameBtn) return;
+  
+  const roomIdHelp = roomIdInput.nextElementSibling; // The small help text element
+  const hasRoomId = roomIdInput.value.trim() !== '';
+  
+  // Update button text
+  joinGameBtn.textContent = hasRoomId ? 'Join Game' : 'Create Game';
+  
+  // Update helper text
+  if (roomIdHelp) {
+    roomIdHelp.textContent = hasRoomId 
+      ? 'Join an existing game room' 
+      : 'Leave empty to create a new game room';
+  }
+}
 
 // Helper functions
 function showError(message) {
