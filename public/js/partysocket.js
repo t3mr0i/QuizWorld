@@ -24,8 +24,30 @@ class GamePartySocket {
     this.ws = null;
     this.connectionState = 'disconnected';
     this.events = {};
+    this.connectionTimeout = null;
     
     console.log(`GamePartySocket initialized with host: ${this.host}`);
+  }
+  
+  // Test if the PartyKit server is accessible
+  async testConnection() {
+    try {
+      // Try to fetch from the server with a HEAD request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`https://${this.host}`, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      return true;
+    } catch (error) {
+      console.error('Server connection test failed:', error);
+      return false;
+    }
   }
   
   connectToRoom(roomId, playerName, timeLimit) {
@@ -68,6 +90,17 @@ class GamePartySocket {
       
       this.connection = new WebSocket(url);
       
+      // Set connection timeout
+      this.connectionTimeout = setTimeout(() => {
+        if (!this.connected) {
+          console.error('Connection timed out');
+          if (this.connection) {
+            this.connection.close();
+          }
+          this.triggerEvent('error', { message: 'Connection timed out. Server may be unavailable.' });
+        }
+      }, 10000);
+      
       // Set up event handlers
       this.connection.onopen = this.handleOpen.bind(this);
       this.connection.onmessage = this.handleMessage.bind(this);
@@ -83,6 +116,13 @@ class GamePartySocket {
     console.log('Connection established to game server');
     this.connected = true;
     this.reconnectAttempts = 0;
+    this.connectionState = 'connected';
+    
+    // Clear connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
     
     // Set connection ID if available
     if (event.target && event.target.url) {
@@ -125,37 +165,73 @@ class GamePartySocket {
   handleClose(event) {
     console.log(`Connection closed: ${event.code} ${event.reason}`);
     this.connected = false;
+    this.connectionState = 'disconnected';
+    
+    // Clear connection timeout if it exists
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+    
+    // Don't attempt to reconnect for normal closure
+    if (event.code === 1000) {
+      console.log('Normal closure, not attempting to reconnect');
+      this.triggerEvent('disconnect');
+      return;
+    }
     
     // Attempt to reconnect if needed
     if (this.playerData && this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       this.reconnecting = true;
+      this.connectionState = 'reconnecting';
       
       console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       
+      // Exponential backoff for reconnection attempts
+      const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts - 1), 10000);
+      
       setTimeout(() => {
         if (this.playerData) {
-          this.connectToRoom(
-            this.playerData.roomId,
-            this.playerData.playerName,
-            this.playerData.timeLimit
-          );
+          // Test the connection before trying to reconnect
+          this.testConnection().then(isConnectable => {
+            if (isConnectable) {
+              this.connectToRoom(
+                this.playerData.roomId,
+                this.playerData.playerName,
+                this.playerData.timeLimit
+              );
+            } else {
+              console.error('Server appears to be down, not attempting further connection');
+              this.triggerEvent('error', { 
+                message: 'Game server appears to be offline. Please try again later.' 
+              });
+              this.triggerEvent('disconnect');
+            }
+          });
         }
-      }, 1000 * Math.min(this.reconnectAttempts, 5));
+      }, delay);
     } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Maximum reconnection attempts reached');
       this.triggerEvent('error', { 
         message: 'Could not reconnect to game server after multiple attempts' 
       });
+      this.triggerEvent('disconnect');
+    } else {
+      this.triggerEvent('disconnect');
     }
-    
-    // Trigger disconnect event
-    this.triggerEvent('disconnect');
   }
   
   handleError(error) {
     console.error('Connection error:', error);
+    this.connectionState = 'error';
     this.triggerEvent('error', { message: 'Connection error' });
+    
+    // Clear connection timeout if it exists
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
   }
   
   send(data) {
@@ -212,7 +288,8 @@ class GamePartySocket {
       connectionState: this.connectionState,
       reconnectAttempts: this.reconnectAttempts,
       maxReconnectAttempts: this.maxReconnectAttempts,
-      playerData: this.playerData
+      playerData: this.playerData,
+      host: this.host
     };
   }
   

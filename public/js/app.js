@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Join Game button
   const joinGameBtn = document.getElementById('join-game-btn');
   if (joinGameBtn) {
-    joinGameBtn.addEventListener('click', () => {
+    joinGameBtn.addEventListener('click', async () => {
       const nameInput = document.getElementById('player-name');
       const roomInput = document.getElementById('room-id');
       const timeInput = document.getElementById('time-limit');
@@ -541,17 +541,38 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      // Update game state
-      gameState.playerName = nameInput.value.trim();
-      gameState.roomId = roomInput.value.trim();
-      gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
+      // Update UI to show connecting state
+      const originalText = joinGameBtn.textContent;
+      joinGameBtn.disabled = true;
+      joinGameBtn.textContent = 'Connecting...';
       
-      // Connect to socket and join room
-      socket.connectToRoom(
-        gameState.roomId,
-        gameState.playerName,
-        gameState.timeLimit
-      );
+      // Check server connection first
+      try {
+        const isServerOnline = await socket.testConnection();
+        
+        if (!isServerOnline) {
+          throw new Error('Game server appears to be offline. Please try again later.');
+        }
+        
+        // Update game state
+        gameState.playerName = nameInput.value.trim();
+        gameState.roomId = roomInput.value.trim();
+        gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
+        
+        // Connect to socket and join room
+        socket.connectToRoom(
+          gameState.roomId,
+          gameState.playerName,
+          gameState.timeLimit
+        );
+      } catch (error) {
+        console.error('Connection failed:', error);
+        showError(error.message || 'Failed to connect to game server. Please try again later.');
+        
+        // Reset button state
+        joinGameBtn.disabled = false;
+        joinGameBtn.textContent = originalText;
+      }
     });
   }
   
@@ -685,7 +706,7 @@ function updateJoinButtonText() {
   }
 }
 
-// Helper functions
+// Show error function
 function showError(message) {
   console.error(message);
   
@@ -700,6 +721,13 @@ function showError(message) {
   
   errorMessage.textContent = message;
   errorModal.classList.remove('hidden');
+  
+  // Reset join game button if it was disabled
+  const joinGameBtn = document.getElementById('join-game-btn');
+  if (joinGameBtn && joinGameBtn.disabled) {
+    joinGameBtn.disabled = false;
+    joinGameBtn.textContent = gameState.roomId ? 'Join Game' : 'Create Game';
+  }
 }
 
 // Add animation to the round results display

@@ -16,6 +16,35 @@
   <script>
     // This value will be replaced by environment variables during build or set by the server
     window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
+    
+    // Check if server is accessible by making a simple fetch request
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add server status indicator to the welcome screen
+      const welcomeCard = document.querySelector('.welcome-card .card-footer');
+      if (welcomeCard) {
+        const statusElement = document.createElement('div');
+        statusElement.id = 'server-status';
+        statusElement.className = 'server-status checking';
+        statusElement.innerHTML = 'Checking server status...';
+        welcomeCard.prepend(statusElement);
+        
+        // Try to fetch the server status
+        fetch(`https://${window.PARTYKIT_HOST}`, { 
+          method: 'HEAD',
+          mode: 'no-cors',
+          cache: 'no-cache'
+        })
+        .then(() => {
+          statusElement.className = 'server-status online';
+          statusElement.innerHTML = 'Game server is online';
+        })
+        .catch(err => {
+          statusElement.className = 'server-status offline';
+          statusElement.innerHTML = 'Game server appears to be offline. Please try again later.';
+          console.error('Server status check failed:', err);
+        });
+      }
+    });
   </script>
 </head>
 <body>
