@@ -189,16 +189,17 @@ function startTimer(duration) {
   let timeRemaining = duration;
   timerElement.textContent = timeRemaining;
   
+  // Reset timer classes
+  timerElement.classList.remove('timer-warning', 'timer-danger');
+  
   gameState.timerInterval = setInterval(() => {
     timeRemaining--;
     timerElement.textContent = timeRemaining;
     
     // Add visual indication for time running out
+    // Only turn red and enlarge in the last 10 seconds
     if (timeRemaining <= 10) {
-      timerElement.classList.add('timer-warning');
-    }
-    
-    if (timeRemaining <= 5) {
+      timerElement.classList.remove('timer-warning');
       timerElement.classList.add('timer-danger');
     }
     
