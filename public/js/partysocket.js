@@ -3,8 +3,16 @@
  * Handles connection to PartyKit server and provides event handling
  */
 class GamePartySocket {
-  constructor(host = window.location.host) {
-    this.host = host;
+  constructor(host) {
+    // Check for PARTYKIT_HOST in window object (set in index.html)
+    this.host = host || window.PARTYKIT_HOST || window.location.host;
+    
+    // Log host info for debugging
+    console.log('PartySocket host configuration:');
+    console.log('- window.PARTYKIT_HOST:', window.PARTYKIT_HOST);
+    console.log('- window.location.host:', window.location.host);
+    console.log('- Using host:', this.host);
+    
     this.connection = null;
     this.id = null;
     this.connected = false;
@@ -45,8 +53,8 @@ class GamePartySocket {
       // Determine protocol based on current page
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       
-      // Use the current host which includes the dynamic port assigned by PartyKit
-      const host = window.location.host;
+      // Use the configured host instead of always using window.location.host
+      const host = this.host;
       
       // Create URL with the party ID (room ID)
       // We need to use 'game' as the party name and pass the room ID as a parameter
@@ -218,10 +226,10 @@ class GamePartySocket {
   }
 }
 
-// Create a single global instance
+// Create a single instance for the application
 window.gameSocket = new GamePartySocket();
 
-// Backwards compatibility with Socket.IO style
+// Factory function for compatibility
 function io() {
   return window.gameSocket;
 } 

@@ -82,11 +82,39 @@ The validation uses a pre-configured assistant that's specialized for the "Stadt
 3. Configure the assistant with the "Stadt, Land, Fluss" validation instructions
 4. Copy the Assistant ID and API key to your `.env` file
 
-## Development
+## Deployment
+
+### Local Development
 
 To run in development mode with auto-restart:
 ```bash
 npm run dev
+```
+
+### Deploying to Vercel with PartyKit
+
+This game uses PartyKit for real-time multiplayer functionality. When deploying to Vercel, you need to configure it to work with your PartyKit server.
+
+1. Deploy your PartyKit server:
+```bash
+npx partykit deploy
+```
+
+2. Note the PartyKit domain (e.g., `your-app.partykit.dev`)
+
+3. Set up your Vercel project:
+```bash
+vercel
+```
+
+4. Add environment variables in Vercel project settings:
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `OPENAI_ASSISTANT_ID`: Your OpenAI Assistant ID
+   - `PARTYKIT_HOST`: Your PartyKit domain (e.g., `your-app.partykit.dev`)
+
+5. Deploy to production:
+```bash
+vercel --prod
 ```
 
 ## Technologies Used
@@ -95,6 +123,8 @@ npm run dev
 - Socket.IO for real-time communication
 - OpenAI Assistants API for answer validation
 - HTML, CSS, and JavaScript for the frontend
+- PartyKit for real-time multiplayer
+- Vercel for hosting
 
 ## License
 

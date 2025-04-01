@@ -28,12 +28,15 @@
       "dest": "public/css/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "public/$1"
+      "src": "/img/(.*)",
+      "dest": "public/img/$1"
     },
     {
-      "src": "/",
-      "dest": "public/index.html"
+      "src": "/(.*)",
+      "dest": "server/index.js"
     }
-  ]
+  ],
+  "env": {
+    "PARTYKIT_HOST": "PARTYKIT_HOST_VALUE"
+  }
 } 

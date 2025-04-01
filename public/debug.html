@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PartyKit Debug</title>
+  <title>PartyKit Debug Page</title>
   <style>
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
       line-height: 1.6;
     }
     h1 {
-      color: #333;
+      color: #e63946;
     }
     pre {
-      background-color: #f5f5f5;
-      padding: 1rem;
-      border-radius: 4px;
-      overflow-x: auto;
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-radius: 5px;
+      overflow: auto;
+      max-height: 400px;
     }
     .success {
       color: green;
@@ -30,109 +30,134 @@
       font-weight: bold;
     }
     button {
-      background-color: #4CAF50;
-      border: none;
+      background-color: #e63946;
       color: white;
-      padding: 10px 20px;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-      font-size: 16px;
-      margin: 4px 2px;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
       cursor: pointer;
-      border-radius: 4px;
+      margin-top: 10px;
+    }
+    input {
+      padding: 8px;
+      margin-top: 5px;
+      width: 300px;
+    }
+    .connection-info {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
   <h1>PartyKit Debug Page</h1>
-  <p>This page helps debug PartyKit file serving and WebSocket connections.</p>
+  <p>This page helps debug PartyKit WebSocket connections.</p>
   
-  <h2>File Serving</h2>
-  <p>If you can see this page, file serving is working!</p>
-  <ul>
-    <li><a href="/">Root (index.html)</a></li>
-    <li><a href="/css/styles.css">CSS file</a></li>
-    <li><a href="/js/app.js">Main app JS</a></li>
-    <li><a href="/js/partysocket.js">PartySocket adapter</a></li>
-    <li><a href="/favicon.png">Favicon</a></li>
-  </ul>
-
-  <h2>WebSocket Connection</h2>
-  <button id="connect-btn">Test WebSocket Connection</button>
-  <div id="connection-status"></div>
-  <pre id="connection-log"></pre>
-
+  <div class="connection-info">
+    <h2>Connection Information</h2>
+    <div>
+      <label for="host-input">PartyKit Host:</label><br>
+      <input type="text" id="host-input" value="stadt-land-fluss.t3mr0i.partykit.dev">
+    </div>
+    <button id="connect-btn">Test Connection</button>
+    <div id="connection-status"></div>
+  </div>
+  
+  <h2>Connection Log</h2>
+  <pre id="log"></pre>
+  
   <script>
+    // Configuration
+    const hostInput = document.getElementById('host-input');
     const connectBtn = document.getElementById('connect-btn');
     const connectionStatus = document.getElementById('connection-status');
-    const connectionLog = document.getElementById('connection-log');
+    const log = document.getElementById('log');
     
-    // Function to log messages
-    function log(message, isError = false) {
-      const timestamp = new Date().toISOString().substring(11, 19);
-      const logEntry = document.createElement('div');
-      logEntry.textContent = `[${timestamp}] ${message}`;
-      logEntry.className = isError ? 'error' : '';
-      connectionLog.appendChild(logEntry);
-      console.log(`[${timestamp}] ${message}`);
-      if (isError) console.error(message);
+    // Log function
+    function logMessage(msg, isError = false) {
+      const now = new Date().toISOString().split('T')[1].slice(0, -1);
+      const entry = document.createElement('div');
+      entry.innerHTML = `[${now}] ${msg}`;
+      if (isError) entry.className = 'error';
+      log.appendChild(entry);
+      console.log(`[${now}] ${msg}`);
+      log.scrollTop = log.scrollHeight;
     }
     
-    // Function to update connection status
-    function updateStatus(message, isSuccess = true) {
-      connectionStatus.textContent = message;
+    // Update status
+    function updateStatus(msg, isSuccess = true) {
+      connectionStatus.innerHTML = msg;
       connectionStatus.className = isSuccess ? 'success' : 'error';
     }
     
-    // Function to test WebSocket connection
+    // Test PartyKit connection
     connectBtn.addEventListener('click', function() {
+      const host = hostInput.value.trim();
+      if (!host) {
+        updateStatus('Please enter a host', false);
+        return;
+      }
+      
+      // Clear previous logs
+      log.innerHTML = '';
+      
+      logMessage(`Testing connection to PartyKit host: ${host}`);
       updateStatus('Connecting...', true);
-      log('Attempting to connect to PartyKit...');
       
-      // Determine host based on environment
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const host = isLocalhost ? 'localhost:1999' : window.location.host;
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      
+      // Get protocol
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const url = `${protocol}//${host}/party/game`;
-      log(`Connection URL: ${url}`);
       
-      // Create WebSocket connection
-      const socket = new WebSocket(url);
+      logMessage(`WebSocket URL: ${url}`);
       
-      socket.onopen = () => {
-        updateStatus('Connected to PartyKit!', true);
-        log('WebSocket connection established');
+      try {
+        const socket = new WebSocket(url);
         
-        // Send a test message
-        const testMessage = {
-          type: 'debug',
-          message: 'Hello from debug page',
-          timestamp: Date.now()
+        socket.onopen = function() {
+          logMessage('✅ Connection established!');
+          updateStatus('Connected successfully!', true);
+          
+          // Send a test message
+          const testMsg = JSON.stringify({
+            type: 'debug',
+            message: 'Hello from debug page',
+            timestamp: Date.now()
+          });
+          socket.send(testMsg);
+          logMessage(`Sent test message: ${testMsg}`);
         };
-        socket.send(JSON.stringify(testMessage));
-        log(`Sent test message: ${JSON.stringify(testMessage)}`);
-      };
-      
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          log(`Received message: ${JSON.stringify(data)}`);
-        } catch (error) {
-          log(`Received non-JSON message: ${event.data}`);
-        }
-      };
-      
-      socket.onclose = (event) => {
-        updateStatus(`Connection closed: Code ${event.code}`, false);
-        log(`WebSocket connection closed with code ${event.code}`, true);
-      };
-      
-      socket.onerror = (error) => {
-        updateStatus('Connection error', false);
-        log(`WebSocket error: ${error}`, true);
-      };
+        
+        socket.onmessage = function(event) {
+          logMessage(`Received message: ${event.data}`);
+        };
+        
+        socket.onclose = function(event) {
+          logMessage(`Connection closed: Code ${event.code}`, event.code !== 1000);
+          updateStatus(`Connection closed with code ${event.code}`, event.code === 1000);
+        };
+        
+        socket.onerror = function(error) {
+          logMessage(`WebSocket error: ${error}`, true);
+          updateStatus('Connection error', false);
+        };
+      } catch (error) {
+        logMessage(`Error creating WebSocket: ${error.message}`, true);
+        updateStatus('Failed to create WebSocket', false);
+      }
+    });
+    
+    // Environment info
+    logMessage('Environment information:');
+    logMessage(`User Agent: ${navigator.userAgent}`);
+    logMessage(`Page URL: ${window.location.href}`);
+    logMessage(`Protocol: ${window.location.protocol}`);
+    logMessage(`Host: ${window.location.host}`);
+    
+    // Add event to test with configured host
+    window.addEventListener('DOMContentLoaded', () => {
+      logMessage(`PartyKit host from window: ${window.PARTYKIT_HOST || 'Not set'}`);
     });
   </script>
 </body>

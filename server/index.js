@@ -5,6 +5,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const axios = require('axios');
+const fs = require('fs');
 const { validateAnswers } = require('./chatgpt-validator');
 
 // Check for required environment variables
@@ -13,6 +14,10 @@ if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_ASSISTANT_ID) {
   console.warn('\x1b[33m%s\x1b[0m', 'The game will run, but answer validation will be limited to basic checks.');
   console.warn('\x1b[33m%s\x1b[0m', 'Create a .env file based on the .env.example file to enable full validation.');
 }
+
+// PartyKit host configuration (fallback to localhost for development)
+const PARTYKIT_HOST = process.env.PARTYKIT_HOST || 'stadt-land-fluss.t3mr0i.partykit.dev';
+console.log(`Using PartyKit host: ${PARTYKIT_HOST}`);
 
 // Game constants
 const CATEGORIES = ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'];
@@ -23,7 +28,39 @@ const rooms = {};
 
 const app = express();
 app.use(cors());
+
+// Middleware to inject PartyKit host into HTML files
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(body) {
+    if (typeof body === 'string' && (req.path === '/' || req.path.endsWith('.html'))) {
+      body = body.replace(/__PARTYKIT_HOST__/g, PARTYKIT_HOST);
+    }
+    return originalSend.call(this, body);
+  };
+  next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Special handling for static files - modify HTML files before serving
+app.get('*.html', (req, res, next) => {
+  try {
+    const filePath = path.join(__dirname, '../public', req.path);
+    let html = fs.readFileSync(filePath, 'utf8');
+    html = html.replace(/__PARTYKIT_HOST__/g, PARTYKIT_HOST);
+    res.send(html);
+  } catch (error) {
+    next(); // Continue to static middleware if file not found
+  }
+});
+
+// Route to serve the main index.html file
+app.get('/', (req, res) => {
+  let html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  html = html.replace(/__PARTYKIT_HOST__/g, PARTYKIT_HOST);
+  res.send(html);
+});
 
 const server = http.createServer(app);
 const io = new Server(server);
