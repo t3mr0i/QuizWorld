@@ -24,7 +24,7 @@
     <main class="game-container">
       <!-- Welcome Screen -->
       <div id="welcome-screen" class="game-screen active">
-        <div class="card">
+        <div class="card welcome-card">
           <div class="card-header">
             <h2>Join a Game</h2>
           </div>
@@ -35,18 +35,20 @@
                 <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
               </div>
               
-              <div class="form-group">
-                <label for="room-id">Room ID</label>
-                <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
-                <small>Leave empty to create a new game room</small>
-              </div>
-              
-              <div class="form-group">
-                <label for="time-limit">Time Limit (seconds)</label>
-                <div class="time-selector">
-                  <button type="button" class="time-btn decrease">−</button>
-                  <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
-                  <button type="button" class="time-btn increase">+</button>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="room-id">Room ID</label>
+                  <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
+                  <small>Leave empty to create a new game room</small>
+                </div>
+                
+                <div class="form-group">
+                  <label for="time-limit">Time Limit (seconds)</label>
+                  <div class="time-selector">
+                    <button type="button" class="time-btn decrease">−</button>
+                    <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+                    <button type="button" class="time-btn increase">+</button>
+                  </div>
                 </div>
               </div>
               
@@ -61,7 +63,7 @@
 
       <!-- Lobby Screen -->
       <div id="lobby-screen" class="game-screen hidden">
-        <div class="card">
+        <div class="card lobby-card">
           <div class="card-header">
             <h2>Game Lobby</h2>
             <div class="room-info">
@@ -74,15 +76,17 @@
           </div>
           
           <div class="card-body">
-            <div class="player-section">
-              <h3>Players</h3>
-              <ul id="player-list" class="player-list"></ul>
-              <div id="waiting-message" class="waiting-message">Waiting for players to join...</div>
-            </div>
+            <div class="lobby-layout">
+              <div class="player-section">
+                <h3>Players</h3>
+                <ul id="player-list" class="player-list"></ul>
+                <div id="waiting-message" class="waiting-message">Waiting for players to join...</div>
+              </div>
 
-            <div id="admin-controls" class="admin-controls">
-              <button id="start-game-btn" class="btn btn-primary btn-large">Start Game</button>
-              <p id="admin-message" class="admin-message"></p>
+              <div id="admin-controls" class="admin-controls">
+                <button id="start-game-btn" class="btn btn-primary btn-large">Start Game</button>
+                <p id="admin-message" class="admin-message"></p>
+              </div>
             </div>
           </div>
         </div>
@@ -90,7 +94,7 @@
 
       <!-- Game Screen -->
       <div id="game-screen" class="game-screen hidden">
-        <div class="card">
+        <div class="card wide-card">
           <div class="card-header game-header">
             <div class="letter-display">
               <span class="label">Letter:</span>
@@ -104,7 +108,7 @@
 
           <div class="card-body">
             <form id="answers-form" class="answers-form">
-              <div class="categories-container">
+              <div class="categories-grid">
                 <!-- Categories will be dynamically populated -->
               </div>
               <button type="submit" id="submit-btn" class="btn btn-primary btn-large">Submit Answers</button>
@@ -115,39 +119,41 @@
 
       <!-- Results Screen -->
       <div id="results-screen" class="game-screen hidden">
-        <div class="card">
+        <div class="card wide-card">
           <div class="card-header">
             <h2>Round Results</h2>
             <div class="round-letter">Letter: <span id="result-letter" class="result-letter">A</span></div>
           </div>
           
           <div class="card-body">
-            <div class="results-container">
-              <div class="results-header">
-                <div class="results-title">Category Results</div>
-                <div class="results-subtitle">See how your answers compare!</div>
+            <div class="results-layout">
+              <div class="results-container">
+                <div class="results-header">
+                  <div class="results-title">Category Results</div>
+                  <div class="results-subtitle">See how your answers compare!</div>
+                </div>
+                
+                <table id="results-table" class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Answer</th>
+                      <th>Points</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody id="results-body">
+                    <!-- Results will be filled dynamically -->
+                  </tbody>
+                </table>
               </div>
               
-              <table id="results-table" class="results-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Answer</th>
-                    <th>Points</th>
-                    <th>Note</th>
-                  </tr>
-                </thead>
-                <tbody id="results-body">
-                  <!-- Results will be filled dynamically -->
-                </tbody>
-              </table>
-            </div>
-            
-            <div class="scores-container">
-              <h3>🏆 Leaderboard 🏆</h3>
-              <ul id="scores-list" class="scores-list">
-                <!-- Scores will be filled dynamically -->
-              </ul>
+              <div class="scores-container">
+                <h3>🏆 Leaderboard 🏆</h3>
+                <ul id="scores-list" class="scores-list">
+                  <!-- Scores will be filled dynamically -->
+                </ul>
+              </div>
             </div>
             
             <button id="next-round-btn" class="btn btn-primary btn-large">

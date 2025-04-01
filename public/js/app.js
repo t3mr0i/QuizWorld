@@ -145,10 +145,10 @@ function updateScores() {
 }
 
 function setupCategoriesForm(letter) {
-  const categoriesContainer = document.querySelector('.categories-container');
-  if (!categoriesContainer) return;
+  const categoriesGrid = document.querySelector('.categories-grid');
+  if (!categoriesGrid) return;
   
-  categoriesContainer.innerHTML = '';
+  categoriesGrid.innerHTML = '';
   
   CATEGORIES.forEach(category => {
     const categoryGroup = document.createElement('div');
@@ -167,11 +167,11 @@ function setupCategoriesForm(letter) {
     
     categoryGroup.appendChild(label);
     categoryGroup.appendChild(input);
-    categoriesContainer.appendChild(categoryGroup);
+    categoriesGrid.appendChild(categoryGroup);
   });
   
   // Focus the first input field
-  const firstInput = categoriesContainer.querySelector('input');
+  const firstInput = categoriesGrid.querySelector('input');
   if (firstInput) {
     firstInput.focus();
   }
