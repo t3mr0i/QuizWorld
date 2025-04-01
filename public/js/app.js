@@ -256,9 +256,24 @@ socket.on('message', (data) => {
     case 'joinedRoom':
       // Update game state
       gameState.roomId = data.roomId;
-      gameState.isAdmin = data.isAdmin;
-      gameState.adminId = data.adminId;
       gameState.players = data.players;
+      
+      // Make sure the admin ID is correctly set
+      gameState.adminId = data.adminId;
+      
+      // Important: Only update isAdmin status if this is about the current player
+      // For messages about other players joining, preserve current admin status
+      if (data.playerId === socket.id) {
+        gameState.isAdmin = data.isAdmin;
+      }
+      
+      // Log admin status for debugging
+      console.log('Admin status:', {
+        playerId: data.playerId, 
+        socketId: socket.id, 
+        adminId: data.adminId, 
+        isAdmin: gameState.isAdmin
+      });
       
       // Update UI
       const roomIdDisplay = document.getElementById('display-room-id');
@@ -268,10 +283,18 @@ socket.on('message', (data) => {
       
       updatePlayerList(data.players, data.adminId);
       
-      // Show/hide admin controls
+      // Show/hide admin controls based on current player's admin status
       const adminControls = document.getElementById('admin-controls');
       if (adminControls) {
-        adminControls.style.display = data.isAdmin ? 'block' : 'none';
+        console.log('Setting admin controls display to:', gameState.isAdmin ? 'block' : 'none');
+        adminControls.style.display = gameState.isAdmin ? 'block' : 'none';
+        
+        // Explicitly make sure the start game button is visible when admin controls are shown
+        const startGameBtn = document.getElementById('start-game-btn');
+        if (startGameBtn && gameState.isAdmin) {
+          console.log('Ensuring start game button is visible');
+          startGameBtn.style.display = 'block';
+        }
       }
       
       // Switch to lobby screen
@@ -281,8 +304,18 @@ socket.on('message', (data) => {
     case 'joined':
       // Update game state
       gameState.roomId = data.roomId;
-      gameState.isAdmin = data.isAdmin;
+      
+      // Set admin status based on the message
       gameState.adminId = data.adminId;
+      gameState.isAdmin = data.isAdmin; // For 'joined' we update our own admin status
+      
+      // Log for debugging
+      console.log('Joined with admin status:', {
+        socketId: socket.id, 
+        adminId: data.adminId, 
+        isAdmin: gameState.isAdmin
+      });
+      
       gameState.players = data.players;
       
       // Update UI
@@ -293,10 +326,18 @@ socket.on('message', (data) => {
       
       updatePlayerList(data.players, data.adminId);
       
-      // Show/hide admin controls
+      // Show/hide admin controls based on our admin status
       const adminPanel = document.getElementById('admin-controls');
       if (adminPanel) {
-        adminPanel.style.display = data.isAdmin ? 'block' : 'none';
+        console.log('Setting admin controls display to:', gameState.isAdmin ? 'block' : 'none');
+        adminPanel.style.display = gameState.isAdmin ? 'block' : 'none';
+        
+        // Explicitly make sure the start game button is visible when admin controls are shown
+        const startGameBtn = document.getElementById('start-game-btn');
+        if (startGameBtn && gameState.isAdmin) {
+          console.log('Ensuring start game button is visible');
+          startGameBtn.style.display = 'block';
+        }
       }
       
       // Switch to lobby screen
@@ -308,8 +349,30 @@ socket.on('message', (data) => {
       gameState.players = data.players;
       gameState.adminId = data.adminId;
       
+      // Log admin status for playerJoined event
+      console.log('playerJoined - Admin status:', {
+        socketId: socket.id, 
+        adminId: data.adminId,
+        isAdmin: gameState.isAdmin
+      });
+      
       // Update UI
       updatePlayerList(data.players, data.adminId);
+      
+      // Re-check admin controls visibility to ensure they stay visible
+      if (gameState.isAdmin) {
+        const adminControls = document.getElementById('admin-controls');
+        if (adminControls) {
+          console.log('Re-ensuring admin controls are visible after player join');
+          adminControls.style.display = 'block';
+          
+          // Make sure start game button is visible
+          const startGameBtn = document.getElementById('start-game-btn');
+          if (startGameBtn) {
+            startGameBtn.style.display = 'block';
+          }
+        }
+      }
       break;
       
     case 'playerLeft':

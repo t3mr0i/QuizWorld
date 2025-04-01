@@ -464,6 +464,14 @@ small {
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Ensure the Start Game button is visible when admin controls are shown */
+#start-game-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: var(--spacing-md);
 }
 
 .player-list {

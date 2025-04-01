@@ -278,22 +278,27 @@ export default class StadtLandFlussServer implements Party.Server {
       this.roomState.timeLimit = data.timeLimit;
     }
     
+    // First player becomes admin
+    const isFirstPlayer = Object.keys(this.roomState.players).length === 0;
+    
     // Add player to room
     this.roomState.players[sender.id] = {
       id: sender.id,
       name: playerName,
       answers: {},
       score: 0,
-      isAdmin: false,
+      isAdmin: isFirstPlayer,
       submitted: false
     };
     
     // If no admin, make this player the admin
-    if (!this.roomState.admin) {
+    if (!this.roomState.admin || isFirstPlayer) {
       this.roomState.admin = sender.id;
       this.roomState.players[sender.id].isAdmin = true;
     }
     
+    // Log admin status for debugging
+    console.log(`Player ${sender.id} (${playerName}) joining room ${this.roomId} - Admin: ${sender.id === this.roomState.admin}`);
     console.log(`Room ${this.roomId} now has ${Object.keys(this.roomState.players).length} players`);
     
     // Notify all players of new player
@@ -303,7 +308,7 @@ export default class StadtLandFlussServer implements Party.Server {
       playerName: playerName,
       players: Object.values(this.roomState.players),
       adminId: this.roomState.admin,
-      isAdmin: this.roomState.admin === sender.id,
+      isAdmin: sender.id === this.roomState.admin,
       timeLimit: this.roomState.timeLimit,
       roomId: this.roomId
     }));
