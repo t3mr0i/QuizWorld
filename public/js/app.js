@@ -18,7 +18,7 @@ const gameState = {
   // Add debugging fields
   lastSubmitTime: null,
   validationTimeoutId: null,
-  categories: []
+  categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Tier', 'Pflanze'] // Default categories
 };
 
 // DOM elements - get references to all screens
@@ -394,6 +394,12 @@ socket.on('message', (data) => {
       // Make sure the admin ID is correctly set
       gameState.adminId = data.adminId;
       
+      // Update categories if provided
+      if (data.categories) {
+        gameState.categories = data.categories;
+        renderCategoryList();
+      }
+      
       // Important: Only update isAdmin status if this is about the current player
       // For messages about other players joining, preserve current admin status
       if (data.playerId === socket.id) {
@@ -480,6 +486,12 @@ socket.on('message', (data) => {
       // Set admin status based on the message
       gameState.adminId = data.adminId;
       gameState.isAdmin = data.isAdmin; // For 'joined' we update our own admin status
+      
+      // Update categories if provided
+      if (data.categories) {
+        gameState.categories = data.categories;
+        renderCategoryList();
+      }
       
       // Log for debugging
       console.log('Joined with admin status:', {
@@ -703,9 +715,7 @@ socket.on('message', (data) => {
       gameState.categories = data.categories;
       
       // Update UI if in lobby
-      if (document.getElementById('lobby-screen').classList.contains('active')) {
-        showLobby();
-      }
+      renderCategoryList();
       break;
   }
 });
@@ -1207,16 +1217,27 @@ function getCategories() {
   return Array.from(categoryInputs).map(input => input.value.trim()).filter(Boolean);
 }
 
-// Add function to update categories
+// Add function to update categories with debounce
+let categoryUpdateTimeout = null;
 function updateCategories() {
-  const categories = getCategories();
-  if (categories.length === 0) return;
+  // Clear any existing timeout
+  if (categoryUpdateTimeout) {
+    clearTimeout(categoryUpdateTimeout);
+  }
   
-  // Send update to server
-  socket.send({
-    type: 'updateCategories',
-    categories: categories
-  });
+  // Set a timeout to avoid sending too many messages while typing
+  categoryUpdateTimeout = setTimeout(() => {
+    const categories = getCategories();
+    if (categories.length === 0) return;
+    
+    console.log('Updating categories:', categories);
+    
+    // Send update to server
+    socket.send({
+      type: 'updateCategories',
+      categories: categories
+    });
+  }, 300); // 300ms delay
 }
 
 // Update the join room function to include custom categories
@@ -1275,33 +1296,37 @@ function showLobby() {
         <div id="categoryList">
           ${gameState.categories ? gameState.categories.map(category => `
             <div class="category-input">
-              <input type="text" class="category-name" value="${category}" 
-                ${category === 'Stadt' || category === 'Land' || category === 'Fluss' ? 'readonly' : ''}
-                onchange="updateCategories()">
-              ${category !== 'Stadt' && category !== 'Land' && category !== 'Fluss' ? 
-                `<button class="remove-category" onclick="removeCategory(this)">×</button>` : ''}
+              <input type="text" class="category-name" value="${category}" onchange="updateCategories()">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
           `).join('') : `
             <div class="category-input">
-              <input type="text" class="category-name" value="Stadt" readonly>
+              <input type="text" class="category-name" value="Stadt">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Land" readonly>
+              <input type="text" class="category-name" value="Land">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Fluss" readonly>
+              <input type="text" class="category-name" value="Fluss">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Name" readonly>
+              <input type="text" class="category-name" value="Name">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Beruf" readonly>
+              <input type="text" class="category-name" value="Beruf">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Pflanze" readonly>
+              <input type="text" class="category-name" value="Pflanze">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
             <div class="category-input">
-              <input type="text" class="category-name" value="Tier" readonly>
+              <input type="text" class="category-name" value="Tier">
+              <button class="remove-category" onclick="removeCategory(this)">×</button>
             </div>
           `}
         </div>
@@ -1315,4 +1340,22 @@ function showLobby() {
 // Initialize game state
 function initializeGame() {
   // Implement any necessary initialization logic
+}
+
+// Add this function to render the category list
+function renderCategoryList() {
+  const categoryList = document.getElementById('categoryList');
+  if (!categoryList) return;
+  
+  categoryList.innerHTML = '';
+  
+  gameState.categories.forEach(category => {
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'category-input';
+    categoryDiv.innerHTML = `
+      <input type="text" class="category-name" value="${category}" onchange="updateCategories()">
+      <button class="remove-category" onclick="removeCategory(this)">×</button>
+    `;
+    categoryList.appendChild(categoryDiv);
+  });
 } 

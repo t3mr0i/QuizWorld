@@ -285,16 +285,8 @@ export default class StadtLandFlussServer implements Party.Server {
     
     // Update categories if provided
     if (categories && categories.length > 0) {
-      // Ensure required categories are present
-      const requiredCategories = ['Stadt', 'Land', 'Fluss'];
-      const missingRequired = requiredCategories.filter(cat => !categories.includes(cat));
-      
-      if (missingRequired.length > 0) {
-        // Add missing required categories
-        this.roomState.categories = [...new Set([...requiredCategories, ...categories])];
-      } else {
-        this.roomState.categories = categories;
-      }
+      // No longer enforce required categories - use whatever the client sends
+      this.roomState.categories = categories;
     }
     
     // Notify everyone in the room
@@ -511,16 +503,8 @@ export default class StadtLandFlussServer implements Party.Server {
       return;
     }
     
-    // Ensure required categories are present
-    const requiredCategories = ['Stadt', 'Land', 'Fluss'];
-    const missingRequired = requiredCategories.filter(cat => !categories.includes(cat));
-    
-    if (missingRequired.length > 0) {
-      // Add missing required categories
-      this.roomState.categories = [...new Set([...requiredCategories, ...categories])];
-    } else {
-      this.roomState.categories = categories;
-    }
+    // No longer enforce required categories - use whatever the client sends
+    this.roomState.categories = categories;
     
     // Save state
     this.party.storage.put(`room:${this.roomId}`, this.roomState);
