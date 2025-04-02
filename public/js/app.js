@@ -15,20 +15,10 @@ const gameState = {
   timeLimit: 60,
   players: [],
   timerInterval: null,
-  offlineMode: socket.offlineMode
+  // Add debugging fields
+  lastSubmitTime: null,
+  validationTimeoutId: null
 };
-
-// Check if in offline mode
-if (gameState.offlineMode) {
-  console.log('Game running in offline mode');
-  // Add offline mode indicator to the UI
-  document.addEventListener('DOMContentLoaded', () => {
-    const indicator = document.createElement('div');
-    indicator.className = 'offline-mode-indicator';
-    indicator.innerHTML = 'Offline Mode';
-    document.body.appendChild(indicator);
-  });
-}
 
 // DOM elements - get references to all screens
 const screens = {
@@ -40,20 +30,35 @@ const screens = {
 
 // Helper functions
 function showScreen(screenId) {
+  console.log(`Attempting to show screen: ${screenId}`);
+  
+  // If passed a simple name, convert to full ID
+  const fullScreenId = screenId.includes('-') ? screenId : `${screenId}-screen`;
+  
   // Hide all screens first
-  document.querySelectorAll('.screen').forEach(screen => {
+  document.querySelectorAll('.game-screen').forEach(screen => {
     screen.classList.remove('active');
     screen.classList.add('hidden');
+    console.log(`Hidden screen: ${screen.id}`);
   });
   
   // Then show the requested screen with a fade-in animation
-  const targetScreen = document.getElementById(screenId);
+  const targetScreen = document.getElementById(fullScreenId);
   if (targetScreen) {
+    console.log(`Showing screen: ${fullScreenId}`);
     targetScreen.classList.remove('hidden');
     // Small delay to allow the DOM to update before adding the active class
     setTimeout(() => {
       targetScreen.classList.add('active');
     }, 50);
+  } else {
+    console.error(`Screen not found: ${fullScreenId}`);
+    // List all available screens for debugging
+    const availableScreens = [];
+    document.querySelectorAll('.game-screen').forEach(screen => {
+      availableScreens.push(screen.id);
+    });
+    console.log(`Available screens: ${availableScreens.join(', ')}`);
   }
 }
 
@@ -259,6 +264,20 @@ function submitAnswers() {
     answers[input.name] = input.value.trim();
   });
   
+  console.log('===== ANSWER SUBMISSION DEBUG =====');
+  console.log('Submitting answers:', answers);
+  console.log('Current letter:', gameState.currentLetter);
+  console.log('Time limit:', gameState.timeLimit);
+  console.log('Room ID:', gameState.roomId);
+  console.log('Player name:', gameState.playerName);
+  console.log('===================================');
+  
+  // Check if any answers are empty
+  const emptyAnswers = Object.entries(answers).filter(([_, value]) => !value);
+  if (emptyAnswers.length > 0) {
+    console.warn('Some answers are empty:', emptyAnswers.map(([key]) => key));
+  }
+  
   // Add visual indication that answers are submitted
   answerInputs.forEach(input => {
     input.disabled = true;
@@ -274,17 +293,96 @@ function submitAnswers() {
   
   // Update game state
   gameState.submitted = true;
+  gameState.lastSubmitTime = Date.now();
+  
+  // Set a timeout to check if validation is taking too long
+  if (gameState.validationTimeoutId) {
+    clearTimeout(gameState.validationTimeoutId);
+  }
+  
+  gameState.validationTimeoutId = setTimeout(() => {
+    console.warn('⚠️ Answer validation is taking longer than expected (5s)');
+    console.log('Time since submission:', (Date.now() - gameState.lastSubmitTime) / 1000, 'seconds');
+    
+    // Check again at 10 seconds
+    gameState.validationTimeoutId = setTimeout(() => {
+      console.warn('⚠️ Answer validation appears to be stalled (10s without response)');
+      console.log('Time since submission:', (Date.now() - gameState.lastSubmitTime) / 1000, 'seconds');
+      console.log('This could indicate the server is not processing the validation or there is no API key configured');
+    }, 5000);
+  }, 5000);
   
   // Send answers to server
-  socket.send({
+  const messageData = {
     type: 'submitAnswers',
-    answers: answers
+    answers: answers,
+    letter: gameState.currentLetter, // Add letter for context
+    playerName: gameState.playerName // Add player name for logging
+  };
+
+  console.log('Sending message to server:', messageData);
+  const sendResult = socket.send(messageData);
+  console.log('Message send result:', sendResult);
+}
+
+// Add a temporary validation function to handle when server validation fails
+function validateAnswersLocally(answers, letter) {
+  if (!answers || !letter) return false;
+  
+  console.log('🧠 Performing local validation as fallback because server validation failed');
+  console.log('Letter:', letter, 'Answers:', answers);
+  
+  // Check if answers start with the correct letter (case-insensitive)
+  const results = {};
+  let allValid = true;
+  
+  Object.keys(answers).forEach(category => {
+    const answer = answers[category];
+    
+    // Skip validation for empty answers
+    if (!answer || answer.trim() === '') {
+      results[category] = { valid: false, points: 0, explanation: "Empty answer" };
+      return;
+    }
+    
+    // Basic check: does it start with the right letter?
+    const startsWithLetter = answer.trim().toLowerCase().startsWith(letter.toLowerCase());
+    
+    results[category] = {
+      answer: answer,
+      valid: startsWithLetter,
+      points: startsWithLetter ? 10 : 0, // Assign 10 points for valid answers (can't check uniqueness locally)
+      explanation: startsWithLetter 
+        ? `Accepted: Starts with letter ${letter}` 
+        : `Invalid: Does not start with letter ${letter}`
+    };
+    
+    if (!startsWithLetter) {
+      allValid = false;
+    }
   });
+  
+  console.log('Local validation results:', results);
+  return {
+    valid: allValid,
+    results: results
+  };
 }
 
 // Socket event handlers
 socket.on('message', (data) => {
   console.log('Received message:', data);
+  
+  // Clear validation timeout when we get any response
+  if (gameState.validationTimeoutId) {
+    clearTimeout(gameState.validationTimeoutId);
+    gameState.validationTimeoutId = null;
+  }
+  
+  if (data.type === 'playerSubmitted' || data.type === 'roundResults') {
+    console.log('✅ Received validation response after:', 
+      (Date.now() - (gameState.lastSubmitTime || Date.now())) / 1000, 'seconds');
+  }
   
   switch (data.type) {
     case 'joinedRoom':
@@ -329,10 +427,49 @@ socket.on('message', (data) => {
           console.log('Ensuring start game button is visible');
           startGameBtn.style.display = 'block';
         }
+      } else {
+        console.error('Admin controls element not found');
       }
+      
+      // Log screen transition
+      console.log('Transitioning to lobby screen, current screens:', {
+        welcome: document.getElementById('welcome-screen')?.className,
+        lobby: document.getElementById('lobby-screen')?.className
+      });
       
       // Switch to lobby screen
       showScreen('lobby');
+      
+      // Check if screen transition worked and force refresh if needed
+      setTimeout(() => {
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        
+        console.log('After transition, screen states:', {
+          welcome: welcomeScreen?.className,
+          lobby: lobbyScreen?.className
+        });
+        
+        // If lobby screen still has 'hidden' class after transition, force refresh
+        if (lobbyScreen && lobbyScreen.classList.contains('hidden')) {
+          console.warn('Lobby screen still hidden after transition - forcing refresh');
+          forceRefreshScreen('lobby');
+        }
+        
+        // Double check admin controls visibility
+        const adminControls = document.getElementById('admin-controls');
+        if (adminControls && gameState.isAdmin && adminControls.style.display !== 'block') {
+          console.warn('Admin controls not visible - fixing display');
+          adminControls.style.display = 'block';
+          
+          // Also ensure start button is visible
+          const startGameBtn = document.getElementById('start-game-btn');
+          if (startGameBtn) {
+            startGameBtn.style.display = 'block';
+          }
+        }
+      }, 200);
+      
       break;
       
     case 'joined':
@@ -479,7 +616,70 @@ socket.on('message', (data) => {
       break;
       
     case 'error':
-      showError(data.message);
+      console.error('Server error:', data);
+      
+      if (data.message === 'Error validating answers') {
+        console.error('VALIDATION ERROR DETAILS:');
+        console.error('- Current game state:', { 
+          letter: gameState.currentLetter,
+          roomId: gameState.roomId,
+          playerName: gameState.playerName,
+          timeLimit: gameState.timeLimit,
+          submitted: gameState.submitted
+        });
+        
+        // Log the answers that were submitted
+        const submittedAnswers = {};
+        document.querySelectorAll('.category-group input').forEach(input => {
+          submittedAnswers[input.name] = input.value;
+          console.error(`  ${input.name}: "${input.value}"`);
+        });
+        
+        console.error('- Players in game:', gameState.players);
+        console.error('- Error timestamp:', new Date().toISOString());
+        
+        // Try the fallback validation
+        if (gameState.submitted && gameState.currentLetter) {
+          const localValidation = validateAnswersLocally(submittedAnswers, gameState.currentLetter);
+          
+          console.log('Local validation results:', localValidation);
+          
+          // Show error with more helpful information about the server issue
+          showError(`Answer validation failed (API key issue on server). ${gameState.isAdmin ? "As the host, you can continue by starting the next round." : "Please wait for the host to start the next round."}`);
+          
+          // Show admin continue button if admin
+          if (gameState.isAdmin) {
+            const adminActions = document.createElement('div');
+            adminActions.className = 'admin-actions';
+            adminActions.innerHTML = `
+              <button class="btn btn-accent" id="admin-continue-btn">
+                Start Next Round
+              </button>
+            `;
+            
+            // Find where to insert the admin actions
+            const errorMessage = document.getElementById('error-message');
+            if (errorMessage) {
+              errorMessage.appendChild(adminActions);
+              
+              // Add event listener
+              document.getElementById('admin-continue-btn').addEventListener('click', () => {
+                // Close error modal
+                document.getElementById('error-modal').classList.add('hidden');
+                
+                // Send start round message
+                socket.send({
+                  type: 'startRound'
+                });
+              });
+            }
+          }
+        } else {
+          showError('Answer validation failed. Please wait for the host to start the next round.');
+        }
+      } else {
+        showError(data.message);
+      }
       break;
   }
 });
@@ -513,22 +713,6 @@ socket.on('disconnect', () => {
 
 socket.on('error', (error) => {
   console.error('Socket error:', error);
-  
-  // Update server status indicator if it exists
-  const statusElement = document.getElementById('server-status');
-  if (statusElement) {
-    statusElement.className = 'server-status offline';
-    statusElement.innerHTML = 'Connection error: ' + (error.message || 'Unknown error');
-  }
-  
-  // Show error message with offline mode options if server appears to be down
-  if (error.isServerDown) {
-    const errorActions = document.getElementById('error-actions');
-    if (errorActions) {
-      errorActions.classList.remove('hidden');
-    }
-  }
-  
   showError('Connection error: ' + (error.message || 'Unknown error'));
 });
 
@@ -575,64 +759,7 @@ document.addEventListener('DOMContentLoaded', function() {
       joinGameBtn.disabled = true;
       joinGameBtn.textContent = 'Connecting...';
       
-      // Special handling for offline mode
-      if (gameState.offlineMode) {
-        // Skip server connection test in offline mode
-        gameState.playerName = nameInput.value.trim();
-        gameState.roomId = roomInput.value.trim() || Math.floor(Math.random() * 1000000).toString();
-        gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
-        
-        socket.connectToRoom(
-          gameState.roomId,
-          gameState.playerName,
-          gameState.timeLimit
-        );
-        
-        return;
-      }
-      
-      // Online mode - Check server connection first
       try {
-        // Update server status indicator if it exists
-        const statusElement = document.getElementById('server-status');
-        if (statusElement) {
-          statusElement.className = 'server-status checking';
-          statusElement.innerHTML = 'Checking server connection...';
-        }
-        
-        // First test if the server is accessible at all
-        const isServerOnline = await socket.testConnection();
-        
-        if (!isServerOnline) {
-          // Update server status indicator
-          if (statusElement) {
-            statusElement.className = 'server-status offline';
-            statusElement.innerHTML = 'Game server is currently offline. Please try again later.';
-          }
-          
-          // Show server status banner with offline mode options
-          const serverBanner = document.createElement('div');
-          serverBanner.className = 'server-banner';
-          serverBanner.innerHTML = `
-            <div class="banner-content">
-              <strong>Server Status:</strong> The game server appears to be offline.
-              <div class="banner-actions">
-                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
-                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
-              </div>
-            </div>
-          `;
-          document.querySelector('.app-container').prepend(serverBanner);
-          
-          throw new Error('Game server appears to be offline. Please try again later.');
-        }
-        
-        // Update server status
-        if (statusElement) {
-          statusElement.className = 'server-status online';
-          statusElement.innerHTML = 'Connected to game server';
-        }
-        
         // Update game state
         gameState.playerName = nameInput.value.trim();
         gameState.roomId = roomInput.value.trim();
@@ -787,11 +914,10 @@ function updateJoinButtonText() {
 
 // Show error function
 function showError(message) {
-  console.error(message);
+  console.error('Error message:', message);
   
   const errorModal = document.getElementById('error-modal');
   const errorMessage = document.getElementById('error-message');
-  const errorActions = document.getElementById('error-actions');
   
   if (!errorModal || !errorMessage) {
     console.error('Error modal elements not found');
@@ -799,15 +925,45 @@ function showError(message) {
     return;
   }
   
-  errorMessage.textContent = message;
-  
-  // Show offline options if the message indicates server issues
-  if (errorActions) {
-    if (message.includes('offline') || message.includes('unavailable') || message.includes('Connection')) {
-      errorActions.classList.remove('hidden');
+  // Check if this is an answer validation error and provide more helpful information
+  if (message.includes('Answer validation failed')) {
+    // Create a more detailed error message with troubleshooting steps
+    const detailedMessage = document.createElement('div');
+    
+    const mainError = document.createElement('p');
+    mainError.textContent = message;
+    detailedMessage.appendChild(mainError);
+    
+    const troubleshootingHeader = document.createElement('p');
+    troubleshootingHeader.innerHTML = '<strong>Possible solutions:</strong>';
+    detailedMessage.appendChild(troubleshootingHeader);
+    
+    const troubleshootingList = document.createElement('ul');
+    
+    const serverItem = document.createElement('li');
+    serverItem.textContent = 'The server may be missing API keys for OpenAI or other services';
+    troubleshootingList.appendChild(serverItem);
+    
+    const rateLimitItem = document.createElement('li');
+    rateLimitItem.textContent = 'The server may be experiencing rate limiting from the API service';
+    troubleshootingList.appendChild(rateLimitItem);
+    
+    const continueItem = document.createElement('li');
+    if (gameState.isAdmin) {
+      continueItem.innerHTML = '<strong>As the host, you can continue by starting the next round</strong>';
     } else {
-      errorActions.classList.add('hidden');
+      continueItem.textContent = 'Ask the host to start the next round to continue playing';
     }
+    troubleshootingList.appendChild(continueItem);
+    
+    detailedMessage.appendChild(troubleshootingList);
+    
+    // Append detailed message instead of just text
+    errorMessage.innerHTML = '';
+    errorMessage.appendChild(detailedMessage);
+  } else {
+    // Regular error message
+    errorMessage.textContent = message;
   }
   
   errorModal.classList.remove('hidden');
@@ -817,6 +973,7 @@ function showError(message) {
   if (joinGameBtn && joinGameBtn.disabled) {
     joinGameBtn.disabled = false;
     joinGameBtn.textContent = gameState.roomId ? 'Join Game' : 'Create Game';
+    console.log('Reset join game button state');
   }
 }
 
@@ -824,170 +981,175 @@ function showError(message) {
 function displayRoundResults(data) {
   if (gameState.timerInterval) {
     clearInterval(gameState.timerInterval);
-    gameState.timerInterval = null;
   }
   
-  // Update player data with the new scores
-  gameState.players = data.players;
-  
-  console.log("Scores data structure:", data.scores);
-  
-  // Clear the results area first
+  // Clear previous results
   const resultsTable = document.getElementById('results-table');
   resultsTable.innerHTML = '';
   
-  if (!data.scores || Object.keys(data.scores).length === 0) {
-    const noResultsMsg = document.createElement('div');
-    noResultsMsg.className = 'no-results-message';
-    noResultsMsg.textContent = 'No results available for this round.';
-    resultsTable.appendChild(noResultsMsg);
-  } else {
-    // Create an improved results table with categories in columns
-    const table = document.createElement('table');
-    table.className = 'results-grid animated-table';
-    
-    // Create header row with categories
-    const headerRow = document.createElement('tr');
-    
-    // Add player name column header
-    const playerHeader = document.createElement('th');
-    playerHeader.textContent = 'Player';
-    headerRow.appendChild(playerHeader);
-    
-    // Get all unique categories
-    const allCategories = new Set();
-    Object.values(data.scores).forEach(playerScores => {
-      Object.keys(playerScores).forEach(category => {
-        if (category !== 'total') {
-          allCategories.add(category);
-        }
-      });
+  // Create table header
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  
+  // Add player name column
+  const playerNameHeader = document.createElement('th');
+  playerNameHeader.textContent = 'Spieler';
+  headerRow.appendChild(playerNameHeader);
+  
+  // Add category columns
+  const allCategories = new Set();
+  Object.values(data.scores).forEach(playerScores => {
+    Object.keys(playerScores).forEach(category => {
+      allCategories.add(category);
     });
+  });
+  
+  Array.from(allCategories).sort().forEach(category => {
+    const th = document.createElement('th');
+    th.textContent = category;
+    headerRow.appendChild(th);
+  });
+  
+  // Add total score column
+  const totalHeader = document.createElement('th');
+  totalHeader.textContent = 'Gesamt';
+  headerRow.appendChild(totalHeader);
+  
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  // Create table body
+  const tbody = document.createElement('tbody');
+  
+  // Sort players by total score (descending)
+  const sortedPlayers = Object.entries(data.scores)
+    .map(([playerId, scores]) => {
+      const total = Object.values(scores).reduce((sum, score) => sum + (score.score || 0), 0);
+      return { playerId, total };
+    })
+    .sort((a, b) => b.total - a.total)
+    .map(entry => entry.playerId);
+  
+  // Add rows for each player
+  sortedPlayers.forEach(playerId => {
+    const row = document.createElement('tr');
     
-    // Add category headers
+    // Add player name cell
+    const playerNameCell = document.createElement('td');
+    const player = data.players.find(p => p.id === playerId);
+    playerNameCell.textContent = player ? player.name : playerId;
+    row.appendChild(playerNameCell);
+    
+    // Add category cells
     Array.from(allCategories).sort().forEach(category => {
-      const th = document.createElement('th');
-      th.textContent = category;
-      headerRow.appendChild(th);
-    });
-    
-    // Add total score header
-    const totalHeader = document.createElement('th');
-    totalHeader.textContent = 'Total';
-    headerRow.appendChild(totalHeader);
-    
-    table.appendChild(headerRow);
-    
-    // Create a row for each player
-    Object.keys(data.scores).forEach((playerId, index) => {
-      const playerScores = data.scores[playerId];
-      const playerName = data.players.find(p => p.id === playerId)?.name || 'Unknown Player';
+      const td = document.createElement('td');
+      const scoreData = data.scores[category][playerId];
       
-      const row = document.createElement('tr');
-      
-      // Add animation delay for staggered appearance
-      row.style.animationDelay = `${index * 0.1}s`;
-      
-      // If this is the current player, highlight the row
-      if (playerId === socket.id) {
-        row.classList.add('current-player-row');
-      }
-      
-      // Add player name cell
-      const nameCell = document.createElement('td');
-      nameCell.className = 'player-name-cell';
-      
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = playerName;
-      
-      if (playerId === socket.id) {
-        nameSpan.innerHTML += ' <span class="you-label">(You)</span>';
-      }
-      
-      nameCell.appendChild(nameSpan);
-      row.appendChild(nameCell);
-      
-      // Add cells for each category
-      Array.from(allCategories).sort().forEach(category => {
-        const td = document.createElement('td');
+      if (scoreData) {
+        const { answer, score, explanation, suggestion } = scoreData;
         
-        if (playerScores[category]) {
-          const pointsObj = playerScores[category];
-          const answerText = pointsObj.answer || '-';
-          const points = pointsObj.points || 0;
-          const explanation = pointsObj.explanation || '';
-          
-          // Create wrapper for answer and points
-          const answerDiv = document.createElement('div');
-          answerDiv.className = 'answer-container';
-          
-          // Add the answer text
-          const answerSpan = document.createElement('span');
-          answerSpan.className = `answer-text score-${points > 0 ? 'valid' : 'invalid'}`;
-          answerSpan.textContent = answerText;
-          answerDiv.appendChild(answerSpan);
-          
-          // Add the points badge
-          const pointsBadge = document.createElement('span');
-          pointsBadge.className = `points-badge ${points > 0 ? 'valid-points' : 'invalid-points'}`;
-          pointsBadge.textContent = points;
-          answerDiv.appendChild(pointsBadge);
-          
-          td.appendChild(answerDiv);
-          
-          // Format and add explanation if available
-          if (explanation) {
-            const explanationDiv = document.createElement('div');
-            explanationDiv.className = 'answer-explanation';
-            
-            // Format the explanation based on validity
-            if (points > 0) {
-              explanationDiv.innerHTML = `<strong>✓ Valid:</strong> ${explanation}`;
-            } else {
-              const parts = explanation.split(/\s*\.\s*/);
-              let formattedExplanation = `<strong>✗ Invalid:</strong> ${parts[0]}.`;
-              
-              // Add suggestions in a highlighted way if they exist
-              if (explanation.toLowerCase().includes('suggest')) {
-                const suggestionMatch = explanation.match(/suggest\w*\s+['"]?([^'"]+)['"]?/i);
-                if (suggestionMatch && suggestionMatch[1]) {
-                  formattedExplanation += ` <span class="suggestion">Suggestion: ${suggestionMatch[1]}</span>`;
-                }
-              } else if (parts.length > 1) {
-                formattedExplanation += ` ${parts.slice(1).join('. ')}`;
-              }
-              
-              explanationDiv.innerHTML = formattedExplanation;
-            }
-            
-            td.appendChild(explanationDiv);
-          }
-          
-          // Add appropriate class based on points
-          td.classList.add(points > 0 ? 'valid-answer' : 'invalid-answer');
-        } else {
-          td.textContent = '-';
-          td.classList.add('no-answer');
+        // Create answer container
+        const answerContainer = document.createElement('div');
+        answerContainer.className = 'answer-container';
+        
+        // Add answer text
+        const answerText = document.createElement('div');
+        answerText.className = 'answer-text';
+        answerText.textContent = answer || '-';
+        answerContainer.appendChild(answerText);
+        
+        // Add points if score exists
+        if (score !== undefined) {
+          const pointsDiv = document.createElement('div');
+          pointsDiv.className = 'points';
+          pointsDiv.textContent = `${score} Punkte`;
+          answerContainer.appendChild(pointsDiv);
         }
         
-        row.appendChild(td);
-      });
+        // Add explanation if available
+        if (explanation) {
+          const explanationDiv = document.createElement('div');
+          explanationDiv.className = 'answer-explanation';
+          explanationDiv.textContent = explanation;
+          answerContainer.appendChild(explanationDiv);
+        }
+        
+        // Add suggestion if available
+        if (suggestion) {
+          const suggestionDiv = document.createElement('div');
+          suggestionDiv.className = 'answer-suggestion';
+          suggestionDiv.textContent = `Vorschlag: ${suggestion}`;
+          answerContainer.appendChild(suggestionDiv);
+        }
+        
+        td.appendChild(answerContainer);
+        
+        // Add appropriate class based on score
+        td.classList.add(score > 0 ? 'valid-answer' : 'invalid-answer');
+      } else {
+        td.textContent = '-';
+        td.classList.add('no-answer');
+      }
       
-      // Add total score cell
-      const totalCell = document.createElement('td');
-      totalCell.className = 'total-score';
-      totalCell.textContent = playerScores.total || '0';
-      row.appendChild(totalCell);
-      
-      table.appendChild(row);
+      row.appendChild(td);
     });
     
-    resultsTable.appendChild(table);
-  }
+    // Add total score cell
+    const totalCell = document.createElement('td');
+    totalCell.className = 'total-score';
+    const total = Object.values(data.scores).reduce((sum, categoryScores) => {
+      const playerScore = categoryScores[playerId];
+      return sum + (playerScore ? playerScore.score || 0 : 0);
+    }, 0);
+    totalCell.textContent = total;
+    row.appendChild(totalCell);
+    
+    tbody.appendChild(row);
+  });
+  
+  table.appendChild(tbody);
+  resultsTable.appendChild(table);
   
   // Update the leaderboard with the new scores
   updateScores(data.players);
   
   // Show results screen
   showScreen('results');
+}
+
+// Add this function to handle screen refresh
+function forceRefreshScreen(screenId) {
+  console.log(`Force refreshing screen: ${screenId}`);
+  
+  // Get the screen element
+  const fullScreenId = screenId.includes('-') ? screenId : `${screenId}-screen`;
+  const screen = document.getElementById(fullScreenId);
+  
+  if (!screen) {
+    console.error(`Cannot refresh screen - not found: ${fullScreenId}`);
+    return;
+  }
+  
+  // Force a reflow by toggling display
+  const currentDisplay = window.getComputedStyle(screen).display;
+  screen.style.display = 'none';
+  
+  // Read offsetHeight to force a reflow
+  void screen.offsetHeight;
+  
+  // Reset display and ensure classes are correct
+  screen.style.display = '';
+  screen.classList.remove('hidden');
+  screen.classList.add('active');
+  
+  // Make sure other screens are hidden
+  document.querySelectorAll('.game-screen').forEach(otherScreen => {
+    if (otherScreen.id !== fullScreenId) {
+      otherScreen.classList.remove('active');
+      otherScreen.classList.add('hidden');
+    }
+  });
+  
+  console.log(`Screen refresh complete: ${fullScreenId}`);
 } 

@@ -1,18 +1,72 @@
-require('dotenv').config();
+// First, load the environment variables from the root directory
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Check both the current directory and parent directory for .env file
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),        // Root directory
+  path.resolve(__dirname, '.env'),            // Server directory
+  path.resolve(__dirname, '..', '.env')       // Parent of server directory
+];
+
+let dotenvResult = null;
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    console.log(`Found .env file at: ${envPath}`);
+    dotenvResult = dotenv.config({ path: envPath });
+    break;
+  }
+}
+
+if (!dotenvResult || dotenvResult.error) {
+  console.error('Failed to load .env file:', dotenvResult ? dotenvResult.error : 'No .env file found');
+  console.log('Searched paths:', envPaths);
+} else {
+  console.log('Successfully loaded environment variables from .env file');
+}
+
+// Now load other modules
 const express = require('express');
 const http = require('http');
-const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const axios = require('axios');
-const fs = require('fs');
 const { validateAnswers } = require('./chatgpt-validator');
+
+// Enhanced debugging for environment variables
+console.log('=== ENVIRONMENT VARIABLES DEBUG ===');
+console.log('Current working directory:', process.cwd());
+console.log('Server directory:', __dirname);
+
+// List all environment variables related to OpenAI
+const openaiEnvVars = Object.keys(process.env).filter(key => 
+  key.includes('OPENAI') || key.includes('API_KEY')
+);
+console.log('OpenAI-related environment variables found:', openaiEnvVars.length);
+openaiEnvVars.forEach(key => {
+  const value = process.env[key];
+  console.log(`- ${key}: ${value ? (value.substring(0, 10) + '...') : 'undefined'}`);
+});
+console.log('=== END ENVIRONMENT VARIABLES DEBUG ===');
 
 // Check for required environment variables
 if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_ASSISTANT_ID) {
   console.warn('\x1b[33m%s\x1b[0m', 'Warning: OPENAI_API_KEY or OPENAI_ASSISTANT_ID environment variables are not set.');
   console.warn('\x1b[33m%s\x1b[0m', 'The game will run, but answer validation will be limited to basic checks.');
   console.warn('\x1b[33m%s\x1b[0m', 'Create a .env file based on the .env.example file to enable full validation.');
+  
+  // Add troubleshooting guide
+  console.log('\x1b[36m%s\x1b[0m', '-------- TROUBLESHOOTING GUIDE --------');
+  console.log('\x1b[36m%s\x1b[0m', '1. Make sure the .env file exists in the correct location');
+  console.log('\x1b[36m%s\x1b[0m', '2. The .env file should contain:');
+  console.log('\x1b[36m%s\x1b[0m', '   OPENAI_API_KEY=your_api_key');
+  console.log('\x1b[36m%s\x1b[0m', '   OPENAI_ASSISTANT_ID=your_assistant_id');
+  console.log('\x1b[36m%s\x1b[0m', '3. Restart the server after adding the .env file');
+  console.log('\x1b[36m%s\x1b[0m', '4. Check for any syntax errors in the .env file');
+  console.log('\x1b[36m%s\x1b[0m', '5. Try a different API key if needed');
+  console.log('\x1b[36m%s\x1b[0m', '6. For project-style OpenAI API keys, ensure they have proper access');
+  console.log('\x1b[36m%s\x1b[0m', '----------------------------------------');
 }
 
 // PartyKit host configuration (fallback to localhost for development)

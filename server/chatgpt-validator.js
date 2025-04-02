@@ -4,6 +4,101 @@ const axios = require('axios');
 const API_KEY = process.env.OPENAI_API_KEY;
 const ASSISTANT_ID = process.env.OPENAI_ASSISTANT_ID;
 
+// Check if we're using a project-style API key
+const isProjectKey = API_KEY && API_KEY.startsWith('sk-proj-');
+
+// Debug log the key details - only show first few chars for security
+console.log('=== OPENAI API KEY DEBUG ===');
+console.log('API_KEY exists:', !!API_KEY);
+console.log('API_KEY prefix:', API_KEY ? API_KEY.substring(0, 10) + '...' : 'undefined');
+console.log('Is project-style key:', isProjectKey);
+console.log('ASSISTANT_ID exists:', !!ASSISTANT_ID);
+console.log('ASSISTANT_ID value:', ASSISTANT_ID || 'undefined');
+console.log('=== END API KEY DEBUG ===');
+
+// Add a test function to verify API key is working
+async function testApiKey() {
+  if (!API_KEY) {
+    console.error('❌ Cannot test API key - it is not set');
+    return false;
+  }
+  
+  console.log('🔍 Testing OpenAI API key...');
+  try {
+    // Try a simple API call that doesn't cost much
+    const response = await axios.get(
+      'https://api.openai.com/v1/models',
+      {
+        headers: getApiHeaders()
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ API key is valid! Received models list successfully.');
+      
+      // If testing a project-style key, log some extra info
+      if (isProjectKey) {
+        console.log('📊 Project API key details:');
+        console.log('- Available models:', response.data.data.length);
+        console.log('- First few models:', response.data.data.slice(0, 3).map(m => m.id).join(', '));
+      }
+      
+      return true;
+    } else {
+      console.error('❌ Unexpected response when testing API key:', response.status);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ API key test failed:');
+    if (error.response) {
+      console.error(`Status: ${error.response.status}`);
+      console.error('Error details:', error.response.data);
+      
+      // Provide specific guidance based on error code
+      if (error.response.status === 401) {
+        console.error('❌ API key is invalid or has been revoked');
+        if (isProjectKey) {
+          console.error('❌ Project API keys may have specific permission requirements');
+        }
+      } else if (error.response.status === 429) {
+        console.error('❌ Rate limit exceeded. Your API key is valid but you are sending too many requests');
+      } else if (error.response.status === 404) {
+        console.error('❌ API endpoint not found. This could indicate an API version mismatch');
+      }
+    } else {
+      console.error('Connection error:', error.message);
+    }
+    return false;
+  }
+}
+
+// Run the API key test when the module loads
+testApiKey().then(isValid => {
+  if (isValid) {
+    console.log('✅ OpenAI API is configured correctly');
+  } else {
+    console.error('⚠️ OpenAI API configuration has issues - answer validation may not work');
+  }
+});
+
+// Standard headers for OpenAI API requests
+function getApiHeaders() {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${API_KEY}`,
+    'OpenAI-Beta': 'assistants=v2'
+  };
+  
+  // Add any special headers for project keys if needed
+  if (isProjectKey) {
+    console.log('Using project-style API key configuration');
+    // Some project keys may need additional headers or configurations
+    // headers['OpenAI-Organization'] = process.env.OPENAI_ORG_ID;
+  }
+  
+  return headers;
+}
+
 /**
  * Creates a thread with the OpenAI Assistant
  * @returns {Promise<string>} The thread ID
@@ -14,11 +109,7 @@ async function createThread() {
       'https://api.openai.com/v1/threads',
       {},
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
+        headers: getApiHeaders()
       }
     );
     return response.data.id;
@@ -43,11 +134,7 @@ async function sendMessage(threadId, content) {
         content
       },
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
+        headers: getApiHeaders()
       }
     );
     return response.data.id;
@@ -70,11 +157,7 @@ async function runAssistant(threadId) {
         assistant_id: ASSISTANT_ID
       },
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
+        headers: getApiHeaders()
       }
     );
     return response.data.id;
@@ -95,10 +178,7 @@ async function getRunStatus(threadId, runId) {
     const response = await axios.get(
       `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`,
       {
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
+        headers: getApiHeaders()
       }
     );
     return response.data.status;
@@ -118,10 +198,7 @@ async function getMessages(threadId) {
     const response = await axios.get(
       `https://api.openai.com/v1/threads/${threadId}/messages`,
       {
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
+        headers: getApiHeaders()
       }
     );
     return response.data.data;
@@ -164,8 +241,24 @@ async function waitForRunCompletion(threadId, runId) {
  * @returns {Promise<Object>} Validation results
  */
 async function validateAnswers(letter, answers) {
+  console.log('🔍 validateAnswers called with letter:', letter);
+  console.log('📦 Answers to validate:', answers);
+  
   if (!API_KEY || !ASSISTANT_ID) {
-    console.warn('OpenAI API Key or Assistant ID not set. Skipping validation.');
+    console.warn('⚠️ OpenAI API Key or Assistant ID not set. Skipping validation.');
+    console.log('API_KEY exists:', !!API_KEY);
+    console.log('ASSISTANT_ID exists:', !!ASSISTANT_ID);
+    
+    // Check if we're using the project-style API key
+    if (API_KEY && API_KEY.startsWith('sk-proj-')) {
+      console.warn('⚠️ Detected project-style API key. Make sure this is compatible with the API version being used.');
+    }
+    
+    console.log('💡 TIP: Check that the .env file is in the correct location and formatted properly.');
+    console.log('💡 Current working directory:', process.cwd());
+    console.log('💡 Environment variables loaded:', Object.keys(process.env).filter(key => 
+      key.includes('OPENAI') || key.includes('API')).join(', '));
+    
     return { valid: true, errors: [], suggestions: {}, explanations: {} };
   }
 
@@ -174,7 +267,7 @@ async function validateAnswers(letter, answers) {
     const validationPrompt = JSON.stringify({
       task: "Validate user-submitted answers for the game 'Stadt, Land, Fluss'.",
       rules: {
-        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE.",
+        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE. ALWAYS ANSWER IN GERMAN",
         categories: {
           Stadt: "Must be a real, existing city or town with official city rights. Fictional cities, neighborhoods, districts, misspellings, or made-up names are INVALID. Check for misspellings like 'Föln' instead of 'Köln' and mark them as INVALID. Include geographic location in explanation.",
           Land: "Must be a recognized sovereign country, federal state, or well-known historical region. Fictional countries or misspellings are INVALID. Include geographic location in explanation.",
@@ -197,21 +290,65 @@ async function validateAnswers(letter, answers) {
     });
 
     console.log(`Sending validation request for letter ${letter} with answers:`, answers);
+    console.log('API key type:', API_KEY.startsWith('sk-proj-') ? 'Project-style key' : 'Standard key');
 
     // Create a new thread
-    const threadId = await createThread();
+    console.log('🔄 Attempting to create thread...');
+    let threadId;
+    try {
+      threadId = await createThread();
+      console.log('✅ Thread created successfully:', threadId);
+    } catch (error) {
+      console.error('❌ Thread creation failed:', error.message);
+      logOpenAIError(error, 'createThread');
+      throw new Error('Error validating answers: Failed to create thread');
+    }
 
     // Send a message to the thread
-    await sendMessage(threadId, validationPrompt);
+    console.log('🔄 Sending message to thread...');
+    try {
+      await sendMessage(threadId, validationPrompt);
+      console.log('✅ Message sent successfully');
+    } catch (error) {
+      console.error('❌ Message sending failed:', error.message);
+      logOpenAIError(error, 'sendMessage');
+      throw new Error('Error validating answers: Failed to send message');
+    }
 
     // Run the assistant on the thread
-    const runId = await runAssistant(threadId);
+    console.log('🔄 Running assistant...');
+    let runId;
+    try {
+      runId = await runAssistant(threadId);
+      console.log('✅ Assistant run started:', runId);
+    } catch (error) {
+      console.error('❌ Assistant run failed:', error.message);
+      logOpenAIError(error, 'runAssistant');
+      throw new Error('Error validating answers: Failed to run assistant');
+    }
 
     // Wait for the run to complete
-    await waitForRunCompletion(threadId, runId);
+    console.log('🔄 Waiting for run to complete...');
+    try {
+      await waitForRunCompletion(threadId, runId);
+      console.log('✅ Run completed successfully');
+    } catch (error) {
+      console.error('❌ Run completion failed:', error.message);
+      logOpenAIError(error, 'waitForRunCompletion');
+      throw new Error('Error validating answers: Run failed to complete');
+    }
 
     // Get the messages from the thread
-    const messages = await getMessages(threadId);
+    console.log('🔄 Getting messages from thread...');
+    let messages;
+    try {
+      messages = await getMessages(threadId);
+      console.log('✅ Retrieved messages successfully');
+    } catch (error) {
+      console.error('❌ Failed to get messages:', error.message);
+      logOpenAIError(error, 'getMessages');
+      throw new Error('Error validating answers: Failed to get messages');
+    }
 
     // Get the assistant's response (first message)
     const assistantResponse = messages.find(msg => msg.role === 'assistant');
@@ -235,244 +372,170 @@ async function validateAnswers(letter, answers) {
       const parsedResponse = JSON.parse(cleanedJson);
       console.log('Parsed validation result:', parsedResponse);
       
-      // Ensure explanations object exists
-      if (!parsedResponse.explanations) {
-        parsedResponse.explanations = {};
-      }
+      // Process the validation results for each player
+      const playerResults = {};
       
-      // Generate explanations for any missing categories
-      Object.keys(answers).forEach(category => {
-        const answer = answers[category];
-        if (answer && !parsedResponse.explanations[category]) {
-          if (parsedResponse.errors && parsedResponse.errors.some(err => err.includes(category))) {
-            // Find matching error
-            const matchingError = parsedResponse.errors.find(err => err.includes(category));
-            parsedResponse.explanations[category] = matchingError || 
-              `"${answer}" is not a valid ${category} starting with "${letter}". It may be misspelled or not exist.`;
-          } else if (parsedResponse.valid) {
-            // Generate basic explanation for valid answer
-            parsedResponse.explanations[category] = 
-              `"${answer}" is a valid ${category} starting with "${letter}".`;
+      // For each player's answers
+      Object.entries(answers).forEach(([playerId, playerAnswers]) => {
+        playerResults[playerId] = {};
+        
+        // For each category
+        Object.entries(playerAnswers).forEach(([category, answer]) => {
+          if (!answer) {
+            playerResults[playerId][category] = {
+              valid: false,
+              explanation: "Keine Antwort angegeben",
+              suggestions: null
+            };
+            return;
           }
-        }
+          
+          // Get the validation result for this category
+          const categoryValidation = {
+            valid: parsedResponse.valid,
+            explanation: parsedResponse.explanations?.[category] || "Keine Erklärung verfügbar",
+            suggestions: parsedResponse.suggestions?.[category] || null
+          };
+          
+          // Check if the answer starts with the correct letter
+          if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
+            categoryValidation.valid = false;
+            categoryValidation.explanation = `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`;
+            categoryValidation.suggestions = null;
+          }
+          
+          // Check for common misspellings in Stadt category
+          if (category === 'Stadt') {
+            const misspellings = {
+              "Föln": "Köln",
+              "Koln": "Köln",
+              "Muenchen": "München",
+              "Munchen": "München",
+              "Frankfort": "Frankfurt",
+              "Nurnberg": "Nürnberg",
+              "Nurenberg": "Nürnberg",
+              "Dusseldorf": "Düsseldorf"
+            };
+            
+            if (Object.keys(misspellings).includes(answer)) {
+              const correctCity = misspellings[answer];
+              categoryValidation.valid = false;
+              categoryValidation.explanation = `"${answer}" ist eine falsche Schreibweise von "${correctCity}".`;
+              categoryValidation.suggestions = correctCity;
+            }
+          }
+          
+          playerResults[playerId][category] = categoryValidation;
+        });
       });
       
-      // Check for common misspellings in Stadt category
-      if (answers.Stadt && typeof answers.Stadt === 'string') {
-        const stadtAnswer = answers.Stadt.trim();
-        
-        // List of commonly misspelled German cities
-        const misspellings = {
-          "Föln": "Köln",
-          "Koln": "Köln",
-          "Muenchen": "München",
-          "Munchen": "München",
-          "Frankfort": "Frankfurt",
-          "Nurnberg": "Nürnberg",
-          "Nurenberg": "Nürnberg",
-          "Dusseldorf": "Düsseldorf"
-        };
-        
-        // Check if answer is a known misspelling
-        if (Object.keys(misspellings).includes(stadtAnswer)) {
-          const correctCity = misspellings[stadtAnswer];
-          
-          // Only mark as invalid if the correct spelling starts with the same letter
-          if (correctCity.toLowerCase().startsWith(letter.toLowerCase())) {
-            if (!parsedResponse.errors) parsedResponse.errors = [];
-            
-            const errorMsg = `Stadt: "${stadtAnswer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
-            if (!parsedResponse.errors.includes(errorMsg)) {
-              parsedResponse.errors.push(errorMsg);
-            }
-            
-            parsedResponse.explanations.Stadt = errorMsg;
-            parsedResponse.valid = false;
-            
-            // Add a suggestion
-            if (!parsedResponse.suggestions) parsedResponse.suggestions = {};
-            parsedResponse.suggestions.Stadt = correctCity;
-          }
-        }
-      }
-      
-      return parsedResponse;
+      return playerResults;
     } catch (e) {
       console.error('Failed to parse assistant response as JSON:', content);
       console.error('Parse error:', e);
       
-      // More robust text extraction
-      const responseProcessing = {};
+      // Return a structured response with basic validation
+      const playerResults = {};
       
-      // Check each category against the letter
-      const categories = Object.keys(answers);
-      const errors = [];
-      let allValid = true;
-      const explanations = {};
-      const suggestions = {};
-      
-      categories.forEach(category => {
-        const answer = answers[category];
-        if (!answer) return;
+      Object.entries(answers).forEach(([playerId, playerAnswers]) => {
+        playerResults[playerId] = {};
         
-        // Check if answer starts with the correct letter (case insensitive)
-        if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
-          const errorMsg = `${category}: "${answer}" does not start with the letter "${letter}"`;
-          errors.push(errorMsg);
-          explanations[category] = errorMsg;
-          allValid = false;
-        } else {
-          // Look for category-specific validation issues in the text
-          if (content.toLowerCase().includes(`${category.toLowerCase()}`) && 
-              content.toLowerCase().includes(`${answer.toLowerCase()}`)) {
-            
-            // Find specific error message for this category
-            const lines = content.split('\n');
-            let foundExplanation = false;
-            
-            for (const line of lines) {
-              if (line.toLowerCase().includes(category.toLowerCase()) && 
-                  line.toLowerCase().includes(answer.toLowerCase())) {
-                
-                if (line.toLowerCase().includes('invalid') || 
-                    line.toLowerCase().includes('error') || 
-                    line.toLowerCase().includes('not valid') ||
-                    line.toLowerCase().includes('misspell')) {
-                  errors.push(`${category}: ${line.trim()}`);
-                  explanations[category] = line.trim();
-                  allValid = false;
-                  foundExplanation = true;
-                  
-                  // Look for suggested alternatives
-                  const suggestionMatch = line.match(/suggest\w*\s+['""]?([^'""]+)['""]?/i) || 
-                                         content.match(new RegExp(`${category}[^.]*suggest\\w*\\s+['"\`]?([^'"\`]+)['"\`]?`, 'i'));
-                  if (suggestionMatch && suggestionMatch[1]) {
-                    suggestions[category] = suggestionMatch[1].trim();
-                  }
-                } else {
-                  explanations[category] = line.trim();
-                  foundExplanation = true;
-                }
-                break;
-              }
-            }
-            
-            if (!foundExplanation) {
-              explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
-            }
-          } else {
-            // Check for common misspellings in Stadt category
-            if (category === 'Stadt') {
-              const misspellings = {
-                "Föln": "Köln",
-                "Koln": "Köln",
-                "Muenchen": "München",
-                "Munchen": "München",
-                "Frankfort": "Frankfurt",
-                "Nurnberg": "Nürnberg",
-                "Nurenberg": "Nürnberg",
-                "Dusseldorf": "Düsseldorf"
-              };
-              
-              if (Object.keys(misspellings).includes(answer)) {
-                const correctCity = misspellings[answer];
-                const errorMsg = `${category}: "${answer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
-                errors.push(errorMsg);
-                explanations[category] = errorMsg;
-                suggestions[category] = correctCity;
-                allValid = false;
-              } else {
-                explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
-              }
-            } else {
-              explanations[category] = `"${answer}" is a valid ${category} starting with "${letter}".`;
-            }
+        Object.entries(playerAnswers).forEach(([category, answer]) => {
+          if (!answer) {
+            playerResults[playerId][category] = {
+              valid: false,
+              explanation: "Keine Antwort angegeben",
+              suggestions: null
+            };
+            return;
           }
-        }
+          
+          const startsWithLetter = answer.toLowerCase().startsWith(letter.toLowerCase());
+          
+          playerResults[playerId][category] = {
+            valid: startsWithLetter,
+            explanation: startsWithLetter 
+              ? `"${answer}" ist eine gültige Antwort für ${category}.`
+              : `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`,
+            suggestions: null
+          };
+        });
       });
       
-      // Create suggestions object from content if not already populated
-      if (Object.keys(suggestions).length === 0) {
-        categories.forEach(category => {
-          const lines = content.split('\n');
-          for (const line of lines) {
-            if (line.toLowerCase().includes(category.toLowerCase()) && 
-                line.toLowerCase().includes('suggest')) {
-              const suggestionMatch = line.match(/suggest\w*\s+['""]?([^'""]+)['""]?/i);
-              if (suggestionMatch && suggestionMatch[1]) {
-                suggestions[category] = suggestionMatch[1].trim();
-              }
-            }
-          }
-        });
-      }
-      
-      // If parsing fails, return a structured response
-      const result = {
-        valid: allValid,
-        errors,
-        suggestions,
-        explanations
-      };
-      
-      console.log('Extracted validation result from text:', result);
-      return result;
+      return playerResults;
     }
   } catch (error) {
-    console.error('Error validating answers with OpenAI Assistant:', error);
+    console.error('Error in validateAnswers:', error);
     
-    // Fallback validation if API fails
-    const errors = [];
-    let allValid = true;
-    const explanations = {};
-    const suggestions = {};
+    // Log useful debugging info
+    if (error.response) {
+      console.error('OpenAI API Error Response:');
+      console.error('Status:', error.response.status);
+      console.error('Data:', error.response.data);
+      console.error('Headers:', error.response.headers);
+    }
     
-    // Basic validation: check if answers start with the correct letter
-    Object.entries(answers).forEach(([category, answer]) => {
-      if (!answer) return;
+    // Return a fallback response so the game can continue
+    const playerResults = {};
+    
+    Object.entries(answers).forEach(([playerId, playerAnswers]) => {
+      playerResults[playerId] = {};
       
-      if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
-        const errorMsg = `${category}: "${answer}" does not start with the letter "${letter}"`;
-        errors.push(errorMsg);
-        explanations[category] = errorMsg;
-        allValid = false;
-      } else if (category === 'Stadt') {
-        // Check for common misspellings in Stadt category
-        const misspellings = {
-          "Föln": "Köln",
-          "Koln": "Köln",
-          "Muenchen": "München",
-          "Munchen": "München",
-          "Frankfort": "Frankfurt",
-          "Nurnberg": "Nürnberg",
-          "Nurenberg": "Nürnberg",
-          "Dusseldorf": "Düsseldorf"
-        };
-        
-        if (Object.keys(misspellings).includes(answer)) {
-          const correctCity = misspellings[answer];
-          const errorMsg = `${category}: "${answer}" appears to be a misspelling of "${correctCity}" and is therefore invalid.`;
-          errors.push(errorMsg);
-          explanations[category] = errorMsg;
-          suggestions[category] = correctCity;
-          allValid = false;
-        } else {
-          explanations[category] = `"${answer}" starts with the letter "${letter}".`;
+      Object.entries(playerAnswers).forEach(([category, answer]) => {
+        if (!answer) {
+          playerResults[playerId][category] = {
+            valid: false,
+            explanation: "Keine Antwort angegeben",
+            suggestions: null
+          };
+          return;
         }
-      } else {
-        explanations[category] = `"${answer}" starts with the letter "${letter}".`;
-      }
+        
+        const startsWithLetter = answer.toLowerCase().startsWith(letter.toLowerCase());
+        
+        playerResults[playerId][category] = {
+          valid: startsWithLetter,
+          explanation: startsWithLetter 
+            ? `"${answer}" ist eine gültige Antwort für ${category}.`
+            : `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`,
+          suggestions: null
+        };
+      });
     });
     
-    const result = {
-      valid: allValid,
-      errors,
-      suggestions,
-      explanations
-    };
+    return playerResults;
+  }
+}
+
+// Add a helper function to log OpenAI API errors in a consistent way
+function logOpenAIError(error, operation) {
+  console.error(`OpenAI API Error during ${operation}:`);
+  
+  if (error.response) {
+    // The request was made and the server responded with a status code
+    // that falls out of the range of 2xx
+    console.error('Status:', error.response.status);
+    console.error('Data:', error.response.data);
+    console.error('Headers:', error.response.headers);
     
-    console.log('Fallback validation result:', result);
-    return result;
+    // Check for specific error types
+    if (error.response.status === 401) {
+      console.error('⚠️ AUTHENTICATION ERROR: Your API key is invalid or has expired');
+      if (API_KEY.startsWith('sk-proj-')) {
+        console.error('⚠️ You are using a project-style API key. Make sure it has the proper permissions and is correctly formatted.');
+      }
+    } else if (error.response.status === 429) {
+      console.error('⚠️ RATE LIMIT ERROR: You have exceeded your API quota or rate limit');
+    } else if (error.response.status === 500) {
+      console.error('⚠️ SERVER ERROR: OpenAI service is experiencing issues');
+    }
+  } else if (error.request) {
+    // The request was made but no response was received
+    console.error('Request made but no response received');
+    console.error('Request details:', error.request);
+  } else {
+    // Something happened in setting up the request that triggered an Error
+    console.error('Error during request setup:', error.message);
   }
 }
 

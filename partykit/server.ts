@@ -400,8 +400,8 @@ export default class StadtLandFlussServer implements Party.Server {
     this.roomState.roundInProgress = false;
     
     try {
-      // Get scores from validator
-      const scores = await validateAnswers(
+      // Get validation results from OpenAI
+      const validationResults = await validateAnswers(
         this.roomState.currentLetter || 'A',
         playerAnswers
       );
@@ -423,28 +423,34 @@ export default class StadtLandFlussServer implements Party.Server {
           structuredScores[category][playerId] = {
             answer: playerAnswer,
             score: 0,
-            explanation: "No valid answer provided"
+            explanation: "No answer provided"
           };
           
-          // If we have suggestions, add them
-          if (scores.suggestions && scores.suggestions[category]) {
-            structuredScores[category][playerId].suggestion = scores.suggestions[category];
-          }
-          
-          // If we have explanations, add them
-          if (scores.explanations && scores.explanations[category]) {
-            structuredScores[category][playerId].explanation = scores.explanations[category];
-          }
-          
-          // Special case for a unique valid answer (20 points)
-          if (playerAnswer && this.isUniqueAnswer(playerAnswer, category, playerAnswers)) {
-            structuredScores[category][playerId].score = 20;
-            structuredScores[category][playerId].explanation = "Unique valid answer (+20 points)";
-          }
-          // Valid but not unique (10 points)
-          else if (playerAnswer && playerAnswer.toLowerCase().startsWith(this.roomState.currentLetter?.toLowerCase() || '')) {
-            structuredScores[category][playerId].score = 10;
-            structuredScores[category][playerId].explanation = "Valid answer (+10 points)";
+          if (playerAnswer) {
+            // Get the validation result for this category
+            const categoryValidation = validationResults[playerId]?.[category];
+            
+            if (categoryValidation) {
+              // Use the AI's explanation
+              structuredScores[category][playerId].explanation = categoryValidation.explanation;
+              
+              // Determine score based on validation
+              if (categoryValidation.valid) {
+                // Check if answer is unique
+                const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
+                structuredScores[category][playerId].score = isUnique ? 20 : 10;
+              } else {
+                structuredScores[category][playerId].score = 0;
+              }
+              
+              // Add suggestions if available
+              if (categoryValidation.suggestions) {
+                structuredScores[category][playerId].suggestion = categoryValidation.suggestions;
+              }
+            } else {
+              // Fallback if no validation result
+              structuredScores[category][playerId].explanation = "Answer could not be validated";
+            }
           }
         });
       });
