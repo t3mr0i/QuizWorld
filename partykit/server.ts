@@ -118,7 +118,6 @@ export default class StadtLandFlussServer implements Party.Server {
       const data = JSON.parse(message);
       
       // If message contains roomId, use it to update our roomId
-      // Only update the room ID when joining, not for other actions
       if (data.type === "joinRoom" && data.roomId && data.roomId !== this.roomId) {
         console.log(`Changing room from ${this.roomId} to ${data.roomId}`);
         this.roomId = data.roomId;
@@ -147,6 +146,9 @@ export default class StadtLandFlussServer implements Party.Server {
           break;
         case "submitAnswers":
           this.handleSubmitAnswers(data, sender);
+          break;
+        case "updateCategories":
+          this.handleUpdateCategories(data, sender);
           break;
         default:
           console.log(`Unknown message type: ${data.type}`);
@@ -268,61 +270,41 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   private handleJoinRoom(data: any, sender: Party.Connection) {
-    // Get the player name and preferred room ID
-    const playerName = data.playerName || `Player ${sender.id.substring(0, 6)}`;
+    const playerName = data.playerName || `Player ${sender.id}`;
+    const categories = data.categories;
     
-    // Don't override the room ID from handleJoinRoom and don't change it during the game
-    // Only preserve the original roomId from the request
-    if (data.roomId) {
-      console.log(`${playerName} (${sender.id}) is joining room ${data.roomId}`);
-    } else {
-      console.log(`${playerName} (${sender.id}) is joining room ${this.roomId}`);
-    }
-    
-    // Set time limit if provided
-    if (data.timeLimit) {
-      this.roomState.timeLimit = data.timeLimit;
-    }
-
-    // Set categories if provided (only for admin)
-    if (data.categories && data.isAdmin) {
-      this.roomState.categories = data.categories;
-    }
-    
-    // First player becomes admin
-    const isFirstPlayer = Object.keys(this.roomState.players).length === 0;
-    
-    // Add player to room
+    // Initialize or update player
     this.roomState.players[sender.id] = {
       id: sender.id,
       name: playerName,
       answers: {},
       score: 0,
-      isAdmin: isFirstPlayer,
+      isAdmin: Object.keys(this.roomState.players).length === 0,
       submitted: false
     };
     
-    // If no admin, make this player the admin
-    if (!this.roomState.admin || isFirstPlayer) {
-      this.roomState.admin = sender.id;
-      this.roomState.players[sender.id].isAdmin = true;
+    // Update categories if provided
+    if (categories && categories.length > 0) {
+      // Ensure required categories are present
+      const requiredCategories = ['Stadt', 'Land', 'Fluss'];
+      const missingRequired = requiredCategories.filter(cat => !categories.includes(cat));
+      
+      if (missingRequired.length > 0) {
+        // Add missing required categories
+        this.roomState.categories = [...new Set([...requiredCategories, ...categories])];
+      } else {
+        this.roomState.categories = categories;
+      }
     }
     
-    // Log admin status for debugging
-    console.log(`Player ${sender.id} (${playerName}) joining room ${this.roomId} - Admin: ${sender.id === this.roomState.admin}`);
-    console.log(`Room ${this.roomId} now has ${Object.keys(this.roomState.players).length} players`);
-    
-    // Notify all players of new player
+    // Notify everyone in the room
     this.party.broadcast(JSON.stringify({
       type: "joinedRoom",
+      roomId: this.roomId,
       playerId: sender.id,
-      playerName: playerName,
       players: Object.values(this.roomState.players),
       adminId: this.roomState.admin,
-      isAdmin: sender.id === this.roomState.admin,
-      timeLimit: this.roomState.timeLimit,
-      categories: this.roomState.categories,
-      roomId: this.roomId
+      categories: this.roomState.categories
     }));
   }
 
@@ -355,7 +337,8 @@ export default class StadtLandFlussServer implements Party.Server {
       type: "roundStarted",
       letter,
       timeLimit,
-      timerEnd: timerEnd.toISOString() // Send as ISO string for cross-platform compatibility
+      timerEnd: timerEnd.toISOString(), // Send as ISO string for cross-platform compatibility
+      categories: this.roomState.categories // Include current categories
     }));
   }
 
@@ -416,7 +399,7 @@ export default class StadtLandFlussServer implements Party.Server {
       const validationResults = await validateAnswers(
         this.roomState.currentLetter || 'A',
         playerAnswers,
-        this.roomState.categories
+        this.roomState.categories // Pass current categories to validator
       );
       
       console.log(`Validation completed for room ${this.roomId}`);
@@ -481,7 +464,8 @@ export default class StadtLandFlussServer implements Party.Server {
       this.party.broadcast(JSON.stringify({
         type: "roundResults",
         scores: structuredScores,
-        players: Object.values(this.roomState.players)
+        players: Object.values(this.roomState.players),
+        categories: this.roomState.categories // Include current categories
       }));
       
       // Store results
@@ -513,5 +497,38 @@ export default class StadtLandFlussServer implements Party.Server {
       }
     });
     return count === 1;
+  }
+
+  // Add new method to handle category updates
+  private handleUpdateCategories(data: any, sender: Party.Connection) {
+    const categories = data.categories;
+    
+    if (!categories || categories.length === 0) {
+      sender.send(JSON.stringify({
+        type: "error",
+        message: "Invalid categories"
+      }));
+      return;
+    }
+    
+    // Ensure required categories are present
+    const requiredCategories = ['Stadt', 'Land', 'Fluss'];
+    const missingRequired = requiredCategories.filter(cat => !categories.includes(cat));
+    
+    if (missingRequired.length > 0) {
+      // Add missing required categories
+      this.roomState.categories = [...new Set([...requiredCategories, ...categories])];
+    } else {
+      this.roomState.categories = categories;
+    }
+    
+    // Save state
+    this.party.storage.put(`room:${this.roomId}`, this.roomState);
+    
+    // Notify everyone in the room
+    this.party.broadcast(JSON.stringify({
+      type: "categoriesUpdated",
+      categories: this.roomState.categories
+    }));
   }
 } 

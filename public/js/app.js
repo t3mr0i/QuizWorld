@@ -17,7 +17,8 @@ const gameState = {
   timerInterval: null,
   // Add debugging fields
   lastSubmitTime: null,
-  validationTimeoutId: null
+  validationTimeoutId: null,
+  categories: []
 };
 
 // DOM elements - get references to all screens
@@ -189,7 +190,7 @@ function setupCategoriesForm(letter) {
   
   categoriesGrid.innerHTML = '';
   
-  CATEGORIES.forEach(category => {
+  gameState.categories.forEach(category => {
     const categoryGroup = document.createElement('div');
     categoryGroup.classList.add('category-group');
     
@@ -571,6 +572,21 @@ socket.on('message', (data) => {
       gameState.currentLetter = data.letter;
       gameState.submitted = false;
       
+      // Reset UI elements
+      const answerInputs = document.querySelectorAll('.category-group input');
+      answerInputs.forEach(input => {
+        input.disabled = false;
+        input.classList.remove('submitted');
+        input.value = '';
+      });
+      
+      const submitButton = document.getElementById('submit-btn');
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Submit Answers';
+        submitButton.classList.remove('btn-submitted');
+      }
+      
       // Update UI
       const letterDisplay = document.getElementById('current-letter');
       if (letterDisplay) {
@@ -679,6 +695,16 @@ socket.on('message', (data) => {
         }
       } else {
         showError(data.message);
+      }
+      break;
+      
+    case 'categoriesUpdated':
+      // Update game state with new categories
+      gameState.categories = data.categories;
+      
+      // Update UI if in lobby
+      if (document.getElementById('lobby-screen').classList.contains('active')) {
+        showLobby();
       }
       break;
   }
@@ -1164,16 +1190,33 @@ function addCategoryInput() {
     <button class="remove-category" onclick="removeCategory(this)">×</button>
   `;
   categoryList.appendChild(newCategoryDiv);
+  
+  // Add event listener to update categories when input changes
+  const input = newCategoryDiv.querySelector('input');
+  input.addEventListener('input', updateCategories);
 }
 
 function removeCategory(button) {
   const categoryDiv = button.parentElement;
   categoryDiv.remove();
+  updateCategories();
 }
 
 function getCategories() {
   const categoryInputs = document.querySelectorAll('.category-name');
   return Array.from(categoryInputs).map(input => input.value.trim()).filter(Boolean);
+}
+
+// Add function to update categories
+function updateCategories() {
+  const categories = getCategories();
+  if (categories.length === 0) return;
+  
+  // Send update to server
+  socket.send({
+    type: 'updateCategories',
+    categories: categories
+  });
 }
 
 // Update the join room function to include custom categories
@@ -1187,7 +1230,7 @@ async function joinRoom(roomId) {
       },
       body: JSON.stringify({
         playerName: gameState.playerName,
-        categories: categories.length > 0 ? categories : undefined // Only send if custom categories are set
+        categories: categories.length > 0 ? categories : undefined
       }),
     });
 
@@ -1200,15 +1243,17 @@ async function joinRoom(roomId) {
     gameState.players = data.players;
     gameState.adminId = data.adminId;
     gameState.isAdmin = data.isAdmin;
+    gameState.categories = data.categories || gameState.categories; // Store categories from server
 
     // Update UI to show game interface
-    showScreen('game');
+    document.getElementById('lobby').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
     
     // Initialize game state
     initializeGame();
   } catch (error) {
     console.error('Error joining room:', error);
-    showError('Failed to join room. Please try again.');
+    alert('Failed to join room. Please try again.');
   }
 }
 
@@ -1228,27 +1273,37 @@ function showLobby() {
       <div class="category-management">
         <h3>Kategorien</h3>
         <div id="categoryList">
-          <div class="category-input">
-            <input type="text" class="category-name" value="Stadt" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Land" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Fluss" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Name" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Beruf" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Pflanze" readonly>
-          </div>
-          <div class="category-input">
-            <input type="text" class="category-name" value="Tier" readonly>
-          </div>
+          ${gameState.categories ? gameState.categories.map(category => `
+            <div class="category-input">
+              <input type="text" class="category-name" value="${category}" 
+                ${category === 'Stadt' || category === 'Land' || category === 'Fluss' ? 'readonly' : ''}
+                onchange="updateCategories()">
+              ${category !== 'Stadt' && category !== 'Land' && category !== 'Fluss' ? 
+                `<button class="remove-category" onclick="removeCategory(this)">×</button>` : ''}
+            </div>
+          `).join('') : `
+            <div class="category-input">
+              <input type="text" class="category-name" value="Stadt" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Land" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Fluss" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Name" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Beruf" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Pflanze" readonly>
+            </div>
+            <div class="category-input">
+              <input type="text" class="category-name" value="Tier" readonly>
+            </div>
+          `}
         </div>
         <button onclick="addCategoryInput()" class="add-category">+ Kategorie hinzufügen</button>
       </div>
