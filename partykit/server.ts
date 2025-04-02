@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 
 // Game constants
-const CATEGORIES = ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'];
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 // Room state interface
@@ -25,6 +24,7 @@ interface RoomState {
   admin: string;
   timeLimit: number;
   timerEnd: Date | null;
+  categories: string[];
 }
 
 // Store for game states by room ID
@@ -47,6 +47,9 @@ const MIME_TYPES: Record<string, string> = {
   ".otf": "font/otf",
 };
 
+// Default categories
+const DEFAULT_CATEGORIES = ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'];
+
 export default class StadtLandFlussServer implements Party.Server {
   // Room ID for this game instance
   private roomId: string;
@@ -66,7 +69,8 @@ export default class StadtLandFlussServer implements Party.Server {
         roundResults: {},
         admin: "",
         timeLimit: 60,
-        timerEnd: null
+        timerEnd: null,
+        categories: [...DEFAULT_CATEGORIES]
       };
     }
   }
@@ -128,7 +132,8 @@ export default class StadtLandFlussServer implements Party.Server {
             roundResults: {},
             admin: "",
             timeLimit: 60,
-            timerEnd: null
+            timerEnd: null,
+            categories: [...DEFAULT_CATEGORIES]
           };
         }
       }
@@ -218,7 +223,8 @@ export default class StadtLandFlussServer implements Party.Server {
           roundResults: {},
           admin: "",
           timeLimit: 60,
-          timerEnd: null
+          timerEnd: null,
+          categories: [...DEFAULT_CATEGORIES]
         };
       }
     }
@@ -277,6 +283,11 @@ export default class StadtLandFlussServer implements Party.Server {
     if (data.timeLimit) {
       this.roomState.timeLimit = data.timeLimit;
     }
+
+    // Set categories if provided (only for admin)
+    if (data.categories && data.isAdmin) {
+      this.roomState.categories = data.categories;
+    }
     
     // First player becomes admin
     const isFirstPlayer = Object.keys(this.roomState.players).length === 0;
@@ -310,6 +321,7 @@ export default class StadtLandFlussServer implements Party.Server {
       adminId: this.roomState.admin,
       isAdmin: sender.id === this.roomState.admin,
       timeLimit: this.roomState.timeLimit,
+      categories: this.roomState.categories,
       roomId: this.roomId
     }));
   }
@@ -403,7 +415,8 @@ export default class StadtLandFlussServer implements Party.Server {
       // Get validation results from OpenAI
       const validationResults = await validateAnswers(
         this.roomState.currentLetter || 'A',
-        playerAnswers
+        playerAnswers,
+        this.roomState.categories
       );
       
       console.log(`Validation completed for room ${this.roomId}`);
@@ -412,7 +425,7 @@ export default class StadtLandFlussServer implements Party.Server {
       const structuredScores: Record<string, Record<string, any>> = {};
       
       // Process validation results into expected structure
-      CATEGORIES.forEach(category => {
+      this.roomState.categories.forEach(category => {
         structuredScores[category] = {};
         
         // For each player, create an entry for this category

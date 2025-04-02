@@ -1152,4 +1152,112 @@ function forceRefreshScreen(screenId) {
   });
   
   console.log(`Screen refresh complete: ${fullScreenId}`);
+}
+
+// Add category management functions
+function addCategoryInput() {
+  const categoryList = document.getElementById('categoryList');
+  const newCategoryDiv = document.createElement('div');
+  newCategoryDiv.className = 'category-input';
+  newCategoryDiv.innerHTML = `
+    <input type="text" class="category-name" placeholder="Neue Kategorie">
+    <button class="remove-category" onclick="removeCategory(this)">×</button>
+  `;
+  categoryList.appendChild(newCategoryDiv);
+}
+
+function removeCategory(button) {
+  const categoryDiv = button.parentElement;
+  categoryDiv.remove();
+}
+
+function getCategories() {
+  const categoryInputs = document.querySelectorAll('.category-name');
+  return Array.from(categoryInputs).map(input => input.value.trim()).filter(Boolean);
+}
+
+// Update the join room function to include custom categories
+async function joinRoom(roomId) {
+  try {
+    const categories = getCategories();
+    const response = await fetch(`/api/join-room/${roomId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        playerName: gameState.playerName,
+        categories: categories.length > 0 ? categories : undefined // Only send if custom categories are set
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to join room');
+    }
+
+    const data = await response.json();
+    gameState.roomId = roomId;
+    gameState.players = data.players;
+    gameState.adminId = data.adminId;
+    gameState.isAdmin = data.isAdmin;
+
+    // Update UI to show game interface
+    showScreen('game');
+    
+    // Initialize game state
+    initializeGame();
+  } catch (error) {
+    console.error('Error joining room:', error);
+    showError('Failed to join room. Please try again.');
+  }
+}
+
+// Update the lobby HTML
+function showLobby() {
+  const lobbyHtml = `
+    <div class="lobby-container">
+      <h2>Stadt, Land, Fluss</h2>
+      <div class="player-setup">
+        <input type="text" id="playerName" placeholder="Dein Name" maxlength="20">
+        <button onclick="createRoom()">Neues Spiel erstellen</button>
+      </div>
+      <div class="join-room">
+        <input type="text" id="roomId" placeholder="Raum-ID">
+        <button onclick="joinRoom(document.getElementById('roomId').value)">Raum beitreten</button>
+      </div>
+      <div class="category-management">
+        <h3>Kategorien</h3>
+        <div id="categoryList">
+          <div class="category-input">
+            <input type="text" class="category-name" value="Stadt" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Land" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Fluss" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Name" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Beruf" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Pflanze" readonly>
+          </div>
+          <div class="category-input">
+            <input type="text" class="category-name" value="Tier" readonly>
+          </div>
+        </div>
+        <button onclick="addCategoryInput()" class="add-category">+ Kategorie hinzufügen</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('lobby').innerHTML = lobbyHtml;
+}
+
+// Initialize game state
+function initializeGame() {
+  // Implement any necessary initialization logic
 } 

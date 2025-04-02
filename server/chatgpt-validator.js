@@ -238,10 +238,12 @@ async function waitForRunCompletion(threadId, runId) {
  * Validates a player's answers using the OpenAI Assistant
  * @param {string} letter The current round letter
  * @param {Object} answers The player's answers for each category
+ * @param {string[]} categories The list of categories to validate
  * @returns {Promise<Object>} Validation results
  */
-async function validateAnswers(letter, answers) {
+async function validateAnswers(letter, answers, categories) {
   console.log('🔍 validateAnswers called with letter:', letter);
+  console.log('📦 Categories to validate:', categories);
   console.log('📦 Answers to validate:', answers);
   
   if (!API_KEY || !ASSISTANT_ID) {
@@ -275,18 +277,21 @@ async function validateAnswers(letter, answers) {
           Name: "Must be a commonly recognized first name used for people. Nicknames are valid only if widely recognized. Fictional or made-up names are INVALID. Include origin information in explanation.",
           Beruf: "Must be a recognized official profession or occupation. Obsolete, fictional, or made-up jobs are INVALID. Include a brief description of the profession in explanation.",
           Pflanze: "Must be a specific plant species, including trees, flowers, or crops. Generic terms are INVALID. Made-up or misspelled plant names are INVALID. Include scientific details in explanation.",
-          Tier: "Must be a specific animal species, using either scientific or common name. Generic terms, fictional, or made-up animal names are INVALID. Include habitat information in explanation."
+          Tier: "Must be a specific animal species, using either scientific or common name. Generic terms, fictional, or made-up animal names are INVALID. Include habitat information in explanation.",
+          // Add dynamic category validation rules
+          "*": "For any other category, validate that the answer is real, accurate, and fits the category's theme. Include relevant details in the explanation. For example, for 'Videospiele' (Video Games), validate that it's a real, existing game title and include release year and genre in the explanation."
         }
       },
       letter,
       answers,
+      categories, // Pass the categories to the AI
       output_format: {
         valid: "Boolean indicating if ALL answers are valid",
         errors: "Array of strings describing validation errors for specific answers",
         suggestions: "Object with category keys and string values containing alternate suggestions that start with the required letter",
         explanations: "Object with category keys and string values containing brief explanations for each valid answer AND invalid answer"
       },
-      important_instruction: "IMPORTANT: Be EXTREMELY strict in your validation. First check if answers start with the specified letter (case-insensitive). Then verify each answer exists in reality and is correctly spelled - misspelled entries like 'Föln' instead of 'Köln' are INVALID. For each answer, provide an explanation whether it's valid or invalid (1-2 sentences). For invalid answers, explain why it's invalid and suggest valid alternatives that start with the required letter. If an answer looks like a misspelling of a real entity, explicitly point this out in your explanation."
+      important_instruction: "IMPORTANT: Be EXTREMELY strict in your validation. First check if answers start with the specified letter (case-insensitive). Then verify each answer exists in reality and is correctly spelled - misspelled entries are INVALID. For each answer, provide an explanation whether it's valid or invalid (1-2 sentences). For invalid answers, explain why it's invalid and suggest valid alternatives that start with the required letter. If an answer looks like a misspelling of a real entity, explicitly point this out in your explanation."
     });
 
     console.log(`Sending validation request for letter ${letter} with answers:`, answers);
