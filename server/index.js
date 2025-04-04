@@ -123,6 +123,71 @@ const io = new Server(server);
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
+  // Add a generic message handler for PartyKit compatibility
+  socket.on('message', (data) => {
+    try {
+      // Try parsing the message if it's a string (PartyKit format)
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          console.error('Error parsing message string:', e);
+        }
+      }
+      
+      console.log('Received message:', data);
+      
+      // Handle different message types
+      if (data && data.type) {
+        switch (data.type) {
+          case 'startRound':
+            console.log('Handling startRound via message event');
+            // Call the same handler as the direct event
+            handleStartRound(socket);
+            break;
+            
+          case 'player-ready':
+            console.log('Handling player-ready via message event:', data);
+            // For player-ready, we need the roomId from the message data or the socket
+            const roomId = data.roomId || socket.roomId;
+            if (!roomId || !rooms[roomId]) {
+              console.error('Invalid roomId for player-ready:', roomId);
+              return;
+            }
+            
+            if (!socket.roomId && data.roomId) {
+              // Store roomId in socket for future reference if not already set
+              socket.roomId = data.roomId;
+            }
+            
+            // Update the player ready status in the room
+            if (rooms[roomId].players[socket.id]) {
+              rooms[roomId].players[socket.id].isReady = data.isReady;
+              
+              // Count how many players are ready
+              const readyCount = Object.values(rooms[roomId].players).filter(p => p.isReady).length;
+              console.log(`Player ${socket.id} ready status updated to ${data.isReady}. Now ${readyCount}/${Object.keys(rooms[roomId].players).length} players ready`);
+              
+              // Broadcast updated ready status to all players in the room
+              io.to(roomId).emit('player-ready-update', {
+                readyCount: readyCount,
+                players: Object.values(rooms[roomId].players)
+              });
+            } else {
+              console.error(`Player ${socket.id} not found in room ${roomId}`);
+            }
+            break;
+            
+          // Add other message types as needed
+          default:
+            console.log(`Unhandled message type: ${data.type}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error processing message:', error);
+    }
+  });
+
   // Create or join a game room
   socket.on('joinRoom', ({ roomId, playerName, timeLimit }) => {
     console.log(`${playerName} (${socket.id}) is joining room ${roomId}`);
@@ -158,11 +223,15 @@ io.on('connection', (socket) => {
       console.log(`- ${p.name} (${p.id})${p.isAdmin ? ' (Admin)' : ''}`);
     });
     
+    // Count ready players
+    const readyCount = Object.values(rooms[roomId].players).filter(p => p.isReady).length;
+    
     // Notify everyone in the room
     io.to(roomId).emit('playerJoined', {
       players: Object.values(rooms[roomId].players),
       admin: rooms[roomId].admin,
-      timeLimit: rooms[roomId].timeLimit
+      timeLimit: rooms[roomId].timeLimit,
+      readyCount: readyCount
     });
     
     // Store room ID in socket for easy access
@@ -171,57 +240,7 @@ io.on('connection', (socket) => {
 
   // Start a new round
   socket.on('startRound', () => {
-    const roomId = socket.roomId;
-    if (!roomId || !rooms[roomId]) return;
-    
-    // Only admin can start the round
-    if (rooms[roomId].admin !== socket.id) return;
-    
-    console.log(`Admin ${socket.id} started new round in room ${roomId}`);
-    
-    // Select a random letter
-    const randomIndex = Math.floor(Math.random() * LETTERS.length);
-    const letter = LETTERS[randomIndex];
-    
-    // Set round timer
-    const timeLimit = rooms[roomId].timeLimit;
-    const timerEnd = new Date(Date.now() + timeLimit * 1000);
-    
-    // Update room state
-    rooms[roomId].currentLetter = letter;
-    rooms[roomId].roundInProgress = true;
-    rooms[roomId].roundResults = {};
-    rooms[roomId].timerEnd = timerEnd;
-    
-    // Reset player answers and readiness
-    Object.keys(rooms[roomId].players).forEach(playerId => {
-      rooms[roomId].players[playerId].answers = {};
-      rooms[roomId].players[playerId].isReady = false;
-      // Ensure isAdmin property is correctly set
-      rooms[roomId].players[playerId].isAdmin = (playerId === rooms[roomId].admin);
-    });
-    
-    // Log current players before starting the round
-    console.log(`Starting round with ${Object.keys(rooms[roomId].players).length} players:`);
-    Object.values(rooms[roomId].players).forEach(p => {
-      console.log(`- ${p.name} (${p.id})${p.isAdmin ? ' (Admin)' : ''}`);
-    });
-    
-    // Notify everyone in the room that a new round started
-    io.to(roomId).emit('roundStarted', { 
-      letter,
-      timeLimit,
-      players: Object.values(rooms[roomId].players)
-    });
-    
-    // Set a server-side timer to end the round automatically
-    setTimeout(() => {
-      const room = rooms[roomId];
-      if (room && room.roundInProgress) {
-        console.log(`Time's up for room ${roomId}`);
-        processRoundEnd(roomId);
-      }
-    }, timeLimit * 1000);
+    handleStartRound(socket);
   });
 
   // Submit answers for a round
@@ -292,15 +311,115 @@ io.on('connection', (socket) => {
         console.log(`- ${p.name} (${p.id})${p.isAdmin ? ' (Admin)' : ''}`);
       });
       
+      // Count ready players
+      const readyCount = Object.values(rooms[roomId].players).filter(p => p.isReady).length;
+      
       // Notify remaining players
       io.to(roomId).emit('playerLeft', {
         playerId: socket.id,
         playerName: playerName,
-        players: Object.values(rooms[roomId].players)
+        players: Object.values(rooms[roomId].players),
+        readyCount: readyCount,
+        newAdmin: rooms[roomId].admin !== socket.id ? null : rooms[roomId].admin
       });
     }
   });
+
+  // Handle player ready status
+  socket.on('player-ready', ({ roomId, playerName, isReady }) => {
+    handlePlayerReady(socket, { roomId, playerName, isReady });
+  });
 });
+
+// Helper function to handle start round requests
+function handleStartRound(socket) {
+  const roomId = socket.roomId;
+  if (!roomId || !rooms[roomId]) return;
+  
+  // Check if enough players are ready to start the game
+  const totalPlayers = Object.keys(rooms[roomId].players).length;
+  const readyPlayers = Object.values(rooms[roomId].players).filter(p => p.isReady).length;
+  const requiredReady = totalPlayers <= 2 ? totalPlayers : Math.ceil(totalPlayers / 2);
+  
+  // Allow game to start if: player is admin OR enough players are ready
+  const isAdmin = rooms[roomId].admin === socket.id;
+  const enoughPlayersReady = readyPlayers >= requiredReady;
+  
+  if (!isAdmin && !enoughPlayersReady) {
+    console.log(`Player ${socket.id} tried to start game but not enough players are ready (${readyPlayers}/${requiredReady})`);
+    // Send error message to the player
+    socket.emit('error', { message: `Not enough players are ready to start the game. Need at least ${requiredReady} ready players.` });
+    return;
+  }
+  
+  console.log(`${isAdmin ? 'Admin' : 'Player'} ${socket.id} started new round in room ${roomId} with ${readyPlayers}/${totalPlayers} players ready`);
+  
+  // Select a random letter
+  const randomIndex = Math.floor(Math.random() * LETTERS.length);
+  const letter = LETTERS[randomIndex];
+  
+  // Set round timer
+  const timeLimit = rooms[roomId].timeLimit;
+  const timerEnd = new Date(Date.now() + timeLimit * 1000);
+  
+  // Update room state
+  rooms[roomId].currentLetter = letter;
+  rooms[roomId].roundInProgress = true;
+  rooms[roomId].roundResults = {};
+  rooms[roomId].timerEnd = timerEnd;
+  
+  // Reset player answers and readiness
+  Object.keys(rooms[roomId].players).forEach(playerId => {
+    rooms[roomId].players[playerId].answers = {};
+    rooms[roomId].players[playerId].isReady = false;
+    // Ensure isAdmin property is correctly set
+    rooms[roomId].players[playerId].isAdmin = (playerId === rooms[roomId].admin);
+  });
+  
+  // Log current players before starting the round
+  console.log(`Starting round with ${Object.keys(rooms[roomId].players).length} players:`);
+  Object.values(rooms[roomId].players).forEach(p => {
+    console.log(`- ${p.name} (${p.id})${p.isAdmin ? ' (Admin)' : ''}`);
+  });
+  
+  // Notify everyone in the room that a new round started
+  io.to(roomId).emit('roundStarted', { 
+    letter,
+    timeLimit,
+    players: Object.values(rooms[roomId].players)
+  });
+  
+  // Set a server-side timer to end the round automatically
+  setTimeout(() => {
+    const room = rooms[roomId];
+    if (room && room.roundInProgress) {
+      console.log(`Time's up for room ${roomId}`);
+      processRoundEnd(roomId);
+    }
+  }, timeLimit * 1000);
+}
+
+// Helper function to handle player ready status
+function handlePlayerReady(socket, data) {
+  const { roomId, playerName, isReady } = data;
+  if (!roomId || !rooms[roomId]) return;
+  
+  console.log(`Player ${playerName} (${socket.id}) in room ${roomId} is now ${isReady ? 'ready' : 'not ready'}`);
+  
+  // Update player ready status
+  if (rooms[roomId].players[socket.id]) {
+    rooms[roomId].players[socket.id].isReady = isReady;
+    
+    // Count how many players are ready
+    const readyCount = Object.values(rooms[roomId].players).filter(p => p.isReady).length;
+    
+    // Broadcast updated ready status to all players in the room
+    io.to(roomId).emit('player-ready-update', {
+      readyCount: readyCount,
+      players: Object.values(rooms[roomId].players)
+    });
+  }
+}
 
 // Function to process the end of a round (either by time limit or all players submitted)
 function processRoundEnd(roomId) {

@@ -14,6 +14,7 @@ interface Player {
   score: number;
   isAdmin: boolean;
   submitted: boolean;
+  isReady: boolean;
 }
 
 interface RoomState {
@@ -25,6 +26,7 @@ interface RoomState {
   timeLimit: number;
   timerEnd: Date | null;
   categories: string[];
+  readyCount: number;
 }
 
 // Store for game states by room ID
@@ -70,7 +72,8 @@ export default class StadtLandFlussServer implements Party.Server {
         admin: "",
         timeLimit: 60,
         timerEnd: null,
-        categories: [...DEFAULT_CATEGORIES]
+        categories: [...DEFAULT_CATEGORIES],
+        readyCount: 0
       };
     }
   }
@@ -98,6 +101,9 @@ export default class StadtLandFlussServer implements Party.Server {
       id: conn.id
     }));
     
+    // Count ready players
+    const readyCount = Object.values(this.roomState.players).filter(p => p.isReady).length;
+    
     // Then send current state
     conn.send(JSON.stringify({
       type: "joined",
@@ -109,13 +115,15 @@ export default class StadtLandFlussServer implements Party.Server {
       roundInProgress: this.roomState.roundInProgress,
       currentLetter: this.roomState.currentLetter,
       timerEnd: this.roomState.timerEnd,
-      roomId: this.roomId
+      roomId: this.roomId,
+      readyCount: readyCount
     }));
   }
 
   async onMessage(message: string, sender: Party.Connection) {
     try {
       const data = JSON.parse(message);
+      console.log(`Received message from ${sender.id}:`, data.type);
       
       // If message contains roomId, use it to update our roomId
       if (data.type === "joinRoom" && data.roomId && data.roomId !== this.roomId) {
@@ -132,24 +140,54 @@ export default class StadtLandFlussServer implements Party.Server {
             admin: "",
             timeLimit: 60,
             timerEnd: null,
-            categories: [...DEFAULT_CATEGORIES]
+            categories: [...DEFAULT_CATEGORIES],
+            readyCount: 0
           };
         }
       }
       
+      // Check if this player is in the room (only for non-joinRoom messages)
+      if (!this.roomState.players[sender.id] && data.type !== 'joinRoom') {
+        console.log(`Player ${sender.id} is not in room ${this.roomId}`);
+        sender.send(JSON.stringify({
+          type: "error",
+          message: "You are not in this room"
+        }));
+        return;
+      }
+      
+      // Handle message based on type
       switch (data.type) {
         case "joinRoom":
-          this.handleJoinRoom(data, sender);
+          await this.handleJoinRoom(data, sender);
           break;
+          
         case "startRound":
+          // Now allow any player to start if enough players are ready
+          console.log(`📣 Received startRound message from ${sender.id} - using updated code from ${new Date().toISOString()}`);
           this.handleStartRound(sender);
           break;
+          
         case "submitAnswers":
           this.handleSubmitAnswers(data, sender);
+          
+          // For single player: if there's only one player, immediately process validation
+          const playerCount = Object.keys(this.roomState.players).length;
+          if (playerCount === 1) {
+            console.log('Single player mode: immediately processing validation');
+            this.processValidation();
+          }
           break;
+          
         case "updateCategories":
+        case "update-categories":
           this.handleUpdateCategories(data, sender);
           break;
+          
+        case "player-ready":
+          this.handlePlayerReady(data, sender);
+          break;
+          
         default:
           console.log(`Unknown message type: ${data.type}`);
       }
@@ -226,7 +264,8 @@ export default class StadtLandFlussServer implements Party.Server {
           admin: "",
           timeLimit: 60,
           timerEnd: null,
-          categories: [...DEFAULT_CATEGORIES]
+          categories: [...DEFAULT_CATEGORIES],
+          readyCount: 0
         };
       }
     }
@@ -272,15 +311,25 @@ export default class StadtLandFlussServer implements Party.Server {
   private handleJoinRoom(data: any, sender: Party.Connection) {
     const playerName = data.playerName || `Player ${sender.id}`;
     const categories = data.categories;
+    const isFirstPlayer = Object.keys(this.roomState.players).length === 0;
+    
+    // Set admin if this is the first player
+    if (isFirstPlayer) {
+      this.roomState.admin = sender.id;
+    }
+    
+    // Check if this player is already in the room
+    const existingPlayer = this.roomState.players[sender.id];
     
     // Initialize or update player
     this.roomState.players[sender.id] = {
       id: sender.id,
       name: playerName,
       answers: {},
-      score: 0,
-      isAdmin: Object.keys(this.roomState.players).length === 0,
-      submitted: false
+      score: existingPlayer?.score || 0,
+      isAdmin: isFirstPlayer || sender.id === this.roomState.admin,
+      submitted: false,
+      isReady: existingPlayer?.isReady || false
     };
     
     // Update categories if provided
@@ -289,6 +338,10 @@ export default class StadtLandFlussServer implements Party.Server {
       this.roomState.categories = categories;
     }
     
+    // Count ready players
+    const readyCount = Object.values(this.roomState.players).filter(p => p.isReady).length;
+    this.roomState.readyCount = readyCount;
+    
     // Notify everyone in the room
     this.party.broadcast(JSON.stringify({
       type: "joinedRoom",
@@ -296,13 +349,34 @@ export default class StadtLandFlussServer implements Party.Server {
       playerId: sender.id,
       players: Object.values(this.roomState.players),
       adminId: this.roomState.admin,
-      categories: this.roomState.categories
+      categories: this.roomState.categories,
+      readyCount: readyCount
     }));
   }
 
   private handleStartRound(sender: Party.Connection) {
-    // Allow any player to start the round
-    console.log(`Player ${sender.id} started a new round in room ${this.roomId}`);
+    console.log('====== USING UPDATED handleStartRound WITH READY SYSTEM ======');
+    
+    // Check if enough players are ready to start the game
+    const totalPlayers = Object.keys(this.roomState.players).length;
+    const readyPlayers = Object.values(this.roomState.players).filter(p => p.isReady).length;
+    const requiredReady = totalPlayers <= 2 ? totalPlayers : Math.ceil(totalPlayers / 2);
+    
+    // Allow game to start if: player is admin OR enough players are ready
+    const isAdmin = sender.id === this.roomState.admin;
+    const enoughPlayersReady = readyPlayers >= requiredReady;
+    
+    if (!isAdmin && !enoughPlayersReady) {
+      console.log(`Player ${sender.id} tried to start game but not enough players are ready (${readyPlayers}/${requiredReady})`);
+      // Send error message to the player
+      sender.send(JSON.stringify({
+        type: "error",
+        message: `Not enough players are ready to start the game. Need at least ${requiredReady} ready players.`
+      }));
+      return;
+    }
+    
+    console.log(`${isAdmin ? 'Admin' : 'Player'} ${sender.id} started a new round in room ${this.roomId} with ${readyPlayers}/${totalPlayers} players ready`);
     
     // Select a random letter
     const randomIndex = Math.floor(Math.random() * LETTERS.length);
@@ -318,11 +392,15 @@ export default class StadtLandFlussServer implements Party.Server {
     this.roomState.roundResults = {};
     this.roomState.timerEnd = timerEnd;
     
-    // Reset player answers and submission status
+    // Reset player answers, submission status, and ready status
     Object.keys(this.roomState.players).forEach(playerId => {
       this.roomState.players[playerId].answers = {};
       this.roomState.players[playerId].submitted = false;
+      this.roomState.players[playerId].isReady = false;
     });
+    
+    // Reset readyCount
+    this.roomState.readyCount = 0;
     
     // Notify everyone in the room
     this.party.broadcast(JSON.stringify({
@@ -481,6 +559,11 @@ export default class StadtLandFlussServer implements Party.Server {
   
   // Helper function to check if an answer is unique among all players
   private isUniqueAnswer(answer: string, category: string, allAnswers: Record<string, Record<string, string>>): boolean {
+    // If there's only one player, all answers are considered unique
+    if (Object.keys(allAnswers).length <= 1) {
+      return true;
+    }
+    
     // Count occurrences of this answer for this category
     let count = 0;
     Object.values(allAnswers).forEach(playerAnswers => {
@@ -514,5 +597,38 @@ export default class StadtLandFlussServer implements Party.Server {
       type: "categoriesUpdated",
       categories: this.roomState.categories
     }));
+  }
+
+  private handlePlayerReady(data: any, sender: Party.Connection) {
+    const isReady = data.isReady;
+    const playerName = data.playerName || this.roomState.players[sender.id]?.name || 'Unknown';
+    
+    console.log(`✅✅✅ READY SYSTEM: Player ${playerName} (${sender.id}) in room ${this.roomId} is now ${isReady ? 'ready' : 'not ready'} [${new Date().toISOString()}]`);
+    
+    // Update player ready status
+    if (this.roomState.players[sender.id]) {
+      // Only update if the status is changing
+      if (this.roomState.players[sender.id].isReady !== isReady) {
+        this.roomState.players[sender.id].isReady = isReady;
+        
+        // Update the ready count
+        if (isReady) {
+          this.roomState.readyCount++;
+        } else {
+          this.roomState.readyCount = Math.max(0, this.roomState.readyCount - 1);
+        }
+        
+        console.log(`Ready count for room ${this.roomId} is now ${this.roomState.readyCount}/${Object.keys(this.roomState.players).length}`);
+        
+        // Broadcast updated ready status to all players in the room
+        this.party.broadcast(JSON.stringify({
+          type: "player-ready-update",
+          readyCount: this.roomState.readyCount,
+          players: Object.values(this.roomState.players)
+        }));
+      }
+    } else {
+      console.error(`Player ${sender.id} not found in room ${this.roomId}`);
+    }
   }
 } 

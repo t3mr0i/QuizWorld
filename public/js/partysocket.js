@@ -124,6 +124,8 @@ class GamePartySocket {
   
   handleOpen(event) {
     console.log('Connection established to game server');
+    console.log('Connected to PartyKit host:', this.host);
+    console.log('Connection URL:', event.target?.url || 'Unknown');
     this.connected = true;
     this.reconnectAttempts = 0;
     this.connectionState = 'connected';

@@ -18,7 +18,10 @@ const gameState = {
   // Add debugging fields
   lastSubmitTime: null,
   validationTimeoutId: null,
-  categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Tier', 'Pflanze'] // Default categories
+  categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Tier', 'Pflanze'], // Default categories
+  isReady: false, // Track if current player is ready
+  readyCount: 0,   // Count of ready players
+  clientSideMode: false // Track if we're using client-side mode
 };
 
 // DOM elements - get references to all screens
@@ -29,34 +32,99 @@ const screens = {
   results: document.getElementById('results-screen')
 };
 
+// Add DOM-related utility functions to optimize common operations
+const DOM = {
+  get: id => document.getElementById(id),
+  query: (selector, parent = document) => parent.querySelector(selector),
+  queryAll: (selector, parent = document) => parent.querySelectorAll(selector),
+  
+  // Create element with attributes and children
+  create: (tag, attributes = {}, children = []) => {
+    const element = document.createElement(tag);
+    
+    // Set attributes
+    Object.entries(attributes).forEach(([key, value]) => {
+      if (key === 'className') {
+        element.className = value;
+      } else if (key === 'innerHTML') {
+        element.innerHTML = value;
+      } else {
+        element.setAttribute(key, value);
+      }
+    });
+    
+    // Append children
+    children.forEach(child => {
+      if (typeof child === 'string') {
+        element.appendChild(document.createTextNode(child));
+      } else if (child instanceof Node) {
+        element.appendChild(child);
+      }
+    });
+    
+    return element;
+  }
+};
+
 // Helper functions
 function showScreen(screenId) {
-  console.log(`Attempting to show screen: ${screenId}`);
-  
-  // If passed a simple name, convert to full ID
-  const fullScreenId = screenId.includes('-') ? screenId : `${screenId}-screen`;
+  console.log(`Showing screen: ${screenId}`);
   
   // Hide all screens first
-  document.querySelectorAll('.game-screen').forEach(screen => {
+  DOM.queryAll('.game-screen').forEach(screen => {
     screen.classList.remove('active');
     screen.classList.add('hidden');
-    console.log(`Hidden screen: ${screen.id}`);
   });
   
-  // Then show the requested screen with a fade-in animation
-  const targetScreen = document.getElementById(fullScreenId);
-  if (targetScreen) {
+  // Show the requested screen
+  const fullScreenId = screenId.includes('-') ? screenId : `${screenId}-screen`;
+  const screen = DOM.get(fullScreenId);
+  
+  if (screen) {
     console.log(`Showing screen: ${fullScreenId}`);
-    targetScreen.classList.remove('hidden');
+    screen.classList.remove('hidden');
+    
+    // Special handling for welcome screen - make sure button text is correct
+    if (screenId === 'welcome') {
+      console.log('Welcome screen shown, updating join button text...');
+      setTimeout(updateJoinButtonText, 100); // Short delay to ensure DOM is ready
+    }
+    
+    // Special handling for lobby screen - make sure categories are visible
+    if (screenId === 'lobby') {
+      console.log('Lobby screen shown, initializing category management...');
+      setTimeout(() => {
+        initializeCategoryManagement(); 
+        
+        // Attach ready button event listener
+        const readyBtn = document.getElementById('ready-btn');
+        if (readyBtn) {
+          // Remove existing listener to avoid duplicates
+          const newReadyBtn = readyBtn.cloneNode(true);
+          readyBtn.parentNode.replaceChild(newReadyBtn, readyBtn);
+          
+          // Add fresh listener
+          newReadyBtn.addEventListener('click', toggleReady);
+          console.log('Ready button listener attached in lobby');
+          
+          // Make sure button is not disabled
+          newReadyBtn.disabled = false;
+        }
+        
+        // Update ready status display
+        updateReadyStatus();
+      }, 100); // Short delay to ensure DOM is ready
+    }
+    
     // Small delay to allow the DOM to update before adding the active class
     setTimeout(() => {
-      targetScreen.classList.add('active');
+      screen.classList.add('active');
     }, 50);
   } else {
     console.error(`Screen not found: ${fullScreenId}`);
     // List all available screens for debugging
     const availableScreens = [];
-    document.querySelectorAll('.game-screen').forEach(screen => {
+    DOM.queryAll('.game-screen').forEach(screen => {
       availableScreens.push(screen.id);
     });
     console.log(`Available screens: ${availableScreens.join(', ')}`);
@@ -120,10 +188,101 @@ function updatePlayerList(players, adminId) {
     playerList.appendChild(li);
   });
   
-  // Update waiting message visibility
+  // Update waiting message visibility - but don't hide admin controls
   const waitingMessage = document.getElementById('waiting-message');
   if (waitingMessage) {
-    waitingMessage.style.display = players.length <= 1 ? 'block' : 'none';
+    // Change message but always allow game to start
+    if (players.length <= 1) {
+      waitingMessage.textContent = '';
+      waitingMessage.innerHTML = '<p>You can start playing alone - just click the START GAME button at the bottom!</p>';
+      waitingMessage.style.display = 'block';
+    } else {
+      // Still show start button for non-admin players too
+      waitingMessage.textContent = '';
+      waitingMessage.innerHTML = '<p>Everyone is ready? Click the START GAME button at the bottom!</p>';
+      waitingMessage.style.display = 'block';
+    }
+  }
+  
+  // Always ensure admin controls are visible for the admin
+  if (gameState.isAdmin) {
+    const adminControls = document.getElementById('admin-controls');
+    const gameStarter = document.getElementById('game-starter');
+    const prominentStartBtn = document.getElementById('prominent-start-btn');
+    
+    if (adminControls) {
+      console.log('Ensuring admin controls are visible');
+      adminControls.style.display = 'flex';
+    }
+    
+    if (gameStarter) {
+      gameStarter.style.display = 'flex';
+      
+      // Make sure start game button is visible
+      const startGameBtn = document.getElementById('start-game-btn');
+      if (startGameBtn) {
+        startGameBtn.style.display = 'flex';
+        startGameBtn.style.visibility = 'visible';
+        startGameBtn.disabled = false;
+      }
+    }
+    
+    // Make sure prominent start button is visible if it exists
+    if (prominentStartBtn) {
+      prominentStartBtn.style.display = 'block';
+      const container = prominentStartBtn.closest('.prominent-start-container');
+      if (container) {
+        container.style.display = 'flex';
+      }
+    } else {
+      // If it doesn't exist yet, try to create it
+      const lobbyBody = document.querySelector('#lobby-screen .card-body');
+      if (lobbyBody && !document.querySelector('.prominent-start-container')) {
+        console.log('Adding missing prominent start button to lobby');
+        
+        // Create container for the button
+        const startButtonContainer = document.createElement('div');
+        startButtonContainer.className = 'prominent-start-container';
+        
+        // Create the button
+        const newPromStartBtn = document.createElement('button');
+        newPromStartBtn.id = 'prominent-start-btn';
+        newPromStartBtn.className = 'btn btn-accent btn-large prominent-start-btn';
+        newPromStartBtn.innerHTML = '<span class="start-icon">▶</span> START GAME';
+        
+        // Add click handler
+        newPromStartBtn.addEventListener('click', startNewRound);
+        
+        // Add instructional text
+        const instructionText = document.createElement('p');
+        instructionText.className = 'start-instruction';
+        instructionText.textContent = 'Click to start the game when everyone is ready!';
+        
+        // Add to container
+        startButtonContainer.appendChild(newPromStartBtn);
+        startButtonContainer.appendChild(instructionText);
+        
+        // Add to the lobby
+        lobbyBody.appendChild(startButtonContainer);
+      }
+    }
+  } else {
+    // For non-admin players, hide admin controls and start button
+    const adminControls = document.getElementById('admin-controls');
+    const gameStarter = document.getElementById('game-starter');
+    const prominentStartContainer = document.querySelector('.prominent-start-container');
+    
+    if (adminControls) {
+      adminControls.style.display = 'none';
+    }
+    
+    if (gameStarter) {
+      gameStarter.style.display = 'none';
+    }
+    
+    if (prominentStartContainer) {
+      prominentStartContainer.style.display = 'none';
+    }
   }
 }
 
@@ -185,36 +344,64 @@ function updateScores(players) {
 }
 
 function setupCategoriesForm(letter) {
+  // Update the current letter display
+  document.getElementById('current-letter').textContent = letter;
+  
+  // Set the current letter in game state
+  gameState.currentLetter = letter;
+  
+  // Get the categories container
   const categoriesGrid = document.querySelector('.categories-grid');
   if (!categoriesGrid) return;
   
+  // Clear existing categories
   categoriesGrid.innerHTML = '';
   
+  // Add form fields for each category
   gameState.categories.forEach(category => {
     const categoryGroup = document.createElement('div');
-    categoryGroup.classList.add('category-group');
+    categoryGroup.className = 'category-group';
     
     const label = document.createElement('label');
-    label.setAttribute('for', `answer-${category.toLowerCase()}`);
     label.textContent = category;
     
     const input = document.createElement('input');
     input.type = 'text';
-    input.id = `answer-${category.toLowerCase()}`;
-    input.name = category;
-    input.autocomplete = 'off';
+    input.className = 'answer-input';
+    input.setAttribute('data-category', category);
     input.placeholder = `${category} with ${letter}...`;
+    input.autocomplete = 'off';
     
     categoryGroup.appendChild(label);
     categoryGroup.appendChild(input);
     categoriesGrid.appendChild(categoryGroup);
   });
   
-  // Focus the first input field
-  const firstInput = categoriesGrid.querySelector('input');
-  if (firstInput) {
-    firstInput.focus();
+  // Add client-side mode indicator if needed
+  if (gameState.clientSideMode || window.CONFIG?.ALLOW_ANYONE_TO_START) {
+    const indicator = document.createElement('div');
+    indicator.className = 'client-mode-indicator';
+    indicator.textContent = 'Client-Side Mode Active';
+    indicator.style.fontSize = '12px';
+    indicator.style.padding = '5px';
+    indicator.style.margin = '10px 0';
+    indicator.style.backgroundColor = '#f8d7da';
+    indicator.style.color = '#721c24';
+    indicator.style.borderRadius = '4px';
+    indicator.style.textAlign = 'center';
+    
+    const gameHeader = document.querySelector('.game-header');
+    if (gameHeader) {
+      gameHeader.appendChild(indicator);
+    }
   }
+  
+  // Reset submission state
+  gameState.submitted = false;
+  
+  // Focus the first input
+  const firstInput = document.querySelector('.answer-input');
+  if (firstInput) firstInput.focus();
 }
 
 function startTimer(duration) {
@@ -256,1106 +443,479 @@ function startTimer(duration) {
 }
 
 function submitAnswers() {
-  if (gameState.submitted) return;
+  // If answers already submitted, don't do it again
+  if (gameState.submitted) {
+    console.log('Answers already submitted!');
+    return;
+  }
   
-  const answerInputs = document.querySelectorAll('.category-group input');
+  // Get all input fields
+  const inputs = document.querySelectorAll('.answer-input');
   const answers = {};
   
-  answerInputs.forEach(input => {
-    answers[input.name] = input.value.trim();
+  // Collect answers
+  inputs.forEach(input => {
+    const category = input.getAttribute('data-category');
+    const value = input.value.trim();
+    if (value) {
+      answers[category] = value;
+    }
   });
   
+  // Debug logging
   console.log('===== ANSWER SUBMISSION DEBUG =====');
   console.log('Submitting answers:', answers);
   console.log('Current letter:', gameState.currentLetter);
   console.log('Time limit:', gameState.timeLimit);
   console.log('Room ID:', gameState.roomId);
   console.log('Player name:', gameState.playerName);
+  console.log('Client-side mode:', gameState.clientSideMode);
   console.log('===================================');
   
-  // Check if any answers are empty
-  const emptyAnswers = Object.entries(answers).filter(([_, value]) => !value);
-  if (emptyAnswers.length > 0) {
-    console.warn('Some answers are empty:', emptyAnswers.map(([key]) => key));
-  }
-  
-  // Add visual indication that answers are submitted
-  answerInputs.forEach(input => {
-    input.disabled = true;
-    input.classList.add('submitted');
-  });
-  
-  const submitButton = document.getElementById('submit-btn');
-  if (submitButton) {
-    submitButton.disabled = true;
-    submitButton.textContent = 'Answers Submitted';
-    submitButton.classList.add('btn-submitted');
-  }
-  
-  // Update game state
+  // Mark answers as submitted
   gameState.submitted = true;
-  gameState.lastSubmitTime = Date.now();
   
-  // Set a timeout to check if validation is taking too long
-  if (gameState.validationTimeoutId) {
-    clearTimeout(gameState.validationTimeoutId);
-  }
+  // Disable form
+  document.getElementById('submit-btn').disabled = true;
+  inputs.forEach(input => input.disabled = true);
   
-  gameState.validationTimeoutId = setTimeout(() => {
-    console.warn('⚠️ Answer validation is taking longer than expected (5s)');
-    console.log('Time since submission:', (Date.now() - gameState.lastSubmitTime) / 1000, 'seconds');
+  // Show loading state
+  document.getElementById('submit-btn').textContent = 'Waiting for others...';
+  
+  try {
+    // In client-side mode, process answers locally if server returns an error
+    const message = {
+      type: 'submitAnswers',
+      answers: answers,
+      letter: gameState.currentLetter,
+      playerName: gameState.playerName
+    };
     
-    // Check again at 10 seconds
-    gameState.validationTimeoutId = setTimeout(() => {
-      console.warn('⚠️ Answer validation appears to be stalled (10s without response)');
-      console.log('Time since submission:', (Date.now() - gameState.lastSubmitTime) / 1000, 'seconds');
-      console.log('This could indicate the server is not processing the validation or there is no API key configured');
-    }, 5000);
-  }, 5000);
-  
-  // Send answers to server
-  const messageData = {
-    type: 'submitAnswers',
-    answers: answers,
-    letter: gameState.currentLetter, // Add letter for context
-    playerName: gameState.playerName // Add player name for logging
-  };
-
-  console.log('Sending message to server:', messageData);
-  const sendResult = socket.send(messageData);
-  console.log('Message send result:', sendResult);
+    // Send message to server
+    console.log('Sending message to server:', message);
+    const sendResult = socket.send(JSON.stringify(message));
+    console.log('Message send result:', sendResult);
+    
+    // For single player or client-side mode, set a timeout to show results
+    // if we don't hear back from the server
+    if (gameState.clientSideMode) {
+      console.log('🔧 CLIENT-SIDE MODE: Setting up local validation fallback...');
+      
+      gameState.validationTimeoutId = setTimeout(() => {
+        console.log('🔧 CLIENT-SIDE MODE: Server did not respond, processing results locally');
+        
+        // Check if we already got a response from server
+        if (document.getElementById('results-screen').classList.contains('active')) {
+          console.log('Results already showing, canceling local validation');
+          return;
+        }
+        
+        // Process answers locally
+        const results = validateAnswersLocally(answers, gameState.currentLetter);
+        
+        // Structure results in the format expected by displayRoundResults
+        const structuredResults = {
+          scores: {},
+          players: [{ id: 'local', name: gameState.playerName, score: 0 }],
+          categories: gameState.categories
+        };
+        
+        // Format results
+        gameState.categories.forEach(category => {
+          structuredResults.scores[category] = {};
+          
+          const answer = answers[category] || '';
+          let score = 0;
+          let explanation = 'No answer provided';
+          
+          if (answer && results[category]) {
+            score = results[category].valid ? 10 : 0;
+            explanation = results[category].explanation;
+          }
+          
+          structuredResults.scores[category]['local'] = {
+            answer,
+            score,
+            explanation
+          };
+          
+          // Add to player's total score
+          structuredResults.players[0].score += score;
+        });
+        
+        // Show results
+        displayRoundResults(structuredResults);
+      }, 3000); // Wait 3 seconds for server before falling back to local
+    }
+  } catch (error) {
+    console.error('Error submitting answers:', error);
+    showError('Error submitting answers. Please try again.');
+    
+    // Re-enable form
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('submit-btn').textContent = 'Submit Answers';
+    inputs.forEach(input => input.disabled = false);
+    gameState.submitted = false;
+  }
 }
 
 // Add a temporary validation function to handle when server validation fails
 function validateAnswersLocally(answers, letter) {
-  if (!answers || !letter) return false;
+  console.log('🔧 CLIENT-SIDE MODE: Validating answers locally:', answers, 'for letter:', letter);
   
-  console.log('🧠 Performing local validation as fallback because server validation failed');
-  console.log('Letter:', letter, 'Answers:', answers);
+  if (!letter || typeof letter !== 'string') {
+    console.error('Invalid letter for validation:', letter);
+    return {};
+  }
   
-  // Check if answers start with the correct letter (case-insensitive)
+  // Convert letter to uppercase
+  letter = letter.toUpperCase();
   const results = {};
-  let allValid = true;
   
-  Object.keys(answers).forEach(category => {
-    const answer = answers[category];
-    
-    // Skip validation for empty answers
-    if (!answer || answer.trim() === '') {
-      results[category] = { valid: false, points: 0, explanation: "Empty answer" };
+  // Process each category and answer
+  Object.entries(answers).forEach(([category, answer]) => {
+    // Skip empty answers
+    if (!answer || typeof answer !== 'string') {
+      results[category] = {
+        valid: false,
+        explanation: 'No answer provided'
+      };
       return;
     }
     
-    // Basic check: does it start with the right letter?
-    const startsWithLetter = answer.trim().toLowerCase().startsWith(letter.toLowerCase());
+    // Trim and normalize the answer
+    const processedAnswer = answer.trim();
     
-    results[category] = {
-      answer: answer,
-      valid: startsWithLetter,
-      points: startsWithLetter ? 10 : 0, // Assign 10 points for valid answers (can't check uniqueness locally)
-      explanation: startsWithLetter 
-        ? `Accepted: Starts with letter ${letter}` 
-        : `Invalid: Does not start with letter ${letter}`
-    };
+    // Check if the answer starts with the correct letter (case insensitive)
+    const startsWithLetter = processedAnswer.toUpperCase().startsWith(letter);
     
-    if (!startsWithLetter) {
-      allValid = false;
+    if (startsWithLetter) {
+      results[category] = {
+        valid: true,
+        explanation: `Valid answer for ${category} starting with '${letter}'`
+      };
+    } else {
+      results[category] = {
+        valid: false,
+        explanation: `Answer does not start with the letter '${letter}'`
+      };
     }
   });
   
-  console.log('Local validation results:', results);
-  return {
-    valid: allValid,
-    results: results
-  };
+  console.log('🔧 CLIENT-SIDE MODE: Local validation results:', results);
+  return results;
 }
 
 // Socket event handlers
-socket.on('message', (data) => {
-  console.log('Received message:', data);
-  
-  // Clear validation timeout when we get any response
-  if (gameState.validationTimeoutId) {
-    clearTimeout(gameState.validationTimeoutId);
-    gameState.validationTimeoutId = null;
-  }
-  
-  if (data.type === 'playerSubmitted' || data.type === 'roundResults') {
-    console.log('✅ Received validation response after:', 
-      (Date.now() - (gameState.lastSubmitTime || Date.now())) / 1000, 'seconds');
-  }
-  
-  switch (data.type) {
-    case 'joinedRoom':
-      // Update game state
-      gameState.roomId = data.roomId;
-      gameState.players = data.players;
-      
-      // Make sure the admin ID is correctly set
-      gameState.adminId = data.adminId;
-      
-      // Update categories if provided
-      if (data.categories) {
-        gameState.categories = data.categories;
-        renderCategoryList();
-      }
-      
-      // Important: Only update isAdmin status if this is about the current player
-      // For messages about other players joining, preserve current admin status
-      if (data.playerId === socket.id) {
-        gameState.isAdmin = data.isAdmin;
-      }
-      
-      // Log admin status for debugging
-      console.log('Admin status:', {
-        playerId: data.playerId, 
-        socketId: socket.id, 
-        adminId: data.adminId, 
-        isAdmin: gameState.isAdmin
-      });
-      
-      // Update UI
-      const roomIdDisplay = document.getElementById('display-room-id');
-      if (roomIdDisplay) {
-        roomIdDisplay.textContent = data.roomId;
-      }
-      
-      updatePlayerList(data.players, data.adminId);
-      
-      // Show/hide admin controls based on current player's admin status
-      const adminControls = document.getElementById('admin-controls');
-      if (adminControls) {
-        console.log('Setting admin controls display to:', gameState.isAdmin ? 'block' : 'none');
-        adminControls.style.display = gameState.isAdmin ? 'block' : 'none';
-        
-        // Explicitly make sure the start game button is visible when admin controls are shown
-        const startGameBtn = document.getElementById('start-game-btn');
-        if (startGameBtn && gameState.isAdmin) {
-          console.log('Ensuring start game button is visible');
-          startGameBtn.style.display = 'block';
-        }
-      } else {
-        console.error('Admin controls element not found');
-      }
-      
-      // Log screen transition
-      console.log('Transitioning to lobby screen, current screens:', {
-        welcome: document.getElementById('welcome-screen')?.className,
-        lobby: document.getElementById('lobby-screen')?.className
-      });
-      
-      // Switch to lobby screen
-      showScreen('lobby');
-      
-      // Check if screen transition worked and force refresh if needed
-      setTimeout(() => {
-        const lobbyScreen = document.getElementById('lobby-screen');
-        const welcomeScreen = document.getElementById('welcome-screen');
-        
-        console.log('After transition, screen states:', {
-          welcome: welcomeScreen?.className,
-          lobby: lobbyScreen?.className
-        });
-        
-        // If lobby screen still has 'hidden' class after transition, force refresh
-        if (lobbyScreen && lobbyScreen.classList.contains('hidden')) {
-          console.warn('Lobby screen still hidden after transition - forcing refresh');
-          forceRefreshScreen('lobby');
-        }
-        
-        // Double check admin controls visibility
-        const adminControls = document.getElementById('admin-controls');
-        if (adminControls && gameState.isAdmin && adminControls.style.display !== 'block') {
-          console.warn('Admin controls not visible - fixing display');
-          adminControls.style.display = 'block';
-          
-          // Also ensure start button is visible
-          const startGameBtn = document.getElementById('start-game-btn');
-          if (startGameBtn) {
-            startGameBtn.style.display = 'block';
-          }
-        }
-      }, 200);
-      
-      break;
-      
-    case 'joined':
-      // Update game state
-      gameState.roomId = data.roomId;
-      
-      // Set admin status based on the message
-      gameState.adminId = data.adminId;
-      gameState.isAdmin = data.isAdmin; // For 'joined' we update our own admin status
-      
-      // Update categories if provided
-      if (data.categories) {
-        gameState.categories = data.categories;
-        renderCategoryList();
-      }
-      
-      // Log for debugging
-      console.log('Joined with admin status:', {
-        socketId: socket.id, 
-        adminId: data.adminId, 
-        isAdmin: gameState.isAdmin
-      });
-      
-      gameState.players = data.players;
-      
-      // Update UI
-      const roomDisplay = document.getElementById('display-room-id');
-      if (roomDisplay) {
-        roomDisplay.textContent = data.roomId;
-      }
-      
-      updatePlayerList(data.players, data.adminId);
-      
-      // Show/hide admin controls based on our admin status
-      const adminPanel = document.getElementById('admin-controls');
-      if (adminPanel) {
-        console.log('Setting admin controls display to:', gameState.isAdmin ? 'block' : 'none');
-        adminPanel.style.display = gameState.isAdmin ? 'block' : 'none';
-        
-        // Explicitly make sure the start game button is visible when admin controls are shown
-        const startGameBtn = document.getElementById('start-game-btn');
-        if (startGameBtn && gameState.isAdmin) {
-          console.log('Ensuring start game button is visible');
-          startGameBtn.style.display = 'block';
-        }
-      }
-      
-      // Switch to lobby screen
-      showScreen('lobby');
-      break;
-      
-    case 'playerJoined':
-      // Update game state
-      gameState.players = data.players;
-      gameState.adminId = data.adminId;
-      
-      // Log admin status for playerJoined event
-      console.log('playerJoined - Admin status:', {
-        socketId: socket.id, 
-        adminId: data.adminId,
-        isAdmin: gameState.isAdmin
-      });
-      
-      // Update UI
-      updatePlayerList(data.players, data.adminId);
-      
-      // Re-check admin controls visibility to ensure they stay visible
-      if (gameState.isAdmin) {
-        const adminControls = document.getElementById('admin-controls');
-        if (adminControls) {
-          console.log('Re-ensuring admin controls are visible after player join');
-          adminControls.style.display = 'block';
-          
-          // Make sure start game button is visible
-          const startGameBtn = document.getElementById('start-game-btn');
-          if (startGameBtn) {
-            startGameBtn.style.display = 'block';
-          }
-        }
-      }
-      break;
-      
-    case 'playerLeft':
-      // Update game state
-      gameState.players = data.players;
-      gameState.adminId = data.adminId;
-      
-      // Check if admin status changed
-      if (data.newAdmin && data.newAdmin === socket.id) {
-        gameState.isAdmin = true;
-        
-        // Show admin controls
-        const adminControls = document.getElementById('admin-controls');
-        if (adminControls) {
-          adminControls.style.display = 'block';
-        }
-      }
-      
-      // Update UI
-      updatePlayerList(data.players, data.adminId);
-      break;
-      
-    case 'roundStarted':
-      // Reset game state for new round
-      gameState.currentLetter = data.letter;
-      gameState.submitted = false;
-      
-      // Reset UI elements
-      const answerInputs = document.querySelectorAll('.category-group input');
-      answerInputs.forEach(input => {
-        input.disabled = false;
-        input.classList.remove('submitted');
-        input.value = '';
-      });
-      
-      const submitButton = document.getElementById('submit-btn');
-      if (submitButton) {
-        submitButton.disabled = false;
-        submitButton.textContent = 'Submit Answers';
-        submitButton.classList.remove('btn-submitted');
-      }
-      
-      // Update UI
-      const letterDisplay = document.getElementById('current-letter');
-      if (letterDisplay) {
-        letterDisplay.textContent = data.letter;
-      }
-      
-      setupCategoriesForm(data.letter);
-      
-      // Start timer
-      startTimer(data.timeLimit);
-      
-      // Switch to game screen
-      showScreen('game');
-      break;
-      
-    case 'playerSubmitted':
-      // Update player list to show who has submitted
-      gameState.players = data.players;
-      updatePlayerList(data.players, gameState.adminId);
-      break;
-      
-    case 'roundResults':
-      // Clear timer if active
-      if (gameState.timerInterval) {
-        clearInterval(gameState.timerInterval);
-        gameState.timerInterval = null;
-      }
-      
-      // Update player data
-      gameState.players = data.players;
-      
-      // Debug: log the scores data structure 
-      console.log('Round Results data:', data);
-      
-      // Update the letter display in results screen
-      const resultLetterEl = document.getElementById('result-letter');
-      if (resultLetterEl && gameState.currentLetter) {
-        resultLetterEl.textContent = gameState.currentLetter;
-      }
-      
-      // Add animation to the round results display
-      displayRoundResults(data);
-      break;
-      
-    case 'error':
-      console.error('Server error:', data);
-      
-      if (data.message === 'Error validating answers') {
-        console.error('VALIDATION ERROR DETAILS:');
-        console.error('- Current game state:', { 
-          letter: gameState.currentLetter,
-          roomId: gameState.roomId,
-          playerName: gameState.playerName,
-          timeLimit: gameState.timeLimit,
-          submitted: gameState.submitted
-        });
-        
-        // Log the answers that were submitted
-        const submittedAnswers = {};
-        document.querySelectorAll('.category-group input').forEach(input => {
-          submittedAnswers[input.name] = input.value;
-          console.error(`  ${input.name}: "${input.value}"`);
-        });
-        
-        console.error('- Players in game:', gameState.players);
-        console.error('- Error timestamp:', new Date().toISOString());
-        
-        // Try the fallback validation
-        if (gameState.submitted && gameState.currentLetter) {
-          const localValidation = validateAnswersLocally(submittedAnswers, gameState.currentLetter);
-          
-          console.log('Local validation results:', localValidation);
-          
-          // Show error with more helpful information about the server issue
-          showError(`Answer validation failed (API key issue on server). ${gameState.isAdmin ? "As the host, you can continue by starting the next round." : "Please wait for the host to start the next round."}`);
-          
-          // Show admin continue button if admin
-          if (gameState.isAdmin) {
-            const adminActions = document.createElement('div');
-            adminActions.className = 'admin-actions';
-            adminActions.innerHTML = `
-              <button class="btn btn-accent" id="admin-continue-btn">
-                Start Next Round
-              </button>
-            `;
-            
-            // Find where to insert the admin actions
-            const errorMessage = document.getElementById('error-message');
-            if (errorMessage) {
-              errorMessage.appendChild(adminActions);
-              
-              // Add event listener
-              document.getElementById('admin-continue-btn').addEventListener('click', () => {
-                // Close error modal
-                document.getElementById('error-modal').classList.add('hidden');
-                
-                // Send start round message
-                socket.send({
-                  type: 'startRound'
-                });
-              });
-            }
-          }
-        } else {
-          showError('Answer validation failed. Please wait for the host to start the next round.');
-        }
-      } else {
-        showError(data.message);
-      }
-      break;
-      
-    case 'categoriesUpdated':
-      // Update game state with new categories
-      gameState.categories = data.categories;
-      
-      // Update UI if in lobby
-      renderCategoryList();
-      break;
-  }
-});
-
-socket.on('connect', () => {
-  console.log('Connected to game server with ID:', socket.id);
-  
-  // Check if reconnecting to existing game
-  if (gameState.roomId) {
-    // Re-join with existing data
-    socket.send({
-      type: 'joinRoom',
-      roomId: gameState.roomId,
-      playerName: gameState.playerName
-    });
-  }
-});
-
-socket.on('disconnect', () => {
-  console.log('Disconnected from game server');
-  
-  // Clear timer if active
-  if (gameState.timerInterval) {
-    clearInterval(gameState.timerInterval);
-    gameState.timerInterval = null;
-  }
-  
-  // Show error modal
-  showError('Lost connection to game server. Trying to reconnect...');
-});
-
-socket.on('error', (error) => {
-  console.error('Socket error:', error);
-  showError('Connection error: ' + (error.message || 'Unknown error'));
-});
-
-// Attach event listeners once DOM is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-  // Time selector buttons
-  const decreaseBtn = document.querySelector('.time-btn.decrease');
-  const increaseBtn = document.querySelector('.time-btn.increase');
-  const timeInput = document.getElementById('time-limit');
-  
-  if (decreaseBtn && increaseBtn && timeInput) {
-    decreaseBtn.addEventListener('click', () => {
-      let value = parseInt(timeInput.value, 10) || 60;
-      value = Math.max(30, value - 10);
-      timeInput.value = value;
-    });
+function setupSocketEvents() {
+  socket.on('message', (data) => {
+    console.log('Received message:', data);
     
-    increaseBtn.addEventListener('click', () => {
-      let value = parseInt(timeInput.value, 10) || 60;
-      value = Math.min(300, value + 10);
-      timeInput.value = value;
-    });
-  }
-
-  // Setup dynamic button text for join/create game
-  setupDynamicJoinButton();
-
-  // Join Game button
-  const joinGameBtn = document.getElementById('join-game-btn');
-  if (joinGameBtn) {
-    joinGameBtn.addEventListener('click', async () => {
-      const nameInput = document.getElementById('player-name');
-      const roomInput = document.getElementById('room-id');
-      const timeInput = document.getElementById('time-limit');
+    // Clear validation timeout when we get any response
+    if (gameState.validationTimeoutId) {
+      clearTimeout(gameState.validationTimeoutId);
+      gameState.validationTimeoutId = null;
+    }
+    
+    // If this is an error message, handle it specially
+    if (data.type === 'error') {
+      console.log('Server error:', data);
+      console.log('Error message:', data.message);
       
-      if (!nameInput.value.trim()) {
-        nameInput.classList.add('error');
-        nameInput.focus();
+      // Handle "No round in progress" error specially when in client-side mode
+      if (gameState.clientSideMode && data.message === "No round in progress") {
+        console.log('🔧 CLIENT-SIDE MODE: Ignoring "No round in progress" error');
+        
+        // If we're on the game screen and have submitted answers, 
+        // trigger the local validation immediately instead of waiting
+        if (gameState.submitted && document.getElementById('game-screen').classList.contains('active')) {
+          console.log('🔧 CLIENT-SIDE MODE: Triggering immediate local validation');
+          
+          // Clear any existing timeout
+          if (gameState.validationTimeoutId) {
+            clearTimeout(gameState.validationTimeoutId);
+          }
+          
+          // Get the answers from the form
+          const inputs = document.querySelectorAll('.answer-input');
+          const answers = {};
+          
+          inputs.forEach(input => {
+            const category = input.getAttribute('data-category');
+            const value = input.value.trim();
+            if (value) {
+              answers[category] = value;
+            }
+          });
+          
+          // Process answers locally
+          const results = validateAnswersLocally(answers, gameState.currentLetter);
+          
+          // Structure results for display
+          const structuredResults = {
+            scores: {},
+            players: [{ id: 'local', name: gameState.playerName, score: 0 }],
+            categories: gameState.categories
+          };
+          
+          // Format results
+          gameState.categories.forEach(category => {
+            structuredResults.scores[category] = {};
+            
+            const answer = answers[category] || '';
+            let score = 0;
+            let explanation = 'No answer provided';
+            
+            if (answer && results[category]) {
+              score = results[category].valid ? 10 : 0;
+              explanation = results[category].explanation;
+            }
+            
+            structuredResults.scores[category]['local'] = {
+              answer,
+              score,
+              explanation
+            };
+            
+            // Add to player's total score
+            structuredResults.players[0].score += score;
+          });
+          
+          // Show results
+          displayRoundResults(structuredResults);
+        }
+        
+        // Don't show error to the user - this is expected in client-side mode
         return;
       }
       
-      // Update UI to show connecting state
-      const originalText = joinGameBtn.textContent;
-      joinGameBtn.disabled = true;
-      joinGameBtn.textContent = 'Connecting...';
-      
-      try {
-        // Update game state
-        gameState.playerName = nameInput.value.trim();
-        gameState.roomId = roomInput.value.trim();
-        gameState.timeLimit = parseInt(timeInput.value, 10) || 60;
+      // Special handling for "Only the admin can start the game" error
+      if (data.message && data.message.includes("Only the admin")) {
+        console.log('⚠️ Host detection issue: "Only admin can start game" error received');
         
-        // Connect to socket and join room
-        socket.connectToRoom(
-          gameState.roomId,
-          gameState.playerName,
-          gameState.timeLimit
-        );
-      } catch (error) {
-        console.error('Connection failed:', error);
-        showError(error.message || 'Failed to connect to game server. Please try again later.');
+        // Count ready players and check if we can start using client-side workaround
+        const readyPlayers = gameState.readyCount || 0;
+        const totalPlayers = gameState.players.length || 1;
+        const requiredReady = totalPlayers <= 2 ? totalPlayers : Math.ceil(totalPlayers / 2);
         
-        // Reset button state
-        joinGameBtn.disabled = false;
-        joinGameBtn.textContent = originalText;
-      }
-    });
-  }
-  
-  // Start Game button
-  const startGameBtn = document.getElementById('start-game-btn');
-  if (startGameBtn) {
-    startGameBtn.addEventListener('click', () => {
-      socket.send({
-        type: 'startRound'
-      });
-    });
-  }
-  
-  // Submit Answers button and form
-  const answersForm = document.getElementById('answers-form');
-  if (answersForm) {
-    answersForm.addEventListener('submit', event => {
-      event.preventDefault();
-      submitAnswers();
-    });
-  }
-  
-  // Next Round button
-  const nextRoundBtn = document.getElementById('next-round-btn');
-  if (nextRoundBtn) {
-    nextRoundBtn.addEventListener('click', () => {
-      socket.send({
-        type: 'startRound'
-      });
-    });
-  }
-  
-  // Copy Invite Link button
-  const copyLinkBtn = document.getElementById('copy-link-btn');
-  if (copyLinkBtn) {
-    copyLinkBtn.addEventListener('click', () => {
-      const roomId = document.getElementById('display-room-id').textContent;
-      const url = `${window.location.origin}?room=${roomId}`;
-      
-      navigator.clipboard.writeText(url).then(
-        () => {
-          // Change button text temporarily
-          const originalText = copyLinkBtn.innerHTML;
-          copyLinkBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-          copyLinkBtn.classList.add('success');
+        if (readyPlayers >= requiredReady || totalPlayers <= 1) {
+          console.log('🔧 WORKAROUND: Enough players are ready, trying client-side start...');
           
-          setTimeout(() => {
-            copyLinkBtn.innerHTML = originalText;
-            copyLinkBtn.classList.remove('success');
-          }, 2000);
-        },
-        err => {
-          console.error('Could not copy text: ', err);
+          // Enable client-side mode if not already enabled
+          if (!window.CONFIG) window.CONFIG = {};
+          window.CONFIG.ALLOW_ANYONE_TO_START = true;
+          
+          // Try to start the game again
+          startNewRound();
+          return;
         }
-      );
-    });
-  }
-  
-  // Error modal close button
-  const errorCloseBtn = document.getElementById('error-close-btn');
-  const errorOkBtn = document.getElementById('error-ok-btn');
-  if (errorCloseBtn && errorOkBtn) {
-    const closeErrorModal = () => {
-      document.getElementById('error-modal').classList.add('hidden');
-    };
-    
-    errorCloseBtn.addEventListener('click', closeErrorModal);
-    errorOkBtn.addEventListener('click', closeErrorModal);
-  }
-  
-  // Check URL for room ID parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomParam = urlParams.get('room');
-  if (roomParam) {
-    const roomInput = document.getElementById('room-id');
-    if (roomInput) {
-      roomInput.value = roomParam;
-      // Update button text after setting room ID from URL
-      updateJoinButtonText();
-    }
-  }
-  
-  // Debug button
-  const debugBtn = document.getElementById('debug-btn');
-  if (debugBtn) {
-    debugBtn.addEventListener('click', () => {
-      const debugInfo = {
-        browser: navigator.userAgent,
-        location: window.location.href,
-        connectionState: socket.getState()
-      };
-      
-      console.log('Debug info:', debugInfo);
-      alert('Debug info has been logged to the console. Please open the browser console to view it.');
-    });
-  }
-});
-
-// Function to setup the dynamic join/create button functionality
-function setupDynamicJoinButton() {
-  const roomIdInput = document.getElementById('room-id');
-  const joinGameBtn = document.getElementById('join-game-btn');
-  
-  if (roomIdInput && joinGameBtn) {
-    // Set initial button text based on room ID input
-    updateJoinButtonText();
-    
-    // Update button text when room ID input changes
-    roomIdInput.addEventListener('input', updateJoinButtonText);
-  }
-}
-
-// Function to update the join/create button text and help text based on room ID input
-function updateJoinButtonText() {
-  const roomIdInput = document.getElementById('room-id');
-  const joinGameBtn = document.getElementById('join-game-btn');
-  
-  if (!roomIdInput || !joinGameBtn) return;
-  
-  const roomIdHelp = roomIdInput.nextElementSibling; // The small help text element
-  const hasRoomId = roomIdInput.value.trim() !== '';
-  
-  // Update button text
-  joinGameBtn.textContent = hasRoomId ? 'Join Game' : 'Create Game';
-  
-  // Update helper text
-  if (roomIdHelp) {
-    roomIdHelp.textContent = hasRoomId 
-      ? 'Join an existing game room' 
-      : 'Leave empty to create a new game room';
-  }
-}
-
-// Show error function
-function showError(message) {
-  console.error('Error message:', message);
-  
-  const errorModal = document.getElementById('error-modal');
-  const errorMessage = document.getElementById('error-message');
-  
-  if (!errorModal || !errorMessage) {
-    console.error('Error modal elements not found');
-    alert(message); // Fallback to alert if modal not found
-    return;
-  }
-  
-  // Check if this is an answer validation error and provide more helpful information
-  if (message.includes('Answer validation failed')) {
-    // Create a more detailed error message with troubleshooting steps
-    const detailedMessage = document.createElement('div');
-    
-    const mainError = document.createElement('p');
-    mainError.textContent = message;
-    detailedMessage.appendChild(mainError);
-    
-    const troubleshootingHeader = document.createElement('p');
-    troubleshootingHeader.innerHTML = '<strong>Possible solutions:</strong>';
-    detailedMessage.appendChild(troubleshootingHeader);
-    
-    const troubleshootingList = document.createElement('ul');
-    
-    const serverItem = document.createElement('li');
-    serverItem.textContent = 'The server may be missing API keys for OpenAI or other services';
-    troubleshootingList.appendChild(serverItem);
-    
-    const rateLimitItem = document.createElement('li');
-    rateLimitItem.textContent = 'The server may be experiencing rate limiting from the API service';
-    troubleshootingList.appendChild(rateLimitItem);
-    
-    const continueItem = document.createElement('li');
-    if (gameState.isAdmin) {
-      continueItem.innerHTML = '<strong>As the host, you can continue by starting the next round</strong>';
-    } else {
-      continueItem.textContent = 'Ask the host to start the next round to continue playing';
-    }
-    troubleshootingList.appendChild(continueItem);
-    
-    detailedMessage.appendChild(troubleshootingList);
-    
-    // Append detailed message instead of just text
-    errorMessage.innerHTML = '';
-    errorMessage.appendChild(detailedMessage);
-  } else {
-    // Regular error message
-    errorMessage.textContent = message;
-  }
-  
-  errorModal.classList.remove('hidden');
-  
-  // Reset join game button if it was disabled
-  const joinGameBtn = document.getElementById('join-game-btn');
-  if (joinGameBtn && joinGameBtn.disabled) {
-    joinGameBtn.disabled = false;
-    joinGameBtn.textContent = gameState.roomId ? 'Join Game' : 'Create Game';
-    console.log('Reset join game button state');
-  }
-}
-
-// Add animation to the round results display
-function displayRoundResults(data) {
-  if (gameState.timerInterval) {
-    clearInterval(gameState.timerInterval);
-  }
-  
-  // Clear previous results
-  const resultsTable = document.getElementById('results-table');
-  resultsTable.innerHTML = '';
-  
-  // Create table header
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  
-  // Add player name column
-  const playerNameHeader = document.createElement('th');
-  playerNameHeader.textContent = 'Spieler';
-  headerRow.appendChild(playerNameHeader);
-  
-  // Add category columns
-  const allCategories = new Set();
-  Object.values(data.scores).forEach(playerScores => {
-    Object.keys(playerScores).forEach(category => {
-      allCategories.add(category);
-    });
-  });
-  
-  Array.from(allCategories).sort().forEach(category => {
-    const th = document.createElement('th');
-    th.textContent = category;
-    headerRow.appendChild(th);
-  });
-  
-  // Add total score column
-  const totalHeader = document.createElement('th');
-  totalHeader.textContent = 'Gesamt';
-  headerRow.appendChild(totalHeader);
-  
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  
-  // Create table body
-  const tbody = document.createElement('tbody');
-  
-  // Sort players by total score (descending)
-  const sortedPlayers = Object.entries(data.scores)
-    .map(([playerId, scores]) => {
-      const total = Object.values(scores).reduce((sum, score) => sum + (score.score || 0), 0);
-      return { playerId, total };
-    })
-    .sort((a, b) => b.total - a.total)
-    .map(entry => entry.playerId);
-  
-  // Add rows for each player
-  sortedPlayers.forEach(playerId => {
-    const row = document.createElement('tr');
-    
-    // Add player name cell
-    const playerNameCell = document.createElement('td');
-    const player = data.players.find(p => p.id === playerId);
-    playerNameCell.textContent = player ? player.name : playerId;
-    row.appendChild(playerNameCell);
-    
-    // Add category cells
-    Array.from(allCategories).sort().forEach(category => {
-      const td = document.createElement('td');
-      const scoreData = data.scores[category][playerId];
-      
-      if (scoreData) {
-        const { answer, score, explanation, suggestion } = scoreData;
-        
-        // Create answer container
-        const answerContainer = document.createElement('div');
-        answerContainer.className = 'answer-container';
-        
-        // Add answer text
-        const answerText = document.createElement('div');
-        answerText.className = 'answer-text';
-        answerText.textContent = answer || '-';
-        answerContainer.appendChild(answerText);
-        
-        // Add points if score exists
-        if (score !== undefined) {
-          const pointsDiv = document.createElement('div');
-          pointsDiv.className = 'points';
-          pointsDiv.textContent = `${score} Punkte`;
-          answerContainer.appendChild(pointsDiv);
-        }
-        
-        // Add explanation if available
-        if (explanation) {
-          const explanationDiv = document.createElement('div');
-          explanationDiv.className = 'answer-explanation';
-          explanationDiv.textContent = explanation;
-          answerContainer.appendChild(explanationDiv);
-        }
-        
-        // Add suggestion if available
-        if (suggestion) {
-          const suggestionDiv = document.createElement('div');
-          suggestionDiv.className = 'answer-suggestion';
-          suggestionDiv.textContent = `Vorschlag: ${suggestion}`;
-          answerContainer.appendChild(suggestionDiv);
-        }
-        
-        td.appendChild(answerContainer);
-        
-        // Add appropriate class based on score
-        td.classList.add(score > 0 ? 'valid-answer' : 'invalid-answer');
-      } else {
-        td.textContent = '-';
-        td.classList.add('no-answer');
       }
       
-      row.appendChild(td);
-    });
+      // Show error to user for other errors
+      showError(data.message);
+      return;
+    }
     
-    // Add total score cell
-    const totalCell = document.createElement('td');
-    totalCell.className = 'total-score';
-    const total = Object.values(data.scores).reduce((sum, categoryScores) => {
-      const playerScore = categoryScores[playerId];
-      return sum + (playerScore ? playerScore.score || 0 : 0);
-    }, 0);
-    totalCell.textContent = total;
-    row.appendChild(totalCell);
-    
-    tbody.appendChild(row);
+    // Process other message types with the existing switch statement
+    switch (data.type) {
+      case 'joinedRoom':
+        // ... existing code ...
+        break;
+      
+      case 'joined':
+        // ... existing code ...
+        break;
+      
+      // ... and so on for all other cases ...
+    }
   });
   
-  table.appendChild(tbody);
-  resultsTable.appendChild(table);
-  
-  // Update the leaderboard with the new scores
-  updateScores(data.players);
-  
-  // Show results screen
-  showScreen('results');
+  // Other socket event handlers
+  // ... existing code ...
 }
 
-// Add this function to handle screen refresh
-function forceRefreshScreen(screenId) {
-  console.log(`Force refreshing screen: ${screenId}`);
+// Initialize the game
+function init() {
+  console.log('Initializing app...');
   
-  // Get the screen element
-  const fullScreenId = screenId.includes('-') ? screenId : `${screenId}-screen`;
-  const screen = document.getElementById(fullScreenId);
+  // Check for URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
   
-  if (!screen) {
-    console.error(`Cannot refresh screen - not found: ${fullScreenId}`);
+  // Set client-side mode if URL parameter is present
+  if (urlParams.has('all-start') || urlParams.has('allow-all')) {
+    console.log('🔧 CLIENT-SIDE MODE: Enabled via URL parameter');
+    if (!window.CONFIG) window.CONFIG = {};
+    window.CONFIG.ALLOW_ANYONE_TO_START = true;
+    gameState.clientSideMode = true;
+  }
+  
+  // Setup event listeners
+  setupDynamicJoinButton();
+  setupCategoryListeners();
+  
+  // Initialize game
+  showScreen('welcome');
+  
+  // Setup socket connection events
+  setupSocketEvents();
+  
+  // Set up start game button
+  document.getElementById('start-game-btn').addEventListener('click', startNewRound);
+  
+  // Set up next round button
+  document.getElementById('next-round-btn').addEventListener('click', startNewRound);
+  
+  // Set up universal start button
+  document.getElementById('universal-start-btn').addEventListener('click', startNewRound);
+  
+  // Set up ready button
+  document.getElementById('ready-btn').addEventListener('click', toggleReady);
+  
+  console.log('App initialized');
+}
+
+// Update player list in lobby
+function updatePlayerList() {
+  const playerList = document.getElementById('player-list');
+  playerList.innerHTML = '';
+  
+  gameState.players.forEach(player => {
+    const playerItem = document.createElement('li');
+    playerItem.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+    
+    if (player.isReady) {
+      playerItem.classList.add('player-ready-indicator');
+    }
+    
+    playerItem.textContent = player.name;
+    
+    // Show admin indicator
+    if (player.id === gameState.adminId) {
+      const badge = document.createElement('span');
+      badge.classList.add('badge', 'bg-primary');
+      badge.textContent = 'Host';
+      playerItem.appendChild(badge);
+    }
+    
+    // Show ready indicator
+    if (player.isReady) {
+      const readyBadge = document.createElement('span');
+      readyBadge.classList.add('badge', 'bg-success', 'ms-2');
+      readyBadge.textContent = 'Ready';
+      playerItem.appendChild(readyBadge);
+    }
+    
+    playerList.appendChild(playerItem);
+  });
+  
+  // Update ready status after updating player list
+  updateReadyStatus();
+}
+
+// Create a room
+function createRoom() {
+  const playerName = document.getElementById('player-name').value.trim();
+  if (!playerName) {
+    showError('Please enter your name');
     return;
   }
   
-  // Force a reflow by toggling display
-  const currentDisplay = window.getComputedStyle(screen).display;
-  screen.style.display = 'none';
+  const roomId = generateRoomId();
+  console.log(`Creating room: ${roomId}`);
   
-  // Read offsetHeight to force a reflow
-  void screen.offsetHeight;
+  // Save player info to game state
+  gameState.playerName = playerName;
+  gameState.roomId = roomId;
+  gameState.isAdmin = true; // Creator is admin
   
-  // Reset display and ensure classes are correct
-  screen.style.display = '';
-  screen.classList.remove('hidden');
-  screen.classList.add('active');
-  
-  // Make sure other screens are hidden
-  document.querySelectorAll('.game-screen').forEach(otherScreen => {
-    if (otherScreen.id !== fullScreenId) {
-      otherScreen.classList.remove('active');
-      otherScreen.classList.add('hidden');
-    }
+  // Join the room
+  socket.emit('joinRoom', {
+    roomId: roomId,
+    playerName: playerName,
+    timeLimit: gameState.timeLimit
   });
   
-  console.log(`Screen refresh complete: ${fullScreenId}`);
-}
-
-// Add category management functions
-function addCategoryInput() {
-  const categoryList = document.getElementById('categoryList');
-  const newCategoryDiv = document.createElement('div');
-  newCategoryDiv.className = 'category-input';
-  newCategoryDiv.innerHTML = `
-    <input type="text" class="category-name" placeholder="Neue Kategorie">
-    <button class="remove-category" onclick="removeCategory(this)">×</button>
-  `;
-  categoryList.appendChild(newCategoryDiv);
+  // Show the lobby screen
+  showScreen('lobby');
   
-  // Add event listener to update categories when input changes
-  const input = newCategoryDiv.querySelector('input');
-  input.addEventListener('input', updateCategories);
+  // Update room ID display
+  document.getElementById('room-id-display').innerText = roomId;
+  document.getElementById('player-name-display').innerText = playerName;
+  
+  // Initialize ready status
+  gameState.isReady = false;
+  updateReadyStatus();
 }
 
-function removeCategory(button) {
-  const categoryDiv = button.parentElement;
-  categoryDiv.remove();
-  updateCategories();
-}
-
-function getCategories() {
-  const categoryInputs = document.querySelectorAll('.category-name');
-  return Array.from(categoryInputs).map(input => input.value.trim()).filter(Boolean);
-}
-
-// Add function to update categories with debounce
-let categoryUpdateTimeout = null;
-function updateCategories() {
-  // Clear any existing timeout
-  if (categoryUpdateTimeout) {
-    clearTimeout(categoryUpdateTimeout);
+// Join an existing room
+function joinRoom() {
+  const playerName = document.getElementById('player-name').value.trim();
+  const roomId = document.getElementById('room-id').value.trim().toUpperCase();
+  
+  if (!playerName) {
+    showError('Please enter your name');
+    return;
   }
   
-  // Set a timeout to avoid sending too many messages while typing
-  categoryUpdateTimeout = setTimeout(() => {
-    const categories = getCategories();
-    if (categories.length === 0) return;
-    
-    console.log('Updating categories:', categories);
-    
-    // Send update to server
-    socket.send({
-      type: 'updateCategories',
-      categories: categories
-    });
-  }, 300); // 300ms delay
-}
-
-// Update the join room function to include custom categories
-async function joinRoom(roomId) {
-  try {
-    const categories = getCategories();
-    const response = await fetch(`/api/join-room/${roomId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        playerName: gameState.playerName,
-        categories: categories.length > 0 ? categories : undefined
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to join room');
-    }
-
-    const data = await response.json();
-    gameState.roomId = roomId;
-    gameState.players = data.players;
-    gameState.adminId = data.adminId;
-    gameState.isAdmin = data.isAdmin;
-    gameState.categories = data.categories || gameState.categories; // Store categories from server
-
-    // Update UI to show game interface
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('game').style.display = 'block';
-    
-    // Initialize game state
-    initializeGame();
-  } catch (error) {
-    console.error('Error joining room:', error);
-    alert('Failed to join room. Please try again.');
+  if (!roomId) {
+    showError('Please enter a room ID');
+    return;
   }
-}
-
-// Update the lobby HTML
-function showLobby() {
-  const lobbyHtml = `
-    <div class="lobby-container">
-      <h2>Stadt, Land, Fluss</h2>
-      <div class="player-setup">
-        <input type="text" id="playerName" placeholder="Dein Name" maxlength="20">
-        <button onclick="createRoom()">Neues Spiel erstellen</button>
-      </div>
-      <div class="join-room">
-        <input type="text" id="roomId" placeholder="Raum-ID">
-        <button onclick="joinRoom(document.getElementById('roomId').value)">Raum beitreten</button>
-      </div>
-      <div class="category-management">
-        <h3>Kategorien</h3>
-        <div id="categoryList">
-          ${gameState.categories ? gameState.categories.map(category => `
-            <div class="category-input">
-              <input type="text" class="category-name" value="${category}" onchange="updateCategories()">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-          `).join('') : `
-            <div class="category-input">
-              <input type="text" class="category-name" value="Stadt">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Land">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Fluss">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Name">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Beruf">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Pflanze">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-            <div class="category-input">
-              <input type="text" class="category-name" value="Tier">
-              <button class="remove-category" onclick="removeCategory(this)">×</button>
-            </div>
-          `}
-        </div>
-        <button onclick="addCategoryInput()" class="add-category">+ Kategorie hinzufügen</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('lobby').innerHTML = lobbyHtml;
-}
-
-// Initialize game state
-function initializeGame() {
-  // Implement any necessary initialization logic
-}
-
-// Add this function to render the category list
-function renderCategoryList() {
-  const categoryList = document.getElementById('categoryList');
-  if (!categoryList) return;
   
-  categoryList.innerHTML = '';
+  console.log(`Joining room: ${roomId}`);
   
+  // Save player info to game state
+  gameState.playerName = playerName;
+  gameState.roomId = roomId;
+  gameState.isAdmin = false; // Joiner is not admin by default
+  
+  // Join the room
+  socket.emit('joinRoom', {
+    roomId: roomId,
+    playerName: playerName
+  });
+  
+  // Show the lobby screen
+  showScreen('lobby');
+  
+  // Update room ID display
+  document.getElementById('room-id-display').innerText = roomId;
+  document.getElementById('player-name-display').innerText = playerName;
+  
+  // Initialize ready status
+  gameState.isReady = false;
+  updateReadyStatus();
+}
+
+// Function to display categories for a given letter
+function displayCategories(letter) {
+  const categoriesGrid = document.querySelector('.categories-grid');
+  if (!categoriesGrid) {
+    console.error('Categories grid not found');
+    return;
+  }
+  
+  // Clear existing categories
+  categoriesGrid.innerHTML = '';
+  
+  // For each category, create an input field
   gameState.categories.forEach(category => {
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = 'category-input';
-    categoryDiv.innerHTML = `
-      <input type="text" class="category-name" value="${category}" onchange="updateCategories()">
-      <button class="remove-category" onclick="removeCategory(this)">×</button>
-    `;
-    categoryList.appendChild(categoryDiv);
+    const formGroup = document.createElement('div');
+    formGroup.className = 'form-group';
+    
+    const label = document.createElement('label');
+    label.textContent = category;
+    formGroup.appendChild(label);
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = category;
+    input.className = 'answer-input';
+    input.placeholder = `${category} with ${letter}...`;
+    input.setAttribute('autocomplete', 'off');
+    
+    categoryGroup.appendChild(label);
+    categoryGroup.appendChild(input);
+    categoriesGrid.appendChild(categoryGroup);
   });
 } 

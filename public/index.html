@@ -24,8 +24,37 @@
       console.log('Using local development server:', window.PARTYKIT_HOST);
     }
     
+    // Add a config flag to disable host-only restriction
+    window.CONFIG = {
+      ALLOW_ANYONE_TO_START: urlParams.has('allow-all') || urlParams.has('all-start')
+    };
+    
+    // Log the configuration
+    console.log('Game configuration:', window.CONFIG);
+    
     // Check if in offline mode
     const isOfflineMode = urlParams.has('offline');
+    
+    // Add a visible banner when in local development mode
+    if (urlParams.has('local') || urlParams.has('dev')) {
+      document.addEventListener('DOMContentLoaded', function() {
+        const debugBanner = document.createElement('div');
+        debugBanner.className = 'debug-banner';
+        debugBanner.innerHTML = 'LOCAL DEV MODE';
+        debugBanner.style.position = 'fixed';
+        debugBanner.style.top = '0';
+        debugBanner.style.left = '0';
+        debugBanner.style.right = '0';
+        debugBanner.style.backgroundColor = 'red';
+        debugBanner.style.color = 'white';
+        debugBanner.style.textAlign = 'center';
+        debugBanner.style.padding = '4px';
+        debugBanner.style.zIndex = '9999';
+        debugBanner.style.fontSize = '12px';
+        debugBanner.style.fontWeight = 'bold';
+        document.body.appendChild(debugBanner);
+      });
+    }
     
     // Check if server is accessible by making a simple fetch request
     document.addEventListener('DOMContentLoaded', function() {
@@ -156,21 +185,64 @@
               <div class="player-section">
                 <h3>Players</h3>
                 <ul id="player-list" class="player-list"></ul>
-                <div id="waiting-message" class="waiting-message">Waiting for players to join...</div>
+                <div id="waiting-message" class="waiting-message">
+                  <p>You can start playing alone or wait for others to join...</p>
+                </div>
               </div>
 
               <div class="category-management">
                 <h3>Categories</h3>
-                <div id="categoryList" class="category-list">
-                  <!-- Categories will be populated dynamically -->
+                <div class="category-management-container">
+                  <div id="categoryList" class="category-list">
+                    <!-- Categories will be populated dynamically -->
+                  </div>
+                  
+                  <div class="add-category-container">
+                    <input type="text" id="new-category-input" placeholder="New category" class="category-input">
+                    <button type="button" id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                  </div>
                 </div>
-                <button onclick="addCategoryInput()" class="add-category">+ Kategorie hinzufügen</button>
+                
+                <div class="category-instructions">
+                  <p><small>Add or remove categories for your game. Each player will need to provide answers for these categories.</small></p>
+                </div>
+                <!-- Template for category item with remove button -->
+                <template id="category-item-template">
+                  <div class="category-item">
+                    <span class="category-name"></span>
+                    <button type="button" class="btn-icon category-remove" title="Remove category">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  </div>
+                </template>
               </div>
 
               <div id="admin-controls" class="admin-controls">
-                <button id="start-game-btn" class="btn btn-accent btn-large">Start Game</button>
-                <p id="admin-message" class="admin-message"></p>
+                <div id="game-starter" class="game-starter">
+                  <button id="start-game-btn" class="btn btn-accent btn-large">
+                    <span class="start-icon">▶</span> Start Game
+                  </button>
+                  <p id="admin-message" class="admin-message">Click to start when you're ready!</p>
+                </div>
               </div>
+            </div>
+          </div>
+          
+          <div class="card-footer">
+            <div class="ready-system">
+              <div class="ready-status">
+                <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
+              </div>
+              <button id="ready-btn" class="btn btn-outline-success">I'm Ready</button>
+              <p class="footer-hint">Click "I'm Ready" when you're prepared to play. The game starts when enough players are ready.</p>
+            </div>
+            <hr>
+            <p class="text-center footer-hint">Anyone can click this button to start the game!</p>
+            <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>START GAME</button>
+            
+            <!-- Debug links -->
+            <div class="debug-links" style="margin-top: 20px; font-size: 12px; text-align: center;">
+              <a href="/?all-start" class="btn btn-sm btn-outline-secondary">Try Client-Side Start Mode</a>
             </div>
           </div>
         </div>
