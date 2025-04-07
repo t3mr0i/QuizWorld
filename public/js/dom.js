@@ -54,6 +54,9 @@ export function showScreen(screenId) {
   if (screenToShow) {
     console.log(`[dom.js] Showing screen element:`, screenToShow.id);
     screenToShow.classList.remove('hidden');
+    
+    // Immediately add active class to trigger animation
+    screenToShow.classList.add('active');
 
     // Trigger screen-specific setup logic after showing
     // We need to import these functions from other modules
@@ -72,12 +75,6 @@ export function showScreen(screenId) {
         break;
       // Add cases for 'game' and 'results' if they need specific init logic on show
     }
-
-    // Small delay to allow the DOM to update before adding the active class for transitions
-    setTimeout(() => {
-      screenToShow.classList.add('active');
-    }, 50);
-
   } else {
     console.error(`[dom.js] Screen not found for id: ${screenId}. Available screens:`, screens);
   }

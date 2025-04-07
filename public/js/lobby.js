@@ -119,39 +119,11 @@ export function setupGameControls() {
             // Send startRound message to server
             window.gameSocket?.send(JSON.stringify({ type: 'startRound' }));
             
-            // Set up a timeout for client-side fallback in case server doesn't respond
-            // This is a TEMPORARY FIX for server issues - remove once server is properly responding
-            const ROUND_START_FALLBACK_TIMEOUT = 1000; // ms to wait for server response
-            
-            if (gameState.startRoundFallbackTimeout) {
-                clearTimeout(gameState.startRoundFallbackTimeout);
-            }
-            
-            gameState.startRoundFallbackTimeout = setTimeout(() => {
-                console.log("[FALLBACK] No server response after startRound message. Starting round locally.");
-                
-                // Import required functions that would normally be called by socket.js when handling 'roundStarted'
-                import('./game.js').then(gameModule => {
-                    // Generate a random letter
-                    const letters = 'ABCDEFGHIJKLMNOPRSTUVWZ'; // Exclude Q, X, Y
-                    const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-                    
-                    // Update gameState
-                    gameState.currentLetter = randomLetter;
-                    gameState.submitted = false;
-                    
-                    // Set up the game UI
-                    console.log(`[FALLBACK] Setting up game with letter: ${randomLetter}`);
-                    gameModule.setupCategoriesForm(randomLetter);
-                    gameModule.startTimer(gameState.timeLimit || 60);
-                    
-                    // Switch to game screen
-                    import('./dom.js').then(domModule => {
-                        domModule.showScreen('game');
-                        console.log("[FALLBACK] Game screen shown with local round start");
-                    });
-                });
-            }, ROUND_START_FALLBACK_TIMEOUT);
+            // Temporarily disable the button to prevent spam clicks
+            startGameBtn.disabled = true;
+            setTimeout(() => {
+                startGameBtn.disabled = false;
+            }, 1000);
         };
     }
 
@@ -164,65 +136,12 @@ export function setupGameControls() {
             // Send message to server
             const message = { type: 'playerReady', isReady: newState };
             window.gameSocket.send(JSON.stringify(message));
-
-            // Set up a timeout for client-side fallback in case server doesn't respond
-            // This is a TEMPORARY FIX for server issues - remove once server is properly responding
-            const CLIENT_FALLBACK_TIMEOUT = 500; // ms to wait for server response before local update
             
-            if (gameState.readyFallbackTimeout) {
-                clearTimeout(gameState.readyFallbackTimeout);
-            }
-            
-            gameState.readyFallbackTimeout = setTimeout(() => {
-                console.log("[FALLBACK] No server response after playerReady message. Applying local update.");
-                
-                // Update local state
-                gameState.isReady = newState;
-                
-                // Find current player in player list and update their ready state
-                const currentPlayer = gameState.players.find(p => p.id === window.gameSocket?.id);
-                if (currentPlayer) {
-                    currentPlayer.isReady = newState;
-                    
-                    // Manually count ready players and explicitly update readyCount
-                    const readyPlayers = gameState.players.filter(p => p.isReady).length;
-                    gameState.readyCount = readyPlayers;
-                    
-                    // Standard UI updates via helper functions
-                    updateReadyStatus();
-                    updatePlayerList();
-                    updateButtonStates();
-                    
-                    // ENHANCED: Direct DOM updates for critical UI elements
-                    // Update ready count display
-                    const readyCountEl = DOM.get('ready-count');
-                    const totalPlayersEl = DOM.get('total-players');
-                    if(readyCountEl) readyCountEl.textContent = readyPlayers;
-                    if(totalPlayersEl) totalPlayersEl.textContent = gameState.players.length;
-                    
-                    // Update Ready button text and style
-                    if (readyBtn) {
-                        readyBtn.textContent = gameState.isReady ? "I'm NOT Ready" : "I'm Ready";
-                        readyBtn.classList.toggle('btn-outline-success', !gameState.isReady);
-                        readyBtn.classList.toggle('btn-outline-warning', gameState.isReady);
-                    }
-                    
-                    // Update Start Game button enabled state
-                    const startGameBtn = DOM.get('start-game-btn');
-                    const universalStartBtn = DOM.get('universal-start-btn');
-                    const canStart = readyPlayers >= 1; // For single player, 1 ready is enough
-                    
-                    if (startGameBtn) startGameBtn.disabled = !canStart;
-                    if (universalStartBtn) universalStartBtn.disabled = !canStart;
-                    
-                    console.log("[FALLBACK] Local gameState updated with direct UI updates:", { 
-                        isReady: gameState.isReady, 
-                        readyCount: readyPlayers,
-                        players: gameState.players.length,
-                        uiUpdated: true
-                    });
-                }
-            }, CLIENT_FALLBACK_TIMEOUT);
+            // Temporarily disable the button to prevent spam clicks
+            readyBtn.disabled = true;
+            setTimeout(() => {
+                readyBtn.disabled = false;
+            }, 500);
         };
     }
 

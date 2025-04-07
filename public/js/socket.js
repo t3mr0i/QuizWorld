@@ -63,21 +63,56 @@ function setupSocketEvents() {
 
 function handleSocketConnect() {
     // Socket ID might be available immediately or slightly later
-    setTimeout(() => {
-        socket.id = window.gameSocket?.id; // Ensure we get the ID
-        console.log('[socket.js] Socket connected. ID:', socket.id || '(Unavailable)');
+    const checkConnectionInterval = setInterval(() => {
+        if (window.gameSocket?.id) {
+            clearInterval(checkConnectionInterval);
+            socket.id = window.gameSocket.id;
+            console.log('[socket.js] Socket connected. ID obtained:', socket.id);
+            gameState.isConnected = true;
 
-        // If reconnecting, try rejoining the room
-        if (gameState.roomId && gameState.playerName && !gameState.isConnected) {
-            console.log('[socket.js] Attempting to rejoin room after reconnecting:', gameState.roomId);
-            if (typeof socket.connectToRoom === 'function') {
-                socket.connectToRoom(gameState.roomId, gameState.playerName, gameState.timeLimit);
+            // Determine if we are creating or joining based on gameState
+            if (gameState.roomId && gameState.playerName) { // Attempting to join or rejoin
+                console.log('[socket.js] Sending explicit joinRoom message:', { 
+                    roomId: gameState.roomId, 
+                    playerName: gameState.playerName, 
+                    timeLimit: gameState.timeLimit 
+                });
+                socket.send(JSON.stringify({ 
+                    type: 'joinRoom', 
+                    roomId: gameState.roomId, // Send existing room ID
+                    playerName: gameState.playerName, 
+                    timeLimit: gameState.timeLimit 
+                }));
+            } else if (gameState.playerName) { // Creating a new room (no explicit roomId yet)
+                 console.log('[socket.js] Sending initial joinRoom message for new room creation:', { 
+                    playerName: gameState.playerName, 
+                    timeLimit: gameState.timeLimit 
+                 });
+                 // Let the server handle assigning the roomId based on the party id
+                 socket.send(JSON.stringify({ 
+                    type: 'joinRoom', 
+                    // No roomId sent, server will use party.id
+                    playerName: gameState.playerName, 
+                    timeLimit: gameState.timeLimit 
+                 }));
             } else {
-                socket.send(JSON.stringify({ type: 'joinRoom', roomId: gameState.roomId, playerName: gameState.playerName, timeLimit: gameState.timeLimit, playerId: socket.id }));
+                console.error('[socket.js] Cannot send joinRoom: playerName is missing in gameState.');
+                showError('Failed to join/create room: Player name missing.');
             }
+
+        } else {
+            console.log('[socket.js] Waiting for socket ID...');
         }
-        gameState.isConnected = true;
-    }, 150); // Increased delay slightly
+    }, 100); // Check every 100ms
+
+    // Timeout for getting the ID
+    setTimeout(() => {
+        if (!gameState.isConnected) {
+            clearInterval(checkConnectionInterval);
+            console.error('[socket.js] Failed to get socket ID after timeout.');
+            showError('Connection timed out. Please try again.');
+        }
+    }, 5000); // 5 seconds timeout
 }
 
 function handleSocketDisconnect() {
@@ -152,7 +187,8 @@ function handleSocketMessage(data) {
         adminChanged: handleAdminChanged,
         stateSync: handleStateSync, // Added for full state sync
         // 'joined' might be deprecated if 'joinedRoom' is standard
-        joined: handleJoinedRoom // Map 'joined' to 'joinedRoom' for compatibility
+        joined: handleJoinedRoom, // Map 'joined' to 'joinedRoom' for compatibility
+        'player-ready-update': handlePlayerReady // Map PartyKit's 'player-ready-update' message to our ready handler
     };
 
     const handler = messageHandlers[message.type];
@@ -282,42 +318,87 @@ function handlePlayerLeft(data) {
 }
 
 function handlePlayerReady(data) {
-  console.log('[socket.js] Processing playerReady:', data);
-  if (!data.playerId || typeof data.isReady !== 'boolean') {
-     console.warn("[socket.js] Invalid playerReady message:", data);
-     return;
+  // ADDED: More detailed logging at the start
+  console.log('[socket.js] handlePlayerReady: Received data:', JSON.stringify(data, null, 2));
+
+  // Handle different formats of ready updates
+  if (data.type === 'player-ready-update') {
+    // This is a PartyKit player-ready-update message with readyCount and full players list
+    console.log('[socket.js] handlePlayerReady: Handling PartyKit player-ready-update message');
+
+    // Update the player list from the server
+    if (Array.isArray(data.players)) {
+      // ADDED: Log before and after player list update
+      console.log('[socket.js] handlePlayerReady: Old gameState.players:', JSON.stringify(gameState.players));
+      gameState.players = data.players;
+      console.log('[socket.js] handlePlayerReady: New gameState.players:', JSON.stringify(gameState.players));
+    }
+
+    // Update ready count
+    if (typeof data.readyCount === 'number') {
+      // ADDED: Log ready count update
+      console.log(`[socket.js] handlePlayerReady: Updating readyCount to ${data.readyCount}`);
+      gameState.readyCount = data.readyCount;
+    }
+
+    // Find current player in the updated list and update local ready state
+    const currentPlayer = gameState.players.find(p => p.id === window.gameSocket?.id);
+    if (currentPlayer) {
+      // ADDED: Log local player ready state update
+       console.log(`[socket.js] handlePlayerReady: Updating local gameState.isReady from ${gameState.isReady} to ${currentPlayer.isReady}`);
+      gameState.isReady = currentPlayer.isReady;
+    } else {
+        console.warn('[socket.js] handlePlayerReady: Current player not found in updated list from server.');
+    }
+
+    // Update UI
+    // ADDED: Log before calling UI updates
+    console.log('[socket.js] handlePlayerReady: Calling updateReadyStatus() and updatePlayerList() for PartyKit message.');
+    updateReadyStatus();
+    updatePlayerList();
+    return; // Exit after handling PartyKit message
   }
 
-  // Clear the fallback timeout if it exists - server has responded correctly
-  if (gameState.readyFallbackTimeout) {
-    console.log("[socket.js] Clearing fallback timeout - server responded to playerReady");
-    clearTimeout(gameState.readyFallbackTimeout);
-    gameState.readyFallbackTimeout = null;
+  // Original playerReady message handling (kept for compatibility)
+  console.log('[socket.js] handlePlayerReady: Handling original playerReady message format.');
+  if (!data.playerId || typeof data.isReady !== 'boolean') {
+    console.warn("[socket.js] handlePlayerReady: Invalid original playerReady message:", data);
+    return;
   }
 
   const playerIndex = gameState.players.findIndex(p => p && p.id === data.playerId);
   if (playerIndex !== -1) {
-      gameState.players[playerIndex].isReady = data.isReady;
-      // If the message included the full updated player list, use it (good practice)
-      if (Array.isArray(data.players)) {
-          gameState.players = data.players;
-      }
-      // Update local convenience flag if it's the current player
-      if (data.playerId === window.gameSocket?.id) {
-          gameState.isReady = data.isReady;
-      }
-      // Recalculate ready count and update UI
-      updateReadyStatus(); // This updates count and button states
-      updatePlayerList(); // Update visual indicators in list
+    // ADDED: Log specific player state change
+    console.log(`[socket.js] handlePlayerReady: Updating player ${data.playerId} ready state to ${data.isReady}`);
+    gameState.players[playerIndex].isReady = data.isReady;
+
+    // If the message included the full updated player list, use it (good practice)
+    if (Array.isArray(data.players)) {
+      console.log('[socket.js] handlePlayerReady: Syncing full player list from original message.');
+      gameState.players = data.players;
+    }
+    // Update local convenience flag if it's the current player
+    if (data.playerId === window.gameSocket?.id) {
+      // ADDED: Log local player ready state update (original format)
+      console.log(`[socket.js] handlePlayerReady: Updating local gameState.isReady from ${gameState.isReady} to ${data.isReady}`);
+      gameState.isReady = data.isReady;
+    }
+    // Recalculate ready count and update UI
+    // ADDED: Log before calling UI updates (original format)
+    console.log('[socket.js] handlePlayerReady: Calling updateReadyStatus() and updatePlayerList() for original message.');
+    updateReadyStatus(); // This updates count and button states
+    updatePlayerList(); // Update visual indicators in list
   } else {
-      console.warn(`[socket.js] Received ready update for unknown player ID: ${data.playerId}`);
-      // Optionally request full player list sync or use provided list if available
-       if (Array.isArray(data.players)) {
-           console.log("[socket.js] Syncing player list from ready message.");
-           gameState.players = data.players;
-           updateReadyStatus();
-           updatePlayerList();
-       }
+    console.warn(`[socket.js] handlePlayerReady: Received ready update for unknown player ID: ${data.playerId}`);
+    // Optionally request full player list sync or use provided list if available
+    if (Array.isArray(data.players)) {
+      console.log("[socket.js] handlePlayerReady: Syncing player list from ready message for unknown player.");
+      gameState.players = data.players;
+      // ADDED: Log before calling UI updates (unknown player sync)
+      console.log('[socket.js] handlePlayerReady: Calling updateReadyStatus() and updatePlayerList() after unknown player sync.');
+      updateReadyStatus();
+      updatePlayerList();
+    }
   }
 }
 
@@ -341,13 +422,6 @@ function handleRoundStarted(data) {
      console.error("[socket.js] Invalid roundStarted message:", data);
      showError("Failed to start round (invalid data).");
      return;
-  }
-
-  // Clear fallback timeout if it exists - server has responded correctly
-  if (gameState.startRoundFallbackTimeout) {
-    console.log("[socket.js] Clearing fallback timeout - server responded to startRound");
-    clearTimeout(gameState.startRoundFallbackTimeout);
-    gameState.startRoundFallbackTimeout = null;
   }
 
   gameState.currentLetter = data.letter;

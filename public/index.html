@@ -122,7 +122,7 @@
   <div class="app-container">
     <header>
       <div class="logo">
-        <h1>Stadt Land Fluss</h1>
+        <h1 data-text="Stadt Land Fluss">Stadt Land Fluss</h1>
       </div>
     </header>
 
@@ -130,7 +130,7 @@
       <!-- Welcome Screen -->
       <div id="welcome-screen" class="game-screen active">
         <div class="card welcome-card">
-          <div class="card-header">
+          <div class="card-header" data-id="SLF-001">
             <h2>Join or start a Game</h2>
           </div>
           <div class="card-body">
@@ -157,7 +157,7 @@
                 </div>
               </div>
               
-              <button type="button" id="join-game-btn" class="btn btn-accent btn-large">Join Game</button>
+              <button type="button" id="join-game-btn" class="btn btn-primary btn-large">ENTER VOID</button>
             </form>
           </div>
           <div class="card-footer">
@@ -169,7 +169,7 @@
       <!-- Lobby Screen -->
       <div id="lobby-screen" class="game-screen hidden">
         <div class="card lobby-card">
-          <div class="card-header">
+          <div class="card-header" data-id="SLF-002">
             <h2>Game Lobby</h2>
             <div class="room-info">
               <span class="room-label">Room ID:</span>
@@ -219,10 +219,10 @@
 
               <div id="admin-controls" class="admin-controls">
                 <div id="game-starter" class="game-starter">
-                  <button id="start-game-btn" class="btn btn-accent btn-large">
-                    <span class="start-icon">▶</span> Start Game
+                  <button id="start-game-btn" class="btn btn-primary btn-large">
+                    <span class="start-icon">▶</span> INITIATE SEQUENCE
                   </button>
-                  <p id="admin-message" class="admin-message">Click to start when you're ready!</p>
+                  <p id="admin-message" class="admin-message">System ready. Initiating on command.</p>
                 </div>
               </div>
             </div>
@@ -233,12 +233,12 @@
               <div class="ready-status">
                 <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
               </div>
-              <button id="ready-btn" class="btn btn-outline-success">I'm Ready</button>
-              <p class="footer-hint">Click "I'm Ready" when you're prepared to play. The game starts when enough players are ready.</p>
+              <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
+              <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
             </div>
             <hr>
             <p class="text-center footer-hint">Anyone can click this button to start the game!</p>
-            <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>START GAME</button>
+            <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>FORCE START</button>
             
             <!-- Debug links -->
             <div class="debug-links" style="margin-top: 20px; font-size: 12px; text-align: center;">
@@ -251,7 +251,7 @@
       <!-- Game Screen -->
       <div id="game-screen" class="game-screen hidden">
         <div class="card wide-card">
-          <div class="card-header game-header">
+          <div class="card-header game-header" data-id="SLF-003">
             <div class="letter-display">
               <span class="label">Letter:</span>
               <span id="current-letter" class="current-letter">A</span>
@@ -267,7 +267,7 @@
               <div class="categories-grid">
                 <!-- Categories will be dynamically populated -->
               </div>
-              <button type="submit" id="submit-btn" class="btn btn-accent btn-large">Submit Answers</button>
+              <button type="submit" id="submit-btn" class="btn btn-primary btn-large">TRANSMIT DATA</button>
             </form>
           </div>
         </div>
@@ -276,7 +276,7 @@
       <!-- Results Screen -->
       <div id="results-screen" class="game-screen hidden">
         <div class="card wide-card">
-          <div class="card-header">
+          <div class="card-header" data-id="SLF-004">
             <h2>Round Results</h2>
             <div class="round-letter">Letter: <span id="result-letter" class="result-letter">A</span></div>
           </div>
@@ -312,8 +312,8 @@
               </div>
             </div>
             
-            <button id="next-round-btn" class="btn btn-accent btn-large">
-              <span class="btn-icon">⟳</span> Next Round
+            <button id="next-round-btn" class="btn btn-primary btn-large">
+              <span class="btn-icon">⟳</span> NEXT SEQUENCE
             </button>
           </div>
         </div>

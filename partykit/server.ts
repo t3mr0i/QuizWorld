@@ -147,14 +147,22 @@ export default class StadtLandFlussServer implements Party.Server {
       }
       
       // Check if this player is in the room (only for non-joinRoom messages)
+      // --- START ADDED LOGS ---
+      console.log(`[onMessage Check] About to check if player ${sender.id} is in room.`);
+      console.log(`[onMessage Check] Current players in roomState:`, Object.keys(this.roomState.players));
+      console.log(`[onMessage Check] Does roomState contain sender ${sender.id}?`, !!this.roomState.players[sender.id]);
+      console.log(`[onMessage Check] Message type: ${data.type}`);
+      // --- END ADDED LOGS ---
       if (!this.roomState.players[sender.id] && data.type !== 'joinRoom') {
         console.log(`Player ${sender.id} is not in room ${this.roomId}`);
         sender.send(JSON.stringify({
           type: "error",
           message: "You are not in this room"
         }));
+        console.log(`[onMessage Check] Player ${sender.id} REJECTED.`); // Add log here
         return;
       }
+      console.log(`[onMessage Check] Player ${sender.id} ACCEPTED for processing.`); // Add log here
       
       // Handle message based on type
       switch (data.type) {
@@ -184,7 +192,7 @@ export default class StadtLandFlussServer implements Party.Server {
           this.handleUpdateCategories(data, sender);
           break;
           
-        case "player-ready":
+        case "playerReady":
           this.handlePlayerReady(data, sender);
           break;
           
@@ -352,6 +360,10 @@ export default class StadtLandFlussServer implements Party.Server {
       categories: this.roomState.categories,
       readyCount: readyCount
     }));
+    
+    // --- START ADDED LOG ---
+    console.log(`[handleJoinRoom] Successfully added/updated player ${sender.id}. Players now:`, Object.keys(this.roomState.players));
+    // --- END ADDED LOG ---
   }
 
   private handleStartRound(sender: Party.Connection) {
@@ -601,34 +613,59 @@ export default class StadtLandFlussServer implements Party.Server {
 
   private handlePlayerReady(data: any, sender: Party.Connection) {
     const isReady = data.isReady;
-    const playerName = data.playerName || this.roomState.players[sender.id]?.name || 'Unknown';
-    
+    const player = this.roomState.players[sender.id]; // Get player object
+    const playerName = data.playerName || player?.name || 'Unknown';
+
+    // --- START ADDED LOGS ---
+    console.log("--- Server handlePlayerReady ---");
+    console.log("Received data:", JSON.stringify(data));
+    console.log(`Sender ID: ${sender.id}`);
+    console.log(`Player found: ${!!player}`);
+    if (player) {
+        console.log(`Current player state before update: isReady=${player.isReady}`);
+        console.log(`Room readyCount before update: ${this.roomState.readyCount}`);
+    }
+    // --- END ADDED LOGS ---
+
     console.log(`✅✅✅ READY SYSTEM: Player ${playerName} (${sender.id}) in room ${this.roomId} is now ${isReady ? 'ready' : 'not ready'} [${new Date().toISOString()}]`);
-    
-    // Update player ready status
-    if (this.roomState.players[sender.id]) {
-      // Only update if the status is changing
-      if (this.roomState.players[sender.id].isReady !== isReady) {
-        this.roomState.players[sender.id].isReady = isReady;
-        
-        // Update the ready count
+
+    if (player) {
+      if (player.isReady !== isReady) {
+        player.isReady = isReady; // Update state directly on player object
+
         if (isReady) {
           this.roomState.readyCount++;
         } else {
           this.roomState.readyCount = Math.max(0, this.roomState.readyCount - 1);
         }
-        
+
+        // --- START ADDED LOGS ---
+        console.log(`Player state after update: isReady=${player.isReady}`);
+        console.log(`Room readyCount after update: ${this.roomState.readyCount}`);
+        // --- END ADDED LOGS ---
+
         console.log(`Ready count for room ${this.roomId} is now ${this.roomState.readyCount}/${Object.keys(this.roomState.players).length}`);
-        
-        // Broadcast updated ready status to all players in the room
-        this.party.broadcast(JSON.stringify({
+
+        const broadcastMessage = JSON.stringify({
           type: "player-ready-update",
           readyCount: this.roomState.readyCount,
           players: Object.values(this.roomState.players)
-        }));
+        });
+        // --- START ADDED LOGS ---
+        console.log("Broadcasting message:", broadcastMessage.substring(0, 500) + (broadcastMessage.length > 500 ? '...' : '')); // Log first 500 chars
+        // --- END ADDED LOGS ---
+        this.party.broadcast(broadcastMessage);
+
+      } else {
+           // --- START ADDED LOGS ---
+           console.log(`No state change needed for player ${sender.id}. Current state: ${player.isReady}, Received: ${isReady}`);
+           // --- END ADDED LOGS ---
       }
     } else {
       console.error(`Player ${sender.id} not found in room ${this.roomId}`);
     }
+    // --- START ADDED LOGS ---
+    console.log("--- End Server handlePlayerReady ---");
+    // --- END ADDED LOGS ---
   }
 } 
