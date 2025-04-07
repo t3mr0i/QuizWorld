@@ -343,7 +343,22 @@
   </div>
 
   <!-- Scripts -->
+  <!-- Core State & DOM Utilities -->
+  <script type="module" src="/js/state.js"></script>
+  <script type="module" src="/js/dom.js"></script>
+  <script type="module" src="/js/ui.js"></script>
+  
+  <!-- Game Logic Modules -->
+  <script type="module" src="/js/lobby.js"></script>
+  <script type="module" src="/js/game.js"></script>
+
+  <!-- WebSocket Connection -->
   <script src="/js/partysocket.js"></script>
-  <script src="/js/app.js"></script>
+
+  <!-- WebSocket Event Handling (Depends on partysocket and handlers in other files) -->
+  <script type="module" src="/js/socket.js"></script>
+
+  <!-- Main Application (Initializes everything) -->
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html> 

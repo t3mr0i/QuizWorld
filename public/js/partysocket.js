@@ -263,11 +263,14 @@ class GamePartySocket {
   }
   
   on(eventName, callback) {
+    console.log(`[PartySocket.on] Registering handler for event: '${eventName}'. Callback:`, callback?.name || typeof callback);
+
     if (!this.eventHandlers[eventName]) {
       this.eventHandlers[eventName] = [];
     }
-    
     this.eventHandlers[eventName].push(callback);
+
+    console.log(`[PartySocket.on] Current handlers for '${eventName}':`, this.eventHandlers[eventName].length);
   }
   
   off(eventName, callback) {
@@ -283,13 +286,23 @@ class GamePartySocket {
   }
   
   triggerEvent(eventName, data) {
-    if (!this.eventHandlers[eventName]) return;
-    
-    this.eventHandlers[eventName].forEach(callback => {
+    console.log(`[PartySocket.triggerEvent] Attempting to trigger event: '${eventName}'. Data:`, data);
+
+    if (!this.eventHandlers[eventName]) {
+      console.log(`[PartySocket.triggerEvent] No handlers found for '${eventName}'. Existing handlers:`, Object.keys(this.eventHandlers));
+      return;
+    }
+
+    const handlers = this.eventHandlers[eventName];
+    console.log(`[PartySocket.triggerEvent] Found ${handlers.length} handler(s) for '${eventName}'.`);
+
+    handlers.forEach((callback, index) => {
       try {
+        console.log(`[PartySocket.triggerEvent] Executing handler #${index + 1} for '${eventName}'...`);
         callback(data);
+        console.log(`[PartySocket.triggerEvent] Handler #${index + 1} for '${eventName}' executed successfully.`);
       } catch (error) {
-        console.error(`Error in ${eventName} event handler:`, error);
+        console.error(`[PartySocket.triggerEvent] Error in ${eventName} event handler #${index + 1}:`, error);
       }
     });
   }

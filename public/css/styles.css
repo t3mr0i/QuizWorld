@@ -2326,4 +2326,65 @@ small {
 
 .pulse-ready {
   animation: pulse-ready 2.5s infinite;
+}
+
+/* --- TEMPORARY DEBUG STYLES --- */
+#lobby-screen #player-list {
+    border: 2px dashed red !important; /* Make list container obvious */
+    min-height: 50px !important; /* Ensure it has some height */
+    display: block !important; /* Override potential display:none */
+    opacity: 1 !important; /* Override potential transparency */
+    visibility: visible !important; /* Override potential visibility:hidden */
+    background-color: #ffeeee; /* Light red background */
+    padding: 10px !important; /* Add padding */
+}
+
+#lobby-screen #player-list .player-item {
+    border: 1px solid blue !important; /* Make list items obvious */
+    color: black !important; /* Ensure text is visible */
+    background-color: #eeeeff; /* Light blue background */
+    padding: 5px !important;
+    margin-bottom: 5px !important;
+    display: flex !important; /* Use flex to better manage children */
+    align-items: center !important;
+     opacity: 1 !important;
+    visibility: visible !important;
+    height: auto !important;
+    min-height: 20px !important;
+}
+
+/* ADDED: Force styles on the name span itself */
+#lobby-screen #player-list .player-item .player-name {
+    color: #000000 !important; /* Force black color */
+    background-color: yellow !important; /* Force yellow background */
+    font-size: 16px !important; /* Force font size */
+    font-weight: bold !important;
+    display: inline-block !important; /* Ensure it's displayed */
+    padding: 2px 5px !important;
+    margin-right: 10px !important;
+    text-indent: 0 !important; /* Override text hiding */
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: static !important; /* Override absolute positioning */
+    flex-grow: 1; /* Allow it to take space */
+}
+
+/* ADDED: Force styles on the badges span as well */
+#lobby-screen #player-list .player-item .player-badges {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background-color: lightgreen !important;
+    padding: 2px;
+}
+
+/* --- END TEMPORARY DEBUG STYLES --- */
+
+/* --- Player List Specific Styles (Original/Existing) --- */
+.player-list {
+/* ... potentially existing styles ... */
+}
+
+.player-item {
+/* ... potentially existing styles ... */
 } 
