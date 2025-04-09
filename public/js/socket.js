@@ -139,6 +139,8 @@ function handleSocketMessage(data) {
     if (typeof data === 'string') {
         try {
             message = JSON.parse(data);
+            // Add detailed debug log for parsing result
+            console.log('[socket.js] Parsed message data:', JSON.stringify(message, null, 2));
         } catch (e) {
             console.error("[socket.js] Failed to parse incoming message string:", data, e);
             return;
@@ -320,6 +322,8 @@ function handlePlayerLeft(data) {
 function handlePlayerReady(data) {
   // ADDED: More detailed logging at the start
   console.log('[socket.js] handlePlayerReady: Received data:', JSON.stringify(data, null, 2));
+  console.log('[socket.js] handlePlayerReady: CURRENT SOCKET ID:', window.gameSocket?.id);
+  console.log('[socket.js] handlePlayerReady: Current gameState.isReady BEFORE processing:', gameState.isReady);
 
   // Handle different formats of ready updates
   if (data.type === 'player-ready-update') {

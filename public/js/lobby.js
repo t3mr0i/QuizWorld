@@ -119,6 +119,117 @@ export function setupGameControls() {
             // Send startRound message to server
             window.gameSocket?.send(JSON.stringify({ type: 'startRound' }));
             
+            // WORKAROUND: Manually start game locally since server isn't responding
+            console.log("SIMPLEST-WORKAROUND: Manually starting game locally");
+            
+            try {
+                // Generate a random letter
+                const letters = "ABCDEFGHIJKLMNOPRSTUVWZ"; // Exclude Q, X, Y
+                const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+                gameState.currentLetter = randomLetter;
+                console.log(`SIMPLEST-WORKAROUND: Using random letter: ${randomLetter}`);
+                
+                // 1. Switch to game screen - ULTRA DIRECT approach matching app's design
+                console.log("SIMPLEST-WORKAROUND: About to switch screens (ULTRA DIRECT)");
+                
+                // Get the real screens from DOM
+                const welcomeScreen = document.getElementById('welcome-screen');
+                const lobbyScreen = document.getElementById('lobby-screen');
+                const gameScreen = document.getElementById('game-screen');
+                const resultsScreen = document.getElementById('results-screen');
+                
+                console.log("ULTRA: Found screens:", { 
+                    welcomeScreen: !!welcomeScreen, 
+                    lobbyScreen: !!lobbyScreen, 
+                    gameScreen: !!gameScreen, 
+                    resultsScreen: !!resultsScreen 
+                });
+                
+                // Use the exact same class manipulation the app uses
+                if (welcomeScreen) {
+                    welcomeScreen.classList.remove('active');
+                    welcomeScreen.classList.add('hidden');
+                }
+                
+                if (lobbyScreen) {
+                    lobbyScreen.classList.remove('active');
+                    lobbyScreen.classList.add('hidden');
+                }
+                
+                if (resultsScreen) {
+                    resultsScreen.classList.remove('active');
+                    resultsScreen.classList.add('hidden');
+                }
+                
+                if (gameScreen) {
+                    gameScreen.classList.remove('hidden');
+                    gameScreen.classList.add('active');
+                    console.log("ULTRA: Applied exact same class changes as app's showScreen function");
+                }
+                
+                // 2. Set up form with direct DOM manipulation
+                const categoriesGrid = document.querySelector('#answers-form .categories-grid');
+                if (categoriesGrid) {
+                    categoriesGrid.innerHTML = ''; // Clear previous form
+                    const categories = gameState.categories || ['Stadt', 'Land', 'Fluss'];
+                    
+                    categories.forEach(category => {
+                        const html = `
+                            <div class="category-group">
+                                <label for="answer-${category.toLowerCase().replace(/\s+/g, '-')}">${category}</label>
+                                <input type="text" 
+                                    id="answer-${category.toLowerCase().replace(/\s+/g, '-')}" 
+                                    name="${category}" 
+                                    autocomplete="off" 
+                                    placeholder="${category} starting with ${randomLetter}...">
+                            </div>
+                        `;
+                        categoriesGrid.insertAdjacentHTML('beforeend', html);
+                    });
+                    console.log("SIMPLEST-WORKAROUND: Manual form setup complete");
+                }
+                
+                // 3. Set up timer with direct DOM manipulation
+                const timerElement = document.getElementById('timer');
+                if (timerElement) {
+                    let timeRemaining = gameState.timeLimit || 60;
+                    timerElement.textContent = timeRemaining;
+                    
+                    if (gameState.timerInterval) {
+                        clearInterval(gameState.timerInterval);
+                    }
+                    
+                    gameState.timerInterval = setInterval(() => {
+                        timeRemaining--;
+                        timerElement.textContent = timeRemaining;
+                        
+                        if (timeRemaining <= 0) {
+                            clearInterval(gameState.timerInterval);
+                            gameState.timerInterval = null;
+                        }
+                    }, 1000);
+                    console.log("SIMPLEST-WORKAROUND: Manual timer started");
+                }
+                
+                // 4. Set up letter display
+                const letterDisplay = document.getElementById('current-letter');
+                if (letterDisplay) {
+                    letterDisplay.textContent = randomLetter;
+                    console.log("SIMPLEST-WORKAROUND: Updated letter display");
+                }
+                
+                // 5. Enable the submit button
+                const submitBtn = document.getElementById('submit-btn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Answers';
+                    console.log("SIMPLEST-WORKAROUND: Enabled submit button");
+                }
+                
+            } catch (error) {
+                console.error("SIMPLEST-WORKAROUND ERROR:", error);
+            }
+            
             // Temporarily disable the button to prevent spam clicks
             startGameBtn.disabled = true;
             setTimeout(() => {
@@ -132,15 +243,57 @@ export function setupGameControls() {
             // Toggle ready state
             const newState = !gameState.isReady;
             console.log("Ready button clicked. New state:", newState);
+            console.log("Ready button clicked. Current gameState.isReady BEFORE toggle:", gameState.isReady);
+            
+            // HARD RESET - DIRECT BUTTON TEXT CHANGE
+            readyBtn.textContent = newState ? "I'm NOT Ready" : "I'm Ready";
+            readyBtn.classList.toggle('btn-outline-success', !newState);
+            readyBtn.classList.toggle('btn-outline-warning', newState);
             
             // Send message to server
             const message = { type: 'playerReady', isReady: newState };
+            console.log("Ready button clicked. Sending message:", JSON.stringify(message));
             window.gameSocket.send(JSON.stringify(message));
+            
+            // Force update local state
+            gameState.isReady = newState;
+            console.log("FORCE-UPDATE: Set gameState.isReady to", newState);
+            
+            // Update player in array directly
+            const playerIndex = gameState.players.findIndex(p => p && p.id === window.gameSocket?.id);
+            if (playerIndex !== -1) {
+                gameState.players[playerIndex].isReady = newState;
+                gameState.readyCount = gameState.players.filter(p => p && p.isReady).length;
+                console.log("FORCE-UPDATE: Updated player record and readyCount:", gameState.readyCount);
+            }
+            
+            // Update UI displays
+            const readyCountElement = document.getElementById('ready-count');
+            if (readyCountElement) {
+                readyCountElement.textContent = gameState.readyCount;
+                console.log("FORCE-UPDATE: Updated ready-count display to", gameState.readyCount);
+            }
+            
+            // Update the start button and waiting message
+            updateButtonStates();
+            
+            // Also update the waiting message
+          
+            // Enable the start button if enough players are ready
+            const startGameBtn = document.getElementById('start-game-btn');
+            if (startGameBtn) {
+                const totalPlayers = gameState.players.length;
+                const requiredReady = totalPlayers <= 1 ? totalPlayers : (totalPlayers === 2 ? 2 : Math.ceil(totalPlayers / 2));
+                const canStart = gameState.readyCount >= requiredReady;
+                startGameBtn.disabled = !canStart;
+                console.log("FORCE-UPDATE: Updated start button state to:", !startGameBtn.disabled);
+            }
             
             // Temporarily disable the button to prevent spam clicks
             readyBtn.disabled = true;
             setTimeout(() => {
                 readyBtn.disabled = false;
+                console.log("Ready button re-enabled. Current gameState.isReady after timeout:", gameState.isReady);
             }, 500);
         };
     }

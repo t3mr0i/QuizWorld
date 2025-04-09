@@ -171,7 +171,7 @@ export function updateButtonStates() {
     startGameBtn.disabled = !canStart;
     const adminMsg = DOM.get('admin-message');
     if (adminMsg) {
-        adminMsg.textContent = canStart ? "Click to start!" : `Waiting for ${requiredReady - readyPlayers} more player(s) to be ready...`;
+        adminMsg.textContent = canStart ? "" : `Waiting for ${requiredReady - readyPlayers} more player(s) to be ready...`;
     }
 
     // --- Universal Start Button (Client-Side Mode) ---
@@ -183,7 +183,11 @@ export function updateButtonStates() {
 
 
     // --- Ready Button --- 
+    // Log the state right before updating the button
+    console.log(`[ui.js->updateButtonStates] Updating readyBtn. gameState.isReady: ${gameState.isReady}`);
+    console.log(`[ui.js->updateButtonStates] Updating readyBtn. Button current text: "${readyBtn.textContent}"`);
     readyBtn.textContent = gameState.isReady ? "I'm NOT Ready" : "I'm Ready";
+    console.log(`[ui.js->updateButtonStates] Updating readyBtn. Button new text: "${readyBtn.textContent}"`);
     readyBtn.classList.toggle('btn-outline-success', !gameState.isReady);
     readyBtn.classList.toggle('btn-outline-warning', gameState.isReady);
 }
@@ -334,6 +338,9 @@ function updateWaitingMessage() {
 
 export function updateReadyStatus() {
   try {
+    // Log when this function is called and the state it sees initially
+    console.log(`[ui.js->updateReadyStatus] Called. Initial gameState.isReady: ${gameState.isReady}, Players: ${gameState.players?.length}`);
+
     const readyCountElement = DOM.get('ready-count');
     const totalPlayersElement = DOM.get('total-players');
     const readyBtn = DOM.get('ready-btn'); // The button the player clicks
@@ -357,6 +364,8 @@ export function updateReadyStatus() {
 
 
     // Update UI display for counts
+    // Log the calculated values before updating UI
+    console.log(`[ui.js->updateReadyStatus] Calculated ready: ${readyPlayers}, total: ${totalPlayers}, currentPlayer isReady: ${isCurrentlyReady}`);
     if (readyCountElement) {
       readyCountElement.textContent = readyPlayers.toString();
     } else {

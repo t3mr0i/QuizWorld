@@ -1,8 +1,8 @@
-/* Digital Void - Futuristic Glitch UI */
+/* Digital Void - Brutalist UI */
 
-/* Import futuristic geometric fonts */
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap');
+/* Import brutalist fonts - using more industrial sans-serif */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 
 :root {
   /* Digital Void Palette */
@@ -24,14 +24,14 @@
   --text-color-primary: var(--kb-black);
   --text-color-secondary: var(--kb-grey);
   --background-primary: var(--digital-void-bg);
-  --panel-background: rgba(255, 255, 255, 0.8); /* Simulating synthetic surface, slightly transparent */
-  --border-color-subtle: rgba(19, 20, 23, 0.1);
+  --panel-background: rgba(255, 255, 255, 0.9); /* Less transparent for brutalist look */
+  --border-color-subtle: rgba(19, 20, 23, 0.15); /* Stronger borders */
   --shadow-color-soft: rgba(19, 20, 23, 0.05);
 
   /* Typography */
-  --font-primary: 'Rajdhani', 'system-ui', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  --font-display: 'Orbitron', 'Rajdhani', sans-serif;
-  --font-weight-heading: 700; /* Bold */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-display: 'Roboto Mono', monospace;
+  --font-weight-heading: 900; /* Bold */
   --font-weight-body: 400;
 
   /* Spacing (adjust based on grid needs) */
@@ -42,17 +42,16 @@
   --spacing-xl: 32px;
   --spacing-xxl: 48px;
 
-  /* Border radius */
-  --border-radius-sm: 3px;
-  --border-radius-md: 6px;
-  --border-radius-lg: 10px;
+  /* Border radius - sharper for brutalism */
+  --border-radius-sm: 0px;
+  --border-radius-md: 0px;
+  --border-radius-lg: 0px;
 
   /* Transitions */
   --transition-fast: 0.15s ease-in-out;
   --transition-normal: 0.25s ease-in-out;
 
-  /* Glitch effects */
-  --glitch-text-shadow: 1px 1px 0 var(--electric-cyan), -1px -1px 0 var(--neon-lime);
+  /* Remove glitch effects */
   --scanline-color: rgba(19, 20, 23, 0.03);
   --grid-texture: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a8adb4' fill-opacity='0.1' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3Ccircle cx='13' cy='13' r='1'/%3E%3C/g%3E%3C/svg%3E");
 }
@@ -79,38 +78,19 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Subtle fog/gradient overlay */
-  background-image: linear-gradient(rgba(222, 228, 236, 0.5), rgba(222, 228, 236, 0.8)); /* Faint gradient top-to-bottom */
-  position: relative; /* Needed for full-page pseudo-elements */
+  /* Remove gradient overlay for brutalist style */
+  background-image: none; 
+  position: relative;
 }
 
-/* Enable subtle glitch overlay */
+/* Remove glitch overlay */
 body::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--grid-texture);
-  opacity: 0.6;
-  pointer-events: none;
-  z-index: -1;
+  display: none;
 }
 
-/* Scanline effect */
+/* Remove scanline effect */
 body::after {
-  content: '';
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    var(--scanline-color),
-    var(--scanline-color) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-  opacity: 0.3;
-  z-index: 1000;
-  animation: scanlineMotion 10s linear infinite;
+  display: none;
 }
 
 @keyframes scanlineMotion {
@@ -173,14 +153,14 @@ a:hover {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  max-width: 1200px; /* Maintain max width */
+  max-width: 1000px; /* Slightly narrower max width */
   margin: 0 auto;
-  padding: var(--spacing-xl); /* Increased base padding */
+  padding: var(--spacing-xl); 
 }
 
 @media (max-width: 768px) {
   .app-container {
-    padding: var(--spacing-lg); /* Adjusted mobile padding */
+    padding: var(--spacing-lg);
   }
   
   header {
@@ -189,11 +169,11 @@ a:hover {
   }
   
   h1 {
-    font-size: 2rem; /* Adjusted mobile heading */
+    font-size: 2rem;
   }
   
   h2 {
-    font-size: 1.75rem; /* Adjusted mobile heading */
+    font-size: 1.75rem;
   }
 }
 
@@ -201,116 +181,34 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--spacing-xl) 0; /* Increased header padding */
-  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-lg) 0; /* Reduced header padding */
+  margin-bottom: var(--spacing-lg); /* Reduced bottom margin */
+  position: relative;
 }
 
+/* Smaller header */
 .logo h1 {
   color: var(--text-color-primary);
   margin-bottom: var(--spacing-sm);
   text-align: center;
-  position: relative;
   display: inline-block;
-  font-size: 2.8rem;
+  font-size: 2.2rem; /* Reduced font size */
   font-family: var(--font-display);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em; /* Slightly less spacing */
+  border-bottom: 4px solid var(--primary-accent-color); /* Thinner underline */
+  padding-bottom: var(--spacing-xs);
   position: relative;
 }
 
-.logo h1::before {
-  content: attr(data-text);
-  position: absolute;
-  left: -2px;
-  text-shadow: 1px 0 0 var(--electric-cyan);
-  top: 0;
-  color: var(--text-color-primary);
-  overflow: hidden;
-  clip: rect(0, 900px, 0, 0);
-  animation: glitch-effect 3s infinite linear alternate-reverse;
-}
-
-.logo h1::after {
-  content: attr(data-text);
-  position: absolute;
-  left: 2px;
-  text-shadow: -1px 0 0 var(--neon-lime);
-  top: 0;
-  color: var(--text-color-primary);
-  overflow: hidden;
-  clip: rect(0, 900px, 0, 0);
-  animation: glitch-effect 2s infinite linear alternate-reverse;
-}
-
-@keyframes glitch-effect {
-  0% {
-    clip: rect(29px, 9999px, 40px, 0);
-  }
-  5% {
-    clip: rect(56px, 9999px, 2px, 0);
-  }
-  10% {
-    clip: rect(22px, 9999px, 48px, 0);
-  }
-  15% {
-    clip: rect(30px, 9999px, 9px, 0);
-  }
-  20% {
-    clip: rect(8px, 9999px, 66px, 0);
-  }
-  25% {
-    clip: rect(80px, 9999px, 91px, 0);
-  }
-  30% {
-    clip: rect(33px, 9999px, 9px, 0);
-  }
-  35% {
-    clip: rect(47px, 9999px, 46px, 0);
-  }
-  40% {
-    clip: rect(11px, 9999px, 65px, 0);
-  }
-  45% {
-    clip: rect(40px, 9999px, 31px, 0);
-  }
-  50% {
-    clip: rect(23px, 9999px, 56px, 0);
-  }
-  55% {
-    clip: rect(9px, 9999px, 87px, 0);
-  }
-  60% {
-    clip: rect(100px, 9999px, 36px, 0);
-  }
-  65% {
-    clip: rect(13px, 9999px, 10px, 0);
-  }
-  70% {
-    clip: rect(15px, 9999px, 95px, 0);
-  }
-  75% {
-    clip: rect(57px, 9999px, 25px, 0);
-  }
-  80% {
-    clip: rect(1px, 9999px, 6px, 0);
-  }
-  85% {
-    clip: rect(88px, 9999px, 29px, 0);
-  }
-  90% {
-    clip: rect(33px, 9999px, 25px, 0);
-  }
-  95% {
-    clip: rect(5px, 9999px, 80px, 0);
-  }
-  100% {
-    clip: rect(67px, 9999px, 34px, 0);
-  }
+/* Remove glitch pseudoelements */
+.logo h1::before, .logo h1::after {
+  display: none;
 }
 
 .tagline {
   color: var(--text-color-secondary);
   text-align: center;
-  font-size: 1.15rem;
+  font-size: 1rem;
   margin-bottom: var(--spacing-xxl);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -327,19 +225,18 @@ header {
   width: 100%;
 }
 
-/* Card / Panel Styles */
+/* Card / Panel Styles - More brutalist with sharp edges */
 .card {
   background-color: var(--panel-background);
-  backdrop-filter: blur(10px);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 10px 40px var(--shadow-color-soft);
+  border-radius: 0; /* Sharp corners for brutalism */
+  box-shadow: 8px 8px 0 rgba(19, 20, 23, 0.15); /* Offset shadow for brutalism */
   width: 100%;
   margin-bottom: var(--spacing-xl);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--kb-black); /* Stronger border */
   transition: box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
@@ -353,10 +250,9 @@ header {
   position: absolute;
   top: 0;
   left: 0;
-  width: 8px; /* Thicker accent line */
+  width: 10px; /* Thicker accent line */
   height: 100%;
-  background: linear-gradient(180deg, var(--primary-accent-color), var(--secondary-accent-color-1)); /* Gradient accent */
-  border-radius: var(--border-radius-lg) 0 0 var(--border-radius-lg);
+  background: var(--primary-accent-color); /* Solid color instead of gradient */
 }
 
 .lobby-card {
@@ -369,110 +265,56 @@ header {
 
 .card-header {
   padding: var(--spacing-lg) var(--spacing-xl);
-  border-bottom: 1px solid var(--border-color-subtle);
+  border-bottom: 2px solid var(--kb-black); /* Stronger border */
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  background-color: rgba(255, 255, 255, 0.1); /* Subtle header background */
+  background-color: rgba(19, 20, 23, 0.05); /* Subtle header background */
 }
 
-@media (max-width: 768px) {
-  .card-header {
-    padding: var(--spacing-lg); /* Consistent padding */
-  }
-
-  .card-body {
-    padding: var(--spacing-lg);
-  }
-
-  .form-row {
-    flex-direction: column;
-  }
-
-  .form-row .form-group {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: var(--spacing-lg);
-  }
-}
-
-/* Answer explanation - keep for now */
-.answer-explanation {
-  font-size: 0.9rem;
+/* Update the card-header::before to be more brutalist */
+.card-header::before {
+  content: attr(data-id);
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-md);
+  font-size: 0.7rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
   color: var(--text-color-secondary);
-  line-height: 1.4;
 }
 
-.answer-explanation strong {
-  color: var(--text-color-primary);
-}
-
-.card-header h2 {
-  margin-bottom: 0;
-  color: var(--text-color-primary);
-}
-
-.card-body {
-  padding: var(--spacing-xl);
-}
-
-.card-footer {
-  border-top: 1px solid var(--border-color-subtle);
-  padding: var(--spacing-lg) var(--spacing-xl);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: rgba(19, 20, 23, 0.03); /* Subtle footer bg */
-}
-
-.footer-hint {
-  font-size: 1rem; /* Adjusted size */
-  color: var(--text-color-secondary);
-  margin-top: var(--spacing-sm);
-  font-weight: 400;
-}
-
-.admin-message {
-  color: var(--text-color-secondary);
-  text-align: center;
-  margin-top: var(--spacing-md); /* Increased margin */
-  font-size: 0.9rem;
-}
-
-.app-footer {
-  text-align: center;
-  color: var(--text-color-secondary);
-  padding: var(--spacing-xl) 0; /* Increased padding */
-  margin-top: auto;
-  font-size: 0.85rem;
-}
-
-/* Form elements - Digital Void Style */
+/* Update form elements for brutalist style */
 .form-row {
   display: flex;
   flex-wrap: wrap;
-  margin: 0 calc(-1 * var(--spacing-md)); /* Gutter based on spacing */
+  margin-left: calc(-1 * var(--spacing-lg)); /* Adjust for new padding */
+  margin-right: calc(-1 * var(--spacing-lg)); /* Adjust for new padding */
+  margin-bottom: var(--spacing-lg);
 }
 
 .form-row .form-group {
-  flex: 1;
-  min-width: 200px; /* Adjust as needed */
-  padding: 0 var(--spacing-md);
+  flex: 1 1 0px; /* Allow shrinking and growing */
+  min-width: 200px;
+  padding-left: var(--spacing-lg); /* Adjust for new padding */
+  padding-right: var(--spacing-lg); /* Adjust for new padding */
 }
 
 .form-group {
   margin-bottom: var(--spacing-lg);
+  position: relative; /* Needed for potential absolute positioning of elements */
 }
 
 label {
   display: block;
   margin-bottom: var(--spacing-sm);
-  font-weight: 700; /* Bold labels */
+  font-weight: 700;
   color: var(--text-color-primary);
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-family: var(--font-display);
 }
 
 input[type="text"],
@@ -482,11 +324,11 @@ select {
   width: 100%;
   padding: var(--spacing-md);
   font-size: 1rem;
-  border: 1px solid var(--border-color-subtle);
-  border-radius: var(--border-radius-sm); /* Sharper radius */
-  background-color: rgba(255, 255, 255, 0.5); /* More transparent */
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
-  font-family: var(--font-primary);
+  border: 2px solid var(--kb-black); /* Stronger border */
+  border-radius: 0; /* Sharp corners */
+  background-color: #FFFFFF;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  font-family: var(--font-display); /* Monospace for forms */
   color: var(--text-color-primary);
 }
 
@@ -503,171 +345,162 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--primary-accent-color);
-  background-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 0 3px rgba(255, 70, 0, 0.2); /* Orange focus glow */
-}
-
-input.error {
-  border-color: var(--primary-accent-color);
-  box-shadow: 0 0 0 3px rgba(255, 70, 0, 0.2);
-}
-
-input.submitted { /* Style for submitted state */
-  background-color: rgba(210, 255, 0, 0.1); /* Neon Lime hint */
-  border-color: var(--secondary-accent-color-2);
-  color: var(--text-color-secondary);
+  background-color: #FFFFFF;
+  box-shadow: 4px 4px 0 rgba(255, 70, 0, 0.3); /* Offset shadow */
 }
 
 small {
   display: block;
+  margin-top: var(--spacing-sm); /* Add space above hint */
+  font-size: 0.85rem;
   color: var(--text-color-secondary);
-  margin-top: var(--spacing-xs);
-  font-size: 0.8rem; /* Smaller help text */
 }
 
-.time-selector {
-  display: flex;
-  align-items: center;
-}
-
-.time-selector input {
-  width: 60px; /* Narrower input */
-  text-align: center;
-  margin: 0 var(--spacing-sm);
-  -moz-appearance: textfield;
-  padding: var(--spacing-sm); /* Smaller padding */
-}
-
-.time-selector input::-webkit-outer-spin-button,
-.time-selector input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.time-btn {
-  width: 32px; /* Smaller buttons */
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-color-subtle);
-  background-color: rgba(255, 255, 255, 0.3);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  font-size: 1.1rem;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
-  color: var(--text-color-primary);
-}
-
-.time-btn:hover {
-  background-color: rgba(255, 255, 255, 0.5);
-  border-color: var(--kb-grey);
-}
-
-/* Buttons - Digital Void Style */
+/* Buttons - Brutalist Style */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) var(--spacing-lg); /* Adjusted padding */
+  padding: var(--spacing-md) var(--spacing-xl); /* Larger padding */
   font-weight: 700; /* Bold button text */
   font-size: 0.9rem; /* Slightly smaller base font */
   text-align: center;
   white-space: nowrap;
   vertical-align: middle;
   cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: var(--border-radius-sm); /* Sharper radius */
+  border: 2px solid var(--kb-black); /* Stronger border */
+  border-radius: 0; /* Sharp corners */
   transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  font-family: var(--font-display);
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.2); /* Offset shadow */
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: var(--kb-light-grey) !important; /* Clearer disabled state */
-  color: var(--kb-grey) !important;
-  box-shadow: none !important;
+.btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(19, 20, 23, 0.2);
+}
+
+.btn:active {
+  transform: translate(0, 0);
+  box-shadow: 0px 0px 0 rgba(19, 20, 23, 0.2);
 }
 
 /* Primary Action Button (Orange) */
 .btn-primary {
   background-color: var(--primary-accent-color);
   color: var(--kb-black); /* Black text on orange */
-  border: 1px solid var(--primary-accent-color);
+  border: 2px solid var(--kb-black);
 }
 
 .btn-primary:hover {
   background-color: #FF6D33; /* Lighter orange */
-  border-color: #FF6D33;
-  box-shadow: 0 2px 8px rgba(255, 70, 0, 0.3);
-  transform: translateY(-1px);
-}
-
-.btn-primary:active {
-  background-color: #E23F00; /* Darker orange */
-  transform: translateY(0);
 }
 
 /* Secondary Action Button (Subtle) */
 .btn-secondary {
-  background-color: rgba(255, 255, 255, 0.5);
-  border-color: var(--border-color-subtle);
+  background-color: #FFFFFF;
+  border-color: var(--kb-black);
   color: var(--text-color-primary);
 }
 
 .btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.7);
-  border-color: var(--kb-grey);
-  box-shadow: 0 1px 4px var(--shadow-color-soft);
+  background-color: #F0F0F0;
 }
 
-/* Danger/Remove Button (Can still use orange or a different color) */
-.btn-danger {
-  background-color: var(--kb-dark-grey);
-  color: var(--digital-void-bg);
-  border-color: var(--kb-dark-grey);
+/* Remove animation from next round button */
+#next-round-btn::after {
+  display: none;
 }
 
-.btn-danger:hover {
+/* Remove glitch from screen transitions */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.game-screen.active {
+  display: block;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Simplify the current-letter to be more brutalist */
+.current-letter {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-left: var(--spacing-sm);
+  background: var(--primary-accent-color); /* Solid color */
+  color: var(--kb-black);
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.2); /* Offset shadow */
+  position: relative;
+  border: 2px solid var(--kb-black);
+  font-family: var(--font-display);
+}
+
+/* Remove scan effect from current letter */
+.current-letter::after {
+  display: none;
+}
+
+/* Update the room-id to be more brutalist */
+.room-id {
+  font-weight: 700;
   background-color: var(--kb-black);
-  border-color: var(--kb-black);
-}
-
-.btn-large {
-  padding: var(--spacing-md) var(--spacing-xl);
-  font-size: 1rem;
-}
-
-.btn-text {
-  background: none;
+  color: var(--digital-void-bg);
+  padding: var(--spacing-xs) var(--spacing-md);
+  margin-right: var(--spacing-sm);
+  letter-spacing: 0.1em;
+  font-size: 0.9rem;
+  font-family: var(--font-display);
+  position: relative;
   border: none;
-  color: var(--primary-accent-color);
-  padding: var(--spacing-sm);
-  font-size: 0.85rem;
-  text-decoration: none;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
 }
 
-.btn-text:hover {
-  color: var(--secondary-accent-color-1); /* Cyan hover */
-  text-decoration: underline;
+/* Remove shine effect from room ID */
+.room-id::after {
+  display: none;
 }
 
-.btn-icon {
-  padding: var(--spacing-sm);
-  border-radius: 50%; /* Circular icon buttons */
-  line-height: 0;
+/* Category groups - more brutalist */
+.category-group {
+  margin-bottom: 0;
+  background-color: #FFFFFF;
+  padding: var(--spacing-lg);
+  transition: all var(--transition-fast);
+  border: 2px solid var(--kb-black);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.1);
 }
 
-.btn-icon svg {
-  width: 16px;
-  height: 16px;
+/* Simplify category group with less effects */
+.category-group::after {
+  display: none;
+}
+
+.category-group:hover {
+  background-color: #F8F8F8;
+  box-shadow: 6px 6px 0 rgba(19, 20, 23, 0.15);
+}
+
+/* Score and results badges - more brutalist */
+.score-unique, .score-valid, .score-invalid {
+  border-radius: 0;
+  padding: 4px 10px;
+  font-weight: 700;
+  display: inline-block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
 }
 
 /* Lobby Layout - Digital Void */
@@ -679,22 +512,103 @@ small {
 }
 
 .player-section {
-  /* flex/min-width removed as it's grid now */
-  padding: 0; /* Remove extra padding */
+  grid-column: 1 / 2; /* Explicitly assign to first column */
+  padding: 0; 
   margin-bottom: 0;
 }
 
-.admin-controls {
-  grid-column: 1 / -1;
-  margin-top: var(--spacing-xl); /* Increased space */
+/* Add category management styles */
+.category-management {
+  grid-column: 2 / 3; /* Explicitly assign to second column */
   display: flex;
   flex-direction: column;
-  align-items: stretch; /* Stretch controls */
+  gap: var(--spacing-lg);
+}
+
+.category-management h3 {
+  margin-bottom: 0; /* Adjust heading margin */
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column; /* Stack items vertically */
+  gap: var(--spacing-sm); /* Gap between category items */
+}
+
+.category-item {
+  display: flex;
+  align-items: center; /* Vertically center content */
+  justify-content: space-between; /* Push name and button apart */
+  background-color: #FFFFFF;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--kb-black);
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.1);
+  transition: all var(--transition-fast);
+}
+
+.category-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 rgba(19, 20, 23, 0.15);
+}
+
+.category-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  flex-grow: 1; /* Allow name to take available space */
+  margin-right: var(--spacing-sm); /* Space before button */
+  color: var(--text-color-primary);
+}
+
+.category-remove {
+  /* Style the remove button */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-color-secondary);
+  font-size: 1.2rem; /* Adjust size of 'x' */
+  line-height: 1;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  transition: color var(--transition-fast);
+}
+
+.category-remove:hover {
+  color: var(--primary-accent-color);
+}
+
+.add-category-container {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.category-input {
+  flex-grow: 1;
+  /* Inherits general input styles */
+}
+
+#add-category-btn {
+  /* Inherits general button styles (.btn-secondary) */
+  flex-shrink: 0;
+}
+
+.category-instructions {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary);
+  margin-top: var(--spacing-md);
+}
+
+.admin-controls {
+  grid-column: 1 / -1; /* Span both columns */
+  margin-top: var(--spacing-xl); 
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; 
   padding: var(--spacing-lg);
-  background-color: rgba(19, 20, 23, 0.05); /* Darker panel bg */
+  background-color: rgba(19, 20, 23, 0.05); 
   border-radius: var(--border-radius-md);
   border: 1px solid var(--border-color-subtle);
-  box-shadow: none; /* Remove shadow */
+  box-shadow: none; 
   position: relative;
   z-index: 5;
 }
@@ -751,7 +665,7 @@ small {
 
 .player-list {
   list-style: none;
-  margin: 0;
+  margin: 0 0 var(--spacing-lg) 0; /* Add bottom margin */
   padding: 0;
   border-radius: var(--border-radius-md);
   overflow: hidden;
@@ -879,37 +793,21 @@ small {
   font-size: 2.2rem;
   font-weight: 700;
   margin-left: var(--spacing-sm);
-  background: linear-gradient(45deg, var(--primary-accent-color), #FF8C4A);
+  background: var(--primary-accent-color); /* Solid color */
   color: var(--kb-black);
-  border-radius: 8px;
   width: 56px;
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 5px 15px rgba(255, 70, 0, 0.3);
-  text-shadow: none;
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.2); /* Offset shadow */
   position: relative;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--kb-black);
   font-family: var(--font-display);
-  position: relative;
-  overflow: hidden;
 }
 
 .current-letter::after {
-  content: '';
-  position: absolute;
-  top: -100%;
-  left: 0;
-  right: 0;
-  height: 30%;
-  background: linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0));
-  animation: scanEffect 2s linear infinite;
-}
-
-@keyframes scanEffect {
-  0% { top: -30%; }
-  100% { top: 130%; }
+  display: none;
 }
 
 .timer-container {
@@ -1315,35 +1213,16 @@ small {
   background-color: var(--kb-black);
   color: var(--digital-void-bg);
   padding: var(--spacing-xs) var(--spacing-md);
-  border-radius: var(--border-radius-sm);
   margin-right: var(--spacing-sm);
   letter-spacing: 0.1em;
   font-size: 0.9rem;
   font-family: var(--font-display);
   position: relative;
-  overflow: hidden;
+  border: none;
 }
 
 .room-id::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.1), 
-    transparent
-  );
-  animation: shiningEffect 3s infinite;
-}
-
-@keyframes shiningEffect {
-  0% { left: -100%; }
-  50% { left: 100%; }
-  100% { left: 100%; }
+  display: none;
 }
 
 /* Modal - Digital Void */
@@ -1701,25 +1580,7 @@ small {
 }
 
 #next-round-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg, 
-    transparent, 
-    rgba(255, 255, 255, 0.2), 
-    transparent
-  );
-  animation: btnShineEffect 2s infinite;
-}
-
-@keyframes btnShineEffect {
-  0% { left: -100%; }
-  50% { left: 100%; }
-  100% { left: 100%; }
+  display: none;
 }
 
 /* Screen transitions */
@@ -1730,38 +1591,16 @@ small {
 
 .game-screen.active {
   display: block;
-  animation: glitchFadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.4s ease-out forwards;
 }
 
 .game-screen.hidden {
   display: none;
 }
 
-@keyframes glitchFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(15px);
-    clip-path: inset(0 0 100% 0);
-  }
-  20% {
-    clip-path: inset(33% 0 66% 0);
-  }
-  35% {
-    clip-path: inset(66% 0 33% 0);
-  }
-  50% {
-    clip-path: inset(33% 0 66% 0);
-    transform: translateY(15px);
-  }
-  60% {
-    clip-path: inset(33% 0 66% 0);
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    clip-path: inset(0 0 0 0);
-  }
+@keyframes fadeIn { /* Keep fadeIn */
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Make timer more futuristic */
@@ -1804,7 +1643,7 @@ small {
 .player-item.current-player::after {
   content: '> ACTIVE';
   font-size: 0.7rem;
-  color: var(--secondary-accent-color-1);
+  color: var(--primary-accent-color);
   position: absolute;
   right: var(--spacing-md);
   top: var(--spacing-xs);
@@ -2062,4 +1901,123 @@ small {
 }
 
 /* Clean up duplicated player-item */
-/* .player-item { ... } */ 
+/* .player-item { ... } */
+
+/* Ready System Styling */
+.ready-system {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--border-color-subtle);
+  background-color: rgba(19, 20, 23, 0.03); /* Subtle background */
+}
+
+.ready-status {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-color-primary);
+}
+
+#ready-count,
+#total-players {
+  font-weight: 900; /* Extra bold */
+}
+
+#ready-count {
+  color: var(--primary-accent-color);
+}
+
+#ready-btn {
+  min-width: 150px; /* Ensure decent width */
+}
+
+.footer-hint {
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--text-color-secondary);
+  max-width: 400px; /* Limit width of hint */
+}
+
+.card-body {
+  padding: var(--spacing-xl) var(--spacing-xxl); /* Increased horizontal padding */
+}
+
+/* Time Selector Styles */
+.time-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm); /* Add gap between buttons and input */
+}
+
+.time-selector input[type="number"] {
+  flex-grow: 1; /* Allow input to take available space */
+  width: auto; /* Remove fixed width */
+  text-align: center;
+  margin: 0; /* Remove margins */
+  -moz-appearance: textfield;
+}
+
+.time-selector input[type="number"]::-webkit-outer-spin-button,
+.time-selector input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.time-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  flex-shrink: 0; /* Prevent buttons from shrinking */
+  align-items: center;
+  justify-content: center;
+  background-color: #FFFFFF;
+  border: 2px solid var(--kb-black);
+  cursor: pointer;
+  font-size: 1.5rem;
+  font-weight: 700;
+  transition: all var(--transition-fast);
+  box-shadow: 2px 2px 0 rgba(19, 20, 23, 0.1);
+}
+
+.time-btn:hover {
+  background-color: #f0f0f0;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 rgba(19, 20, 23, 0.15);
+}
+
+.time-btn:active {
+  background-color: #e0e0e0;
+  transform: translate(0, 0);
+  box-shadow: 0px 0px 0 rgba(19, 20, 23, 0.15);
+}
+
+.card-footer {
+  border-top: 2px solid var(--kb-black); /* Stronger border */
+  padding: var(--spacing-lg) var(--spacing-xl);
+  display: flex;
+  flex-direction: column; /* Stack items vertically by default */
+  align-items: center; /* Center align items */
+  gap: var(--spacing-md); /* Add gap between footer items */
+  background-color: rgba(19, 20, 23, 0.03);
+}
+
+#welcome-screen .card-footer {
+  /* Specific alignment for welcome screen footer if needed */
+  /* Example: align-items: flex-start; */
+}
+
+/* Style for connection status text (assuming ID) */
+#connection-status {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+  font-family: var(--font-display);
+}
+
+/* Adjust debug button if needed */
+#debug-btn {
+  /* Inherits .btn-secondary styles, potentially override if needed */
+  /* Example: margin-top: var(--spacing-sm); */
+} 

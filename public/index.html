@@ -188,6 +188,13 @@
                 <div id="waiting-message" class="waiting-message">
                   <p>You can start playing alone or wait for others to join...</p>
                 </div>
+                <div class="ready-system">
+                  <div class="ready-status">
+                    <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
+                  </div>
+                  <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
+                  <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
+                </div>
               </div>
 
               <div class="category-management">
@@ -229,14 +236,6 @@
           </div>
           
           <div class="card-footer">
-            <div class="ready-system">
-              <div class="ready-status">
-                <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
-              </div>
-              <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
-              <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
-            </div>
-            <hr>
             <p class="text-center footer-hint">Anyone can click this button to start the game!</p>
             <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>FORCE START</button>
             
