@@ -1,363 +1,1208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stadt KI Fluss</title>
-  <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
-  <!-- Add favicon -->
-  <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
-  
-  <!-- PartyKit Configuration -->
-  <script>
-    // Hard-code the PartyKit host to avoid placeholder issues
-    window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stadt KI Fluss</title>
+    <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Add favicon -->
+    <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
     
-    // Enable dev mode to try local server if URL has ?dev parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('dev') || urlParams.has('local')) {
-      window.PARTYKIT_HOST = 'localhost:1999';
-      console.log('Using local development server:', window.PARTYKIT_HOST);
-    }
-    
-    // Add a config flag to disable host-only restriction
-    window.CONFIG = {
-      ALLOW_ANYONE_TO_START: urlParams.has('allow-all') || urlParams.has('all-start')
-    };
-    
-    // Log the configuration
-    console.log('Game configuration:', window.CONFIG);
-    
-    // Check if in offline mode
-    const isOfflineMode = urlParams.has('offline');
-    
-    // Add a visible banner when in local development mode
-    if (urlParams.has('local') || urlParams.has('dev')) {
-      document.addEventListener('DOMContentLoaded', function() {
-        const debugBanner = document.createElement('div');
-        debugBanner.className = 'debug-banner';
-        debugBanner.innerHTML = 'LOCAL DEV MODE';
-        debugBanner.style.position = 'fixed';
-        debugBanner.style.top = '0';
-        debugBanner.style.left = '0';
-        debugBanner.style.right = '0';
-        debugBanner.style.backgroundColor = 'red';
-        debugBanner.style.color = 'white';
-        debugBanner.style.textAlign = 'center';
-        debugBanner.style.padding = '4px';
-        debugBanner.style.zIndex = '9999';
-        debugBanner.style.fontSize = '12px';
-        debugBanner.style.fontWeight = 'bold';
-        document.body.appendChild(debugBanner);
-      });
-    }
-    
-    // Check if server is accessible by making a simple fetch request
-    document.addEventListener('DOMContentLoaded', function() {
-      // Add server status indicator to the welcome screen
-      const welcomeCard = document.querySelector('.welcome-card .card-footer');
-      if (welcomeCard) {
-        const statusElement = document.createElement('div');
-        statusElement.id = 'server-status';
-        statusElement.className = 'server-status checking';
+    <!-- PartyKit Configuration -->
+    <script>
+        // Hard-code the PartyKit host to avoid placeholder issues
+        window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
         
-        if (isOfflineMode) {
-          statusElement.className = 'server-status offline';
-          statusElement.innerHTML = 'Running in offline mode (single player)';
-          welcomeCard.prepend(statusElement);
-          
-          // Add a button to return to online mode
-          const onlineLink = document.createElement('a');
-          onlineLink.href = window.location.pathname;
-          onlineLink.className = 'btn btn-secondary';
-          onlineLink.innerHTML = 'Try Online Mode';
-          onlineLink.style.marginTop = '10px';
-          welcomeCard.appendChild(onlineLink);
-          
-          return;
+        // Enable dev mode to try local server if URL has ?dev parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('dev') || urlParams.has('local')) {
+            window.PARTYKIT_HOST = 'localhost:1999';
+            console.log('Using local development server:', window.PARTYKIT_HOST);
         }
         
-        statusElement.innerHTML = 'Checking server status...';
-        welcomeCard.prepend(statusElement);
+        // Add a config flag to disable host-only restriction
+        window.CONFIG = {
+            ALLOW_ANYONE_TO_START: urlParams.has('allow-all') || urlParams.has('all-start')
+        };
         
-        // Try to fetch the server status
-        const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'http://' : 'https://';
-        fetch(`${protocol}${window.PARTYKIT_HOST}`, { 
-          method: 'HEAD',
-          mode: 'no-cors',
-          cache: 'no-cache'
-        })
-        .then(() => {
-          statusElement.className = 'server-status online';
-          statusElement.innerHTML = 'Game server is online';
-        })
-        .catch(err => {
-          statusElement.className = 'server-status offline';
-          statusElement.innerHTML = 'Game server appears to be offline';
-          console.error('Server status check failed:', err);
-          
-          // Add server status banner
-          const serverBanner = document.createElement('div');
-          serverBanner.className = 'server-banner';
-          serverBanner.innerHTML = `
-            <div class="banner-content">
-              <strong>Server Status:</strong> The game server appears to be offline.
-              <div class="banner-actions">
-                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
-                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
-              </div>
-            </div>
-          `;
-          document.querySelector('.app-container').prepend(serverBanner);
+        // Log the configuration
+        console.log('Game configuration:', window.CONFIG);
+        
+        // Check if in offline mode
+        const isOfflineMode = urlParams.has('offline');
+        
+        // Add a visible banner when in local development mode
+        if (urlParams.has('local') || urlParams.has('dev')) {
+            document.addEventListener('DOMContentLoaded', function() {
+                const debugBanner = document.createElement('div');
+                debugBanner.className = 'debug-banner';
+                debugBanner.innerHTML = 'LOCAL DEV MODE';
+                debugBanner.style.position = 'fixed';
+                debugBanner.style.top = '0';
+                debugBanner.style.left = '0';
+                debugBanner.style.right = '0';
+                debugBanner.style.backgroundColor = 'red';
+                debugBanner.style.color = 'white';
+                debugBanner.style.textAlign = 'center';
+                debugBanner.style.padding = '4px';
+                debugBanner.style.zIndex = '9999';
+                debugBanner.style.fontSize = '12px';
+                debugBanner.style.fontWeight = 'bold';
+                document.body.appendChild(debugBanner);
+            });
+        }
+        
+        // Check if server is accessible by making a simple fetch request
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add server status indicator to the welcome screen
+            const welcomeCard = document.querySelector('.welcome-card .card-footer');
+            if (welcomeCard) {
+                const statusElement = document.createElement('div');
+                statusElement.id = 'server-status';
+                statusElement.className = 'server-status checking';
+                
+                if (isOfflineMode) {
+                    statusElement.className = 'server-status offline';
+                    statusElement.innerHTML = 'Running in offline mode (single player)';
+                    welcomeCard.prepend(statusElement);
+                    
+                    // Add a button to return to online mode
+                    const onlineLink = document.createElement('a');
+                    onlineLink.href = window.location.pathname;
+                    onlineLink.className = 'btn btn-secondary';
+                    onlineLink.innerHTML = 'Try Online Mode';
+                    onlineLink.style.marginTop = '10px';
+                    welcomeCard.appendChild(onlineLink);
+                    
+                    return;
+                }
+                
+                statusElement.innerHTML = 'Checking server status...';
+                welcomeCard.prepend(statusElement);
+                
+                // Try to fetch the server status
+                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'http://' : 'https://';
+                fetch(`${protocol}${window.PARTYKIT_HOST}`, { 
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                })
+                .then(() => {
+                    statusElement.className = 'server-status online';
+                    statusElement.innerHTML = 'Game server is online';
+                })
+                .catch(err => {
+                    statusElement.className = 'server-status offline';
+                    statusElement.innerHTML = 'Game server appears to be offline';
+                    console.error('Server status check failed:', err);
+                    
+                    // Add server status banner
+                    const serverBanner = document.createElement('div');
+                    serverBanner.className = 'server-banner';
+                    serverBanner.innerHTML = `
+                        <div class="banner-content">
+                            <strong>Server Status:</strong> The game server appears to be offline.
+                            <div class="banner-actions">
+                                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
+                                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
+                            </div>
+                        </div>
+                    `;
+                    document.querySelector('.app-container').prepend(serverBanner);
+                });
+            }
         });
-      }
-    });
-  </script>
+    </script>
 </head>
 <body>
-  <div class="app-container">
-    <header>
-      <div class="logo">
-        <h1 data-text="Stadt Land Fluss">Stadt Land Fluss</h1>
-      </div>
-    </header>
-
-    <main class="game-container">
-      <!-- Welcome Screen -->
-      <div id="welcome-screen" class="game-screen active">
-        <div class="card welcome-card">
-          <div class="card-header" data-id="SLF-001">
-            <h2>Join or start a Game</h2>
-          </div>
-          <div class="card-body">
-            <form class="join-form">
-              <div class="form-group">
-                <label for="player-name">Your Name</label>
-                <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
-              </div>
-              
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="room-id">Room ID</label>
-                  <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
-                  <small>Leave empty to create a new game room</small>
-                </div>
-                
-                <div class="form-group">
-                  <label for="time-limit">Time Limit (seconds)</label>
-                  <div class="time-selector">
-                    <button type="button" class="time-btn decrease">−</button>
-                    <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
-                    <button type="button" class="time-btn increase">+</button>
-                  </div>
-                </div>
-              </div>
-              
-              <button type="button" id="join-game-btn" class="btn btn-primary btn-large">ENTER VOID</button>
-            </form>
-          </div>
-          <div class="card-footer">
-            <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lobby Screen -->
-      <div id="lobby-screen" class="game-screen hidden">
-        <div class="card lobby-card">
-          <div class="card-header" data-id="SLF-002">
-            <h2>Game Lobby</h2>
-            <div class="room-info">
-              <span class="room-label">Room ID:</span>
-              <span id="display-room-id" class="room-id">0000</span>
-              <button id="copy-link-btn" class="btn btn-icon" title="Copy invite link">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              </button>
+    <div class="app-container">
+        <!-- Navigation and header -->
+        <div class="navbar fixed-top">
+            <div class="container d-flex justify-content-between align-items-center">
+                <a href="#" class="navbar-brand">
+                    <h1 class="mb-0">Stadt Land Fluss</h1>
+                </a>
             </div>
-          </div>
-          
-          <div class="card-body">
-            <div class="lobby-layout">
-              <div class="player-section">
-                <h3>Players</h3>
-                <ul id="player-list" class="player-list"></ul>
-                <div id="waiting-message" class="waiting-message">
-                  <p>You can start playing alone or wait for others to join...</p>
-                </div>
-                <div class="ready-system">
-                  <div class="ready-status">
-                    <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
-                  </div>
-                  <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
-                  <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
-                </div>
-              </div>
+        </div>
 
-              <div class="category-management">
-                <h3>Categories</h3>
-                <div class="category-management-container">
-                  <div id="categoryList" class="category-list">
-                    <!-- Categories will be populated dynamically -->
-                  </div>
-                  
-                  <div class="add-category-container">
-                    <input type="text" id="new-category-input" placeholder="New category" class="category-input">
-                    <button type="button" id="add-category-btn" class="btn btn-secondary">Add Category</button>
-                  </div>
+        <main class="game-container">
+            <!-- Welcome Screen -->
+            <div id="welcome-screen" class="game-screen active">
+                <div class="card welcome-card">
+                    <div class="card-header" data-id="SLF-001">
+                        <h2>Join or start a Game</h2>
+                    </div>
+                    <div class="card-body">
+                        <form class="join-form">
+                            <div class="form-group">
+                                <label for="player-name">Your Name</label>
+                                <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="room-id">Room ID</label>
+                                    <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
+                                    <small>Leave empty to create a new game room</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="time-limit">Time Limit (seconds)</label>
+                                    <div class="time-selector">
+                                        <button type="button" class="time-btn decrease">−</button>
+                                        <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+                                        <button type="button" class="time-btn increase">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" id="join-btn" class="btn btn-primary btn-large">ENTER VOID</button>
+                        </form>
+                    </div>
+                    <div class="card-footer">
+                        <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+                    </div>
                 </div>
-                
-                <div class="category-instructions">
-                  <p><small>Add or remove categories for your game. Each player will need to provide answers for these categories.</small></p>
-                </div>
-                <!-- Template for category item with remove button -->
-                <template id="category-item-template">
-                  <div class="category-item">
-                    <span class="category-name"></span>
-                    <button type="button" class="btn-icon category-remove" title="Remove category">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                  </div>
-                </template>
-              </div>
-
-              <div id="admin-controls" class="admin-controls">
-                <div id="game-starter" class="game-starter">
-                  <button id="start-game-btn" class="btn btn-primary btn-large">
-                    <span class="start-icon">▶</span> INITIATE SEQUENCE
-                  </button>
-                  <p id="admin-message" class="admin-message">System ready. Initiating on command.</p>
-                </div>
-              </div>
             </div>
-          </div>
-          
-          <div class="card-footer">
-            <p class="text-center footer-hint">Anyone can click this button to start the game!</p>
-            <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>FORCE START</button>
-            
-            <!-- Debug links -->
-            <div class="debug-links" style="margin-top: 20px; font-size: 12px; text-align: center;">
-              <a href="/?all-start" class="btn btn-sm btn-outline-secondary">Try Client-Side Start Mode</a>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Game Screen -->
-      <div id="game-screen" class="game-screen hidden">
-        <div class="card wide-card">
-          <div class="card-header game-header" data-id="SLF-003">
-            <div class="letter-display">
-              <span class="label">Letter:</span>
-              <span id="current-letter" class="current-letter">A</span>
-            </div>
-            <div class="timer-container">
-              <span class="label">Time Left:</span>
-              <span id="timer" class="timer">60</span>s
-            </div>
-          </div>
-
-          <div class="card-body">
-            <form id="answers-form" class="answers-form">
-              <div class="categories-grid">
-                <!-- Categories will be dynamically populated -->
-              </div>
-              <button type="submit" id="submit-btn" class="btn btn-primary btn-large">TRANSMIT DATA</button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <!-- Results Screen -->
-      <div id="results-screen" class="game-screen hidden">
-        <div class="card wide-card">
-          <div class="card-header" data-id="SLF-004">
-            <h2>Round Results</h2>
-            <div class="round-letter">Letter: <span id="result-letter" class="result-letter">A</span></div>
-          </div>
-          
-          <div class="card-body">
-            <div class="results-layout">
-              <div class="results-container">
-                <div class="results-header">
-                  <div class="results-title">Category Results</div>
-                  <div class="results-subtitle">See how your answers compare!</div>
+            <!-- Lobby Screen -->
+            <div id="lobby-screen" class="game-screen hidden">
+                <div class="card lobby-card">
+                    <div class="card-header" data-id="SLF-002">
+                        <h2>Game Lobby</h2>
+                        <div class="room-info">
+                            <span class="room-label">Room ID:</span>
+                            <span id="display-room-id" class="room-id">0000</span>
+                            <button id="copy-link-btn" class="btn btn-icon" title="Copy invite link">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="lobby-layout">
+                            <div class="player-section">
+                                <h3>Players</h3>
+                                <ul id="player-list" class="player-list"></ul>
+                                <div id="waiting-message" class="waiting-message">
+                                    <p>You can start playing alone or wait for others to join...</p>
+                                </div>
+                                <div class="ready-system">
+                                    <div class="ready-status">
+                                        <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
+                                    </div>
+                                    <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
+                                    <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="category-management">
+                                <h3>Categories</h3>
+                                <div id="categories-display" class="category-list"></div>
+                                <div id="admin-controls" class="admin-controls">
+                                    <div class="add-category-container">
+                                        <input type="text" id="new-category" class="category-input" placeholder="Add new category">
+                                        <button id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                                    </div>
+                                    <p class="category-instructions">Add custom categories to the game</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="admin-start-controls" class="admin-controls game-starter">
+                            <button id="start-game-btn" class="btn btn-primary btn-large">START GAME</button>
+                            <div class="admin-session-controls">
+                                <button id="close-session-btn" class="btn btn-danger btn-outline">
+                                    <span class="close-icon">×</span> TERMINATE SESSION
+                                </button>
+                                <p class="close-session-hint">End the current game session for all players</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <table id="results-table" class="results-table">
-                  <thead>
-                    <tr>
-                      <th>Player</th>
-                      <th>Answer</th>
-                      <th>Points</th>
-                      <th>Note</th>
-                    </tr>
-                  </thead>
-                  <tbody id="results-body">
-                    <!-- Results will be filled dynamically -->
-                  </tbody>
-                </table>
-              </div>
-              
-              <div class="scores-container">
-                <h3>🏆 Leaderboard 🏆</h3>
-                <ul id="scores-list" class="scores-list">
-                  <!-- Scores will be filled dynamically -->
-                </ul>
-              </div>
             </div>
-            
-            <button id="next-round-btn" class="btn btn-primary btn-large">
-              <span class="btn-icon">⟳</span> NEXT SEQUENCE
-            </button>
-          </div>
-        </div>
-      </div>
-    </main>
 
-    <footer class="app-footer">
-      <p>Stadt Land Fluss &copy; 2025</p>
-    </footer>
+            <!-- Game Screen -->
+            <div id="game-screen" class="game-screen hidden">
+                <div class="card wide-card">
+                    <div class="game-header">
+                        <div class="letter-display">
+                            <span class="label">CURRENT LETTER:</span>
+                            <span id="current-letter" class="current-letter">A</span>
+                        </div>
+                        <div class="timer-container">
+                            <span class="label">TIME LEFT:</span>
+                            <div id="timer" class="timer">60</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="game-layout">
+                            <div class="game-main">
+                                <form id="answers-form" class="answers-form">
+                                    <div id="game-categories" class="categories-grid"></div>
+                                    <button type="submit" id="submit-btn" class="btn btn-primary btn-large">SUBMIT ANSWERS</button>
+                                </form>
+                            </div>
+                            
+                            <div class="game-sidebar">
+                                <h3>Players</h3>
+                                <div id="game-player-list" class="game-player-list"></div>
+                                <div class="submission-status">
+                                    <div class="status-summary">
+                                        <span id="submitted-count">0</span>/<span id="total-game-players">0</span> submitted
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Error Modal -->
-    <div id="error-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Error</h3>
-          <button class="modal-close" id="error-close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p id="error-message"></p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" id="error-ok-btn">OK</button>
-        </div>
-      </div>
-      <div class="modal-overlay"></div>
+            <!-- Loading Screen for AI Processing -->
+            <div id="loading-screen" class="game-screen hidden">
+                <div class="card loading-card">
+                    <div class="card-body">
+                        <div class="loading-container">
+                            <div class="loading-animation">
+                                <div class="loading-spinner"></div>
+                                <div class="loading-dots">
+                                    <span>.</span>
+                                    <span>.</span>
+                                    <span>.</span>
+                                </div>
+                            </div>
+                            <h2 class="loading-title">Processing Results</h2>
+                            <p class="loading-message" id="loading-message">All players submitted! AI is analyzing answers...</p>
+                            <div class="loading-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill"></div>
+                                </div>
+                                <p class="progress-text">This may take a few seconds</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div id="results-screen" class="game-screen hidden">
+                <div class="card wide-card">
+                    <div class="card-header">
+                        <div class="results-header">
+                            <h2 class="results-title">ROUND RESULTS</h2>
+                            <div class="results-subtitle">
+                                Letter: <span id="result-letter" class="round-letter">A</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="results-layout">
+                            <div class="results-container">
+                                <div id="results-content"></div>
+                            </div>
+                            
+                            <div class="scores-container">
+                                <h3>LEADERBOARD</h3>
+                                <div id="scores-list" class="scores-list"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="game-controls">
+                            <button id="next-round-btn" class="btn btn-primary">NEXT ROUND</button>
+                            <button id="back-to-lobby-btn" class="btn btn-secondary">RETURN TO LOBBY</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
-  </div>
 
-  <!-- Scripts -->
-  <!-- Core State & DOM Utilities -->
-  <script type="module" src="/js/state.js"></script>
-  <script type="module" src="/js/dom.js"></script>
-  <script type="module" src="/js/ui.js"></script>
-  
-  <!-- Game Logic Modules -->
-  <script type="module" src="/js/lobby.js"></script>
-  <script type="module" src="/js/game.js"></script>
+    <script>
+        // Simplified GameClient following PartyKit best practices
+        class GameClient {
+            constructor() {
+                this.socket = null;
+                this.gameState = {
+                    roomId: '',
+                    playerName: '',
+                    isAdmin: false,
+                    players: [],
+                    categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'],
+                    currentLetter: '',
+                    timeLimit: 60,
+                    isReady: false
+                };
+                this.currentScreen = 'welcome';
+                this.timer = null;
+                this.timeLeft = 0;
+                
+                this.init();
+            }
 
-  <!-- WebSocket Connection -->
-  <script src="/js/partysocket.js"></script>
+            init() {
+                this.setupEventListeners();
+                this.showScreen('welcome');
+                
+                // Check for room ID in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomId = urlParams.get('room');
+                if (roomId) {
+                    document.getElementById('room-id').value = roomId;
+                }
+            }
 
-  <!-- WebSocket Event Handling (Depends on partysocket and handlers in other files) -->
-  <script type="module" src="/js/socket.js"></script>
+            setupEventListeners() {
+                // Welcome screen
+                document.getElementById('join-btn').onclick = () => this.joinGame();
+                
+                // Lobby screen
+                document.getElementById('ready-btn').onclick = () => this.toggleReady();
+                document.getElementById('start-game-btn').onclick = () => this.startGame();
+                document.getElementById('close-session-btn').onclick = () => this.closeSession();
+                document.getElementById('copy-link-btn').onclick = () => this.copyInviteLink();
+                document.getElementById('add-category-btn').onclick = () => this.addCategory();
+                
+                // Game screen
+                document.getElementById('answers-form').onsubmit = (e) => this.submitAnswers(e);
+                
+                // Results screen
+                document.getElementById('next-round-btn').onclick = () => this.nextRound();
+                document.getElementById('back-to-lobby-btn').onclick = () => this.backToLobby();
+                
+                // Enter key handlers
+                document.getElementById('player-name').onkeypress = (e) => {
+                    if (e.key === 'Enter') this.joinGame();
+                };
+                document.getElementById('room-id').onkeypress = (e) => {
+                    if (e.key === 'Enter') this.joinGame();
+                };
+                document.getElementById('new-category').onkeypress = (e) => {
+                    if (e.key === 'Enter') this.addCategory();
+                };
+                
+                // Time selector buttons
+                document.querySelector('.time-btn.decrease').onclick = () => this.adjustTime(-10);
+                document.querySelector('.time-btn.increase').onclick = () => this.adjustTime(10);
+            }
 
-  <!-- Main Application (Initializes everything) -->
-  <script type="module" src="/js/app.js"></script>
+            adjustTime(delta) {
+                const input = document.getElementById('time-limit');
+                const newValue = Math.max(30, Math.min(300, parseInt(input.value) + delta));
+                input.value = newValue;
+            }
+
+            showScreen(screenName) {
+                // Hide all screens
+                document.querySelectorAll('.game-screen').forEach(screen => {
+                    screen.classList.remove('active');
+                    screen.classList.add('hidden');
+                });
+                
+                // Show target screen
+                const targetScreen = document.getElementById(screenName + '-screen');
+                targetScreen.classList.add('active');
+                targetScreen.classList.remove('hidden');
+                this.currentScreen = screenName;
+                
+                console.log(`Switched to ${screenName} screen`);
+            }
+
+            showError(message) {
+                console.error('Error:', message);
+                alert(message); // Simple error display
+            }
+
+            showSuccess(message) {
+                console.log('Success:', message);
+                // Could add a toast notification here
+            }
+
+            connectWebSocket() {
+                // Generate a unique room ID if none provided (creating new room)
+                if (!this.gameState.roomId || this.gameState.roomId.trim() === '') {
+                    this.gameState.roomId = this.generateRoomId();
+                    console.log('Generated new room ID:', this.gameState.roomId);
+                }
+                
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.host;
+                const url = `${protocol}//${host}/party/${this.gameState.roomId}`;
+                
+                console.log('Connecting to:', url);
+                
+                if (this.socket) {
+                    this.socket.close();
+                }
+                
+                this.socket = new WebSocket(url);
+                
+                this.socket.onopen = () => {
+                    console.log('WebSocket connected to room:', this.gameState.roomId);
+                    
+                    // Send join room message
+                    this.sendMessage({
+                        type: 'joinRoom',
+                        playerName: this.gameState.playerName,
+                        roomId: this.gameState.roomId,
+                        timeLimit: this.gameState.timeLimit
+                    });
+                };
+                
+                this.socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                };
+                
+                this.socket.onclose = (event) => {
+                    console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                    this.showError('Connection lost. Please refresh the page.');
+                };
+                
+                this.socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.showError('Connection failed. Please try again.');
+                };
+            }
+
+            generateRoomId() {
+                // Generate a short, user-friendly room ID
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let result = '';
+                for (let i = 0; i < 6; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            }
+
+            sendMessage(data) {
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.send(JSON.stringify(data));
+                    console.log('Sent:', data);
+                } else {
+                    console.error('Cannot send message: WebSocket not connected');
+                }
+            }
+
+            handleMessage(data) {
+                console.log('Received:', data);
+                
+                switch (data.type) {
+                    case 'joinedRoom':
+                        this.handleJoinedRoom(data);
+                        break;
+                    case 'playerJoined':
+                    case 'playerLeft':
+                    case 'player-ready-update':
+                        this.handlePlayerUpdate(data);
+                        break;
+                    case 'roundStarted':
+                        this.handleRoundStarted(data);
+                        break;
+                    case 'roundResults':
+                        this.handleRoundResults(data);
+                        break;
+                    case 'returnToLobby':
+                        this.handleReturnToLobby(data);
+                        break;
+                    case 'categoriesUpdated':
+                        this.handleCategoriesUpdated(data);
+                        break;
+                    case 'sessionClosed':
+                        this.handleSessionClosed(data);
+                        break;
+                    case 'playerSubmitted':
+                        this.handlePlayerSubmitted(data);
+                        break;
+                    case 'validationStarted':
+                        this.handleValidationStarted(data);
+                        break;
+                    case 'error':
+                        this.showError(data.message || 'Server error');
+                        break;
+                    default:
+                        console.log('Unknown message type:', data.type);
+                }
+            }
+
+            handleJoinedRoom(data) {
+                console.log(`[DEBUG] handleJoinedRoom called with data:`, data);
+                console.log(`[DEBUG] data.isAdmin = ${data.isAdmin}`);
+                
+                this.gameState.roomId = data.roomId;
+                this.gameState.isAdmin = data.isAdmin || false;
+                this.gameState.players = data.players || [];
+                this.gameState.categories = data.categories || this.gameState.categories;
+                
+                console.log(`[DEBUG] Set gameState.isAdmin to: ${this.gameState.isAdmin}`);
+                
+                document.getElementById('display-room-id').textContent = this.gameState.roomId;
+                
+                this.updatePlayerList();
+                this.updateCategoriesDisplay();
+                this.updateAdminControls();
+                this.showScreen('lobby');
+                
+                if (data.isAdmin) {
+                    this.showSuccess('Room created! You are the host.');
+                } else {
+                    this.showSuccess('Successfully joined the game!');
+                }
+            }
+
+            handlePlayerUpdate(data) {
+                console.log(`[DEBUG] handlePlayerUpdate called with data:`, data);
+                if (data.players) {
+                    this.gameState.players = data.players;
+                }
+                
+                // Check if our admin status has changed
+                if (data.adminId) {
+                    const wasAdmin = this.gameState.isAdmin;
+                    const currentPlayer = this.gameState.players.find(p => p.name === this.gameState.playerName);
+                    this.gameState.isAdmin = currentPlayer ? currentPlayer.isAdmin : false;
+                    
+                    if (wasAdmin !== this.gameState.isAdmin) {
+                        console.log(`[DEBUG] Admin status changed from ${wasAdmin} to ${this.gameState.isAdmin}`);
+                    }
+                }
+                
+                this.updatePlayerList();
+                this.updateAdminControls();
+            }
+
+            handleRoundStarted(data) {
+                this.gameState.currentLetter = data.letter;
+                this.gameState.categories = data.categories || this.gameState.categories;
+                this.timeLeft = data.timeLimit || this.gameState.timeLimit;
+                
+                console.log(`Round started with letter ${data.letter}, timeLimit: ${data.timeLimit}, setting timeLeft to: ${this.timeLeft}`);
+                
+                // Clear any existing timer before starting new one
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                    console.log('Cleared existing timer before starting new round');
+                }
+                
+                // Reset submission state
+                this.gameState.players.forEach(player => {
+                    player.submitted = false;
+                });
+                
+                // Reset submit button state
+                const submitBtn = document.getElementById('submit-btn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'SUBMIT ANSWERS';
+                    submitBtn.classList.remove('submitted');
+                }
+                
+                document.getElementById('current-letter').textContent = this.gameState.currentLetter;
+                this.setupGameForm();
+                this.updateGamePlayerList();
+                this.startTimer();
+                this.showScreen('game');
+            }
+
+            handleRoundResults(data) {
+                console.log('Received round results:', data);
+                
+                // If we're currently on the loading screen, add a small delay for better UX
+                if (this.currentScreen === 'loading') {
+                    // Update loading message to show completion
+                    const loadingMessage = document.getElementById('loading-message');
+                    if (loadingMessage) {
+                        loadingMessage.textContent = "Results ready! Displaying now...";
+                    }
+                    
+                    // Small delay before showing results for better user experience
+                    setTimeout(() => {
+                        this.displayResults(data);
+                        this.showScreen('results');
+                    }, 1000);
+                } else {
+                    // Direct transition if not coming from loading
+                    this.displayResults(data);
+                    this.showScreen('results');
+                }
+            }
+
+            handleReturnToLobby(data) {
+                console.log('Returning to lobby after round');
+                
+                // Clear any running timer from the previous round
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                    console.log('Cleared timer when returning to lobby');
+                }
+                
+                // Reset timer display
+                const timerElement = document.getElementById('timer');
+                if (timerElement) {
+                    timerElement.textContent = this.gameState.timeLimit || 60;
+                    timerElement.classList.remove('timer-warning', 'timer-danger');
+                }
+                
+                // Reset timeLeft to default
+                this.timeLeft = this.gameState.timeLimit || 60;
+                
+                // Update player data if provided
+                if (data.players) {
+                    this.gameState.players = data.players;
+                }
+                
+                // Reset ready states for all players
+                this.gameState.players.forEach(player => {
+                    player.isReady = false;
+                });
+                this.gameState.isReady = false;
+                
+                // Update UI and return to lobby
+                this.updatePlayerList();
+                this.updateAdminControls();
+                
+                // Reset ready button
+                const readyBtn = document.getElementById('ready-btn');
+                readyBtn.textContent = "SYSTEM READY";
+                readyBtn.className = 'btn btn-outline-success';
+                
+                this.showScreen('lobby');
+                this.showSuccess('Round completed! Ready up for the next round.');
+            }
+
+            handleCategoriesUpdated(data) {
+                this.gameState.categories = data.categories;
+                this.updateCategoriesDisplay();
+            }
+
+            handleSessionClosed(data) {
+                console.log('Session closed by host:', data);
+                
+                // Clear any running timers
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                    console.log('Cleared timer due to session closure');
+                }
+                
+                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                    this.socket.close();
+                }
+                
+                // Reset game state
+                this.gameState = {
+                    roomId: '',
+                    playerName: this.gameState.playerName, // Keep the player name
+                    isAdmin: false,
+                    players: [],
+                    categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'],
+                    currentLetter: '',
+                    timeLimit: 60,
+                    isReady: false
+                };
+                
+                // Reset timeLeft
+                this.timeLeft = 60;
+                
+                const reason = data.reason || data.message || 'Session terminated by host';
+                this.showError(`🚫 ${reason}. Returning to main menu...`);
+                
+                setTimeout(() => {
+                    this.showScreen('welcome');
+                    document.getElementById('room-id').value = '';
+                }, 2000);
+            }
+
+            handlePlayerSubmitted(data) {
+                console.log('Player submitted:', data);
+                
+                // Update player submission status
+                if (data.playerId && data.playerName) {
+                    const player = this.gameState.players.find(p => p.name === data.playerName);
+                    if (player) {
+                        player.submitted = true;
+                        console.log(`Updated submission status for ${data.playerName}`);
+                    }
+                }
+                
+                // Update the game player list if we're in game mode
+                if (this.currentScreen === 'game') {
+                    this.updateGamePlayerList();
+                }
+            }
+
+            handleValidationStarted(data) {
+                console.log('Validation started:', data);
+                
+                // Update the loading message if provided
+                const loadingMessage = document.getElementById('loading-message');
+                if (loadingMessage && data.message) {
+                    loadingMessage.textContent = data.message;
+                }
+                
+                // Show loading screen
+                this.showScreen('loading');
+                
+                // Add some encouraging messages that cycle
+                const messages = [
+                    "AI is analyzing answers...",
+                    "Checking for creativity and accuracy...",
+                    "Comparing answers between players...",
+                    "Almost done processing results..."
+                ];
+                
+                let messageIndex = 0;
+                const messageInterval = setInterval(() => {
+                    messageIndex = (messageIndex + 1) % messages.length;
+                    if (loadingMessage) {
+                        loadingMessage.textContent = messages[messageIndex];
+                    }
+                    
+                    // Clear interval if we're no longer on loading screen
+                    if (this.currentScreen !== 'loading') {
+                        clearInterval(messageInterval);
+                    }
+                }, 2000);
+            }
+
+            joinGame() {
+                const playerName = document.getElementById('player-name').value.trim();
+                const roomId = document.getElementById('room-id').value.trim();
+                const timeLimit = parseInt(document.getElementById('time-limit').value) || 60;
+                
+                if (!playerName) {
+                    this.showError('Please enter your name');
+                    return;
+                }
+                
+                this.gameState.playerName = playerName;
+                this.gameState.roomId = roomId;
+                this.gameState.timeLimit = timeLimit;
+                
+                this.connectWebSocket();
+            }
+
+            toggleReady() {
+                this.gameState.isReady = !this.gameState.isReady;
+                this.sendMessage({
+                    type: 'playerReady',
+                    isReady: this.gameState.isReady
+                });
+                
+                const btn = document.getElementById('ready-btn');
+                btn.textContent = this.gameState.isReady ? "SYSTEM NOT READY" : "SYSTEM READY";
+                btn.className = this.gameState.isReady ? 'btn btn-outline-danger' : 'btn btn-outline-success';
+            }
+
+            startGame() {
+                if (!this.gameState.isAdmin) {
+                    this.showError('Only the host can start the game');
+                    return;
+                }
+                
+                this.sendMessage({ type: 'startRound' });
+            }
+
+            closeSession() {
+                if (!this.gameState.isAdmin) {
+                    this.showError('Only the host can close the session');
+                    return;
+                }
+                
+                if (confirm('Are you sure you want to close this session? All players will be disconnected.')) {
+                    this.sendMessage({ 
+                        type: 'closeSession',
+                        reason: 'Session closed by host'
+                    });
+                }
+            }
+
+            copyInviteLink() {
+                const url = `${window.location.origin}${window.location.pathname}?room=${this.gameState.roomId}`;
+                navigator.clipboard.writeText(url).then(() => {
+                    this.showSuccess('Invite link copied to clipboard!');
+                }).catch(() => {
+                    this.showError('Failed to copy link');
+                });
+            }
+
+            addCategory() {
+                const input = document.getElementById('new-category');
+                const category = input.value.trim();
+                
+                if (!category) return;
+                
+                if (this.gameState.categories.includes(category)) {
+                    this.showError('Category already exists');
+                    return;
+                }
+                
+                this.gameState.categories.push(category);
+                input.value = '';
+                
+                this.sendMessage({
+                    type: 'updateCategories',
+                    categories: this.gameState.categories
+                });
+                
+                this.updateCategoriesDisplay();
+            }
+
+            updatePlayerList() {
+                const list = document.getElementById('player-list');
+                const readyCount = document.getElementById('ready-count');
+                const totalPlayers = document.getElementById('total-players');
+                
+                list.innerHTML = '';
+                
+                this.gameState.players.forEach(player => {
+                    const li = document.createElement('li');
+                    li.className = 'player-item';
+                    
+                    if (player.name === this.gameState.playerName) li.classList.add('current-player');
+                    if (player.isAdmin) li.classList.add('admin-player');
+                    
+                    const playerDisplay = document.createElement('div');
+                    playerDisplay.className = 'player-display';
+                    if (player.isReady) playerDisplay.classList.add('ready');
+                    
+                    const playerName = document.createElement('div');
+                    playerName.className = 'player-name';
+                    playerName.textContent = player.name;
+                    
+                    const badges = document.createElement('div');
+                    badges.className = 'player-badges';
+                    
+                    if (player.name === this.gameState.playerName) {
+                        badges.innerHTML += '<span class="badge badge-you">You</span>';
+                    }
+                    if (player.isAdmin) {
+                        badges.innerHTML += '<span class="badge badge-admin">Host</span>';
+                    }
+                    if (player.isReady) {
+                        badges.innerHTML += '<span class="badge badge-ready">Ready</span>';
+                    }
+                    
+                    playerDisplay.appendChild(playerName);
+                    playerDisplay.appendChild(badges);
+                    li.appendChild(playerDisplay);
+                    list.appendChild(li);
+                });
+                
+                const ready = this.gameState.players.filter(p => p.isReady).length;
+                readyCount.textContent = ready;
+                totalPlayers.textContent = this.gameState.players.length;
+            }
+
+            updateCategoriesDisplay() {
+                console.log(`[DEBUG] updateCategoriesDisplay called. isAdmin: ${this.gameState.isAdmin}`);
+                const display = document.getElementById('categories-display');
+                display.innerHTML = '';
+                
+                this.gameState.categories.forEach((category, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'category-item';
+                    
+                    const categoryName = document.createElement('span');
+                    categoryName.className = 'category-name';
+                    categoryName.textContent = category;
+                    
+                    item.appendChild(categoryName);
+                    
+                    // Add remove button for admins
+                    if (this.gameState.isAdmin) {
+                        console.log(`[DEBUG] Adding remove button for category: ${category}`);
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'category-remove';
+                        removeBtn.innerHTML = '×';
+                        removeBtn.title = `Remove ${category}`;
+                        removeBtn.onclick = (e) => {
+                            e.preventDefault();
+                            this.removeCategory(index);
+                        };
+                        item.appendChild(removeBtn);
+                    } else {
+                        console.log(`[DEBUG] Not admin, skipping remove button for category: ${category}`);
+                    }
+                    
+                    display.appendChild(item);
+                });
+                
+                console.log(`[DEBUG] Categories display updated with ${this.gameState.categories.length} categories`);
+            }
+
+            removeCategory(index) {
+                if (!this.gameState.isAdmin) {
+                    this.showError('Only the host can remove categories');
+                    return;
+                }
+                
+                if (this.gameState.categories.length <= 3) {
+                    this.showError('You must have at least 3 categories');
+                    return;
+                }
+                
+                const categoryName = this.gameState.categories[index];
+                if (confirm(`Remove "${categoryName}" category?`)) {
+                    this.gameState.categories.splice(index, 1);
+                    
+                    this.sendMessage({
+                        type: 'updateCategories',
+                        categories: this.gameState.categories
+                    });
+                    
+                    this.updateCategoriesDisplay();
+                }
+            }
+
+            updateAdminControls() {
+                console.log(`[DEBUG] updateAdminControls called. isAdmin: ${this.gameState.isAdmin}`);
+                const adminControls = document.querySelectorAll('.admin-controls');
+                console.log(`[DEBUG] Found ${adminControls.length} admin-controls elements`);
+                
+                adminControls.forEach((control, index) => {
+                    console.log(`[DEBUG] Control ${index}: current classes = "${control.className}"`);
+                    if (this.gameState.isAdmin) {
+                        control.classList.add('visible');
+                        console.log(`[DEBUG] Added 'visible' class to control ${index}`);
+                    } else {
+                        control.classList.remove('visible');
+                        console.log(`[DEBUG] Removed 'visible' class from control ${index}`);
+                    }
+                    console.log(`[DEBUG] Control ${index}: final classes = "${control.className}"`);
+                });
+                
+                // Also ensure categories display is updated to show remove buttons for admins
+                this.updateCategoriesDisplay();
+            }
+
+            setupGameForm() {
+                const container = document.getElementById('game-categories');
+                container.innerHTML = '';
+                
+                this.gameState.categories.forEach(category => {
+                    const div = document.createElement('div');
+                    div.className = 'category-group';
+                    div.innerHTML = `
+                        <label>${category}</label>
+                        <input type="text" name="${category}" placeholder="Enter ${category} starting with ${this.gameState.currentLetter}">
+                    `;
+                    container.appendChild(div);
+                });
+            }
+
+            updateGamePlayerList() {
+                const list = document.getElementById('game-player-list');
+                const submittedCount = document.getElementById('submitted-count');
+                const totalGamePlayers = document.getElementById('total-game-players');
+                
+                if (!list) return;
+                
+                list.innerHTML = '';
+                
+                let submittedPlayers = 0;
+                
+                this.gameState.players.forEach(player => {
+                    const item = document.createElement('div');
+                    item.className = 'game-player-item';
+                    
+                    if (player.name === this.gameState.playerName) {
+                        item.classList.add('current-player');
+                    }
+                    
+                    if (player.submitted) {
+                        item.classList.add('submitted');
+                        submittedPlayers++;
+                    }
+                    
+                    const playerName = document.createElement('div');
+                    playerName.className = 'player-name';
+                    playerName.textContent = player.name;
+                    
+                    const status = document.createElement('div');
+                    status.className = 'submission-badge';
+                    
+                    if (player.submitted) {
+                        status.innerHTML = '<span class="badge badge-submitted">SUBMITTED</span>';
+                    } else {
+                        status.innerHTML = '<span class="badge badge-waiting">WAITING</span>';
+                    }
+                    
+                    item.appendChild(playerName);
+                    item.appendChild(status);
+                    list.appendChild(item);
+                });
+                
+                // Update counters
+                if (submittedCount) submittedCount.textContent = submittedPlayers;
+                if (totalGamePlayers) totalGamePlayers.textContent = this.gameState.players.length;
+            }
+
+            startTimer() {
+                const timerElement = document.getElementById('timer');
+                
+                console.log(`Starting timer with timeLeft: ${this.timeLeft} seconds`);
+                
+                // Clear any existing timer
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    console.log('Cleared existing timer in startTimer');
+                }
+                
+                // Reset timer classes and display initial time
+                timerElement.classList.remove('timer-warning', 'timer-danger');
+                timerElement.textContent = this.timeLeft;
+                
+                console.log(`Timer display set to: ${this.timeLeft}`);
+                
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    timerElement.textContent = this.timeLeft;
+                    
+                    // Update timer styling based on time left
+                    if (this.timeLeft <= 10) {
+                        timerElement.classList.remove('timer-warning');
+                        timerElement.classList.add('timer-danger');
+                    } else if (this.timeLeft <= 30) {
+                        timerElement.classList.add('timer-warning');
+                    }
+                    
+                    if (this.timeLeft <= 0) {
+                        console.log('Timer reached 0, auto-submitting answers');
+                        clearInterval(this.timer);
+                        this.timer = null;
+                        this.submitAnswers();
+                    }
+                }, 1000);
+                
+                console.log('Timer started successfully');
+            }
+
+            submitAnswers(event) {
+                if (event) event.preventDefault();
+                
+                // Prevent double submission
+                const submitBtn = document.getElementById('submit-btn');
+                if (submitBtn.disabled) {
+                    return;
+                }
+                
+                // Stop timer
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+                
+                const form = document.getElementById('answers-form');
+                const formData = new FormData(form);
+                const answers = {};
+                
+                for (let [key, value] of formData.entries()) {
+                    answers[key] = value.trim();
+                }
+                
+                this.sendMessage({
+                    type: 'submitAnswers',
+                    answers: answers,
+                    letter: this.gameState.currentLetter
+                });
+                
+                // Update UI to show submission
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'SUBMITTED ✓';
+                submitBtn.classList.add('submitted');
+                
+                // Update current player status in local state
+                const currentPlayer = this.gameState.players.find(p => p.name === this.gameState.playerName);
+                if (currentPlayer) {
+                    currentPlayer.submitted = true;
+                }
+                
+                // Update player list display
+                this.updateGamePlayerList();
+                
+                // Show success message
+                this.showSuccess('Answers submitted successfully!');
+            }
+
+            displayResults(data) {
+                const container = document.getElementById('results-content');
+                const scoresList = document.getElementById('scores-list');
+                
+                // Display results table
+                let html = '<table class="results-table"><thead><tr><th>Player</th><th>Category</th><th>Answer</th><th>Points</th></tr></thead><tbody>';
+                
+                if (data.scores && data.players && data.categories) {
+                    data.categories.forEach(category => {
+                        data.players.forEach(player => {
+                            const scoreData = data.scores[category]?.[player.id];
+                            const answer = scoreData?.answer || '-';
+                            const points = scoreData?.score || 0;
+                            
+                            html += `<tr>
+                                <td>${player.name}</td>
+                                <td>${category}</td>
+                                <td>${answer}</td>
+                                <td>${points}</td>
+                            </tr>`;
+                        });
+                    });
+                }
+                
+                html += '</tbody></table>';
+                container.innerHTML = html;
+                
+                // Update scores list
+                if (data.players) {
+                    scoresList.innerHTML = '';
+                    const sortedPlayers = [...data.players].sort((a, b) => (b.score || 0) - (a.score || 0));
+                    
+                    sortedPlayers.forEach((player, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'score-item';
+                        if (player.name === this.gameState.playerName) {
+                            item.classList.add('current-player');
+                        }
+                        
+                        item.innerHTML = `
+                            <div class="rank">${index + 1}</div>
+                            <div class="player-name">${player.name}</div>
+                            <div class="score">${player.score || 0}</div>
+                        `;
+                        
+                        scoresList.appendChild(item);
+                    });
+                }
+            }
+
+            nextRound() {
+                if (this.gameState.isAdmin) {
+                    this.sendMessage({ type: 'returnToLobby' });
+                } else {
+                    this.showError('Only the host can proceed to the next round');
+                }
+            }
+
+            backToLobby() {
+                this.showScreen('lobby');
+            }
+        }
+
+        // Initialize the game when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            window.game = new GameClient();
+        });
+    </script>
 </body>
-</html> 
+</html>

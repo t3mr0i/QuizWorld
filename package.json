@@ -10,7 +10,7 @@
     "partykit:deploy": "partykit deploy",
     "serve": "partykit dev",
     "kill-ports": "node scripts/kill-ports.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest"
   },
   "keywords": [
     "game",
@@ -29,6 +29,7 @@
     "socket.io": "^4.7.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "vitest": "^3.1.1"
   }
 }

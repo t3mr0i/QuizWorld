@@ -121,7 +121,15 @@ const io = new Server(server);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+  console.log(`[server/index.js] User connected: ${socket.id}`); // Modified log
+
+  // Add catch-all listener for debugging ALL incoming events
+  socket.onAny((eventName, ...args) => {
+    // Avoid logging overly verbose or frequent events if necessary
+    if (eventName !== 'some_noisy_event') {
+       console.log(`[server/index.js] Socket ${socket.id} received event: '${eventName}' with data:`, args);
+    }
+  });
 
   // Add a generic message handler for PartyKit compatibility
   socket.on('message', (data) => {
@@ -233,9 +241,10 @@ io.on('connection', (socket) => {
       timeLimit: rooms[roomId].timeLimit,
       readyCount: readyCount
     });
-    
+
     // Store room ID in socket for easy access
     socket.roomId = roomId;
+    console.log(`[server/index.js] Set socket.roomId = ${socket.roomId} for socket ${socket.id}`); // Add log here
   });
 
   // Start a new round
@@ -245,28 +254,43 @@ io.on('connection', (socket) => {
 
   // Submit answers for a round
   socket.on('submitAnswers', (answers) => {
+    console.log(`[server/index.js] Received 'submitAnswers' event from ${socket.id}`); // <-- ADD LOG 1
     const roomId = socket.roomId;
-    if (!roomId || !rooms[roomId] || !rooms[roomId].roundInProgress) return;
-    
-    console.log(`Player ${socket.id} submitted answers in room ${roomId}`);
-    
+    if (!roomId || !rooms[roomId] || !rooms[roomId].roundInProgress) {
+      console.error(`[server/index.js] submitAnswers rejected: roomId=${roomId}, roomExists=${!!rooms[roomId]}, roundInProgress=${rooms[roomId]?.roundInProgress}`);
+      return;
+    }
+
+    console.log(`[server/index.js] Player ${socket.id} submitted answers in room ${roomId}`);
+
     // Store player answers
-    rooms[roomId].players[socket.id].answers = answers;
-    rooms[roomId].players[socket.id].isReady = true;
-    
+    if (rooms[roomId].players[socket.id]) { // Check if player exists before accessing
+        rooms[roomId].players[socket.id].answers = answers;
+        rooms[roomId].players[socket.id].isReady = true;
+        console.log(`[server/index.js] Stored answers and set isReady=true for ${socket.id}`);
+    } else {
+        console.error(`[server/index.js] Player ${socket.id} not found in room ${roomId} during submitAnswers`);
+        return; // Exit if player somehow doesn't exist
+    }
+
+
     // Check if all players are ready
+    console.log(`[server/index.js] Checking if all players are ready in room ${roomId}`); // <-- ADD LOG 2
     const allReady = Object.values(rooms[roomId].players).every(player => player.isReady);
-    
+    console.log(`[server/index.js] allReady check result: ${allReady}`);
+
     // Update isAdmin property for all players to ensure consistency
     Object.keys(rooms[roomId].players).forEach(playerId => {
       rooms[roomId].players[playerId].isAdmin = (playerId === rooms[roomId].admin);
     });
-    
+
     if (allReady) {
+      console.log(`[server/index.js] All players ready in room ${roomId}. Calling processRoundEnd.`); // <-- ADD LOG 3
       // Process round results
       processRoundEnd(roomId);
     } else {
       // Notify others that this player is ready
+      console.log(`[server/index.js] Not all players ready yet. Emitting playerReady for ${socket.id}`);
       io.to(roomId).emit('playerReady', {
         playerId: socket.id,
         players: Object.values(rooms[roomId].players)
@@ -423,27 +447,40 @@ function handlePlayerReady(socket, data) {
 
 // Function to process the end of a round (either by time limit or all players submitted)
 function processRoundEnd(roomId) {
+  console.log(`[server/index.js] processRoundEnd called for room ${roomId}`); // <-- ADD LOG 4
   const room = rooms[roomId];
-  if (!room || !room.roundInProgress) return;
-  
+  if (!room || !room.roundInProgress) {
+      console.error(`[server/index.js] processRoundEnd aborted: roomExists=${!!room}, roundInProgress=${room?.roundInProgress}`);
+      return;
+  }
+
   // Mark round as no longer in progress to prevent duplicate processing
   room.roundInProgress = false;
-  
+  console.log(`[server/index.js] Set roundInProgress=false for room ${roomId}`);
+
   // Validate and score the round
   validateAndScoreRound(roomId);
 }
 
 // Function to validate and score a round
-async function validateAndScoreRound(roomId) {
+async function validateAndScoreRound(roomId) { // Removed playerIdToValidate parameter
+  console.log(`[server/index.js] validateAndScoreRound called for room ${roomId}`); // <-- Reverted LOG 5
   const room = rooms[roomId];
-  if (!room) return;
-  
-  // Mark round as finished
+  if (!room) {
+      console.error(`[server/index.js] validateAndScoreRound aborted: room ${roomId} not found.`);
+      return;
+  }
+
+  // Mark round as finished (redundant, already done in processRoundEnd, but safe)
   room.roundInProgress = false;
-  
+
   // Get the current letter
   const letter = room.currentLetter;
-  
+  if (!letter) {
+      console.error(`[server/index.js] validateAndScoreRound aborted: currentLetter not set for room ${roomId}.`);
+      return;
+  }
+
   // Ensure all players have the correct isAdmin property
   Object.keys(room.players).forEach(playerId => {
     room.players[playerId].isAdmin = (playerId === room.admin);
@@ -451,23 +488,36 @@ async function validateAndScoreRound(roomId) {
   
   // Collect all answers for validation
   const playerValidations = [];
-  const playerIds = Object.keys(room.players);
-  
-  console.log(`Starting validation for room ${roomId} with letter ${letter}`);
-  
+  const playerIds = Object.keys(room.players); // Validate all players again
+
+  console.log(`[server/index.js] Starting validation loop for room ${roomId} with letter ${letter}. Players to validate: ${playerIds.join(', ')}`); // Reverted log
+
   // Validate each player's answers with OpenAI Assistant
-  for (const playerId of playerIds) {
+  for (const playerId of playerIds) { // Use the full list again
     const player = room.players[playerId];
-    console.log(`Validating answers for player ${player.name}:`, player.answers);
-    
-    // Use the OpenAI assistant validator
-    const validationResult = await validateAnswers(letter, player.answers);
-    console.log(`Validation result for ${player.name}:`, validationResult);
-    
-    playerValidations.push({
-      playerId,
-      validation: validationResult
-    });
+    if (!player) {
+        console.error(`[server/index.js] Player ${playerId} not found during validation loop in room ${roomId}`);
+        continue; // Skip this player if somehow missing
+    }
+    console.log(`[server/index.js] Validating answers for player ${player.name} (${playerId}):`, player.answers);
+
+    try { // Add try-catch around the validation call
+        // Use the OpenAI assistant validator
+        const validationResult = await validateAnswers(letter, player.answers, CATEGORIES); // Pass CATEGORIES constant
+        console.log(`[server/index.js] Validation result for ${player.name}:`, JSON.stringify(validationResult)); // Stringify for better logging
+
+        playerValidations.push({
+          playerId,
+          validation: validationResult
+        });
+    } catch (validationError) {
+        console.error(`[server/index.js] Error calling validateAnswers for player ${playerId} in room ${roomId}:`, validationError);
+        // Decide how to handle validation errors - maybe push a default 'error' validation?
+        playerValidations.push({
+            playerId,
+            validation: { /* Default error structure */ valid: false, errors: ['Validation failed'], suggestions: {}, explanations: {} }
+        });
+    }
   }
   
   // Process scores based on validation and uniqueness
@@ -487,7 +537,8 @@ async function validateAndScoreRound(roomId) {
     // Collect all suggestions for each category across validations
     const categorySuggestions = {};
     playerValidations.forEach(({validation}) => {
-      if (validation.suggestions && validation.suggestions[category]) {
+      // Ensure validation and validation.suggestions exist before accessing
+      if (validation && validation.suggestions && validation.suggestions[category]) {
         categorySuggestions[category] = validation.suggestions[category];
       }
     });
@@ -495,7 +546,8 @@ async function validateAndScoreRound(roomId) {
     // Collect all explanations for each category across validations
     const categoryExplanations = {};
     playerValidations.forEach(({validation}) => {
-      if (validation.explanations && validation.explanations[category]) {
+      // Ensure validation and validation.explanations exist before accessing
+      if (validation && validation.explanations && validation.explanations[category]) {
         categoryExplanations[category] = validation.explanations[category];
       }
     });
@@ -503,8 +555,16 @@ async function validateAndScoreRound(roomId) {
     // Assign scores based on validation and uniqueness
     for (const {playerId, validation} of playerValidations) {
       const player = room.players[playerId];
+      // Ensure player exists before proceeding
+      if (!player) {
+          console.error(`[server/index.js] Player ${playerId} not found during scoring loop in room ${roomId}`);
+          continue;
+      }
       const answer = player.answers[category];
       
+      // Ensure validation object exists before accessing its properties
+      const safeValidation = validation || { valid: false, errors: [], suggestions: {}, explanations: {} };
+
       if (answer && answer.trim()) {
         const lowerAnswer = answer.toLowerCase();
         
@@ -513,13 +573,14 @@ async function validateAndScoreRound(roomId) {
         let categoryErrors = [];
         
         // Check if the answer is valid according to the AI
-        if (validation.valid === true) {
+        // Use safeValidation here
+        if (safeValidation.valid === true) {
           // If the entire validation is valid with no errors
           isValid = true;
-        } else if (validation.errors && Array.isArray(validation.errors)) {
+        } else if (safeValidation.errors && Array.isArray(safeValidation.errors)) {
           // Look for category-specific errors
-          categoryErrors = validation.errors.filter(error => 
-            error.toLowerCase().includes(category.toLowerCase())
+          categoryErrors = safeValidation.errors.filter(error => 
+            typeof error === 'string' && error.toLowerCase().includes(category.toLowerCase()) // Add type check for error
           );
           // If there are no category-specific errors, the answer is valid
           isValid = categoryErrors.length === 0;
@@ -533,20 +594,22 @@ async function validateAndScoreRound(roomId) {
           ? (answerCount[lowerAnswer] === 1 ? 20 : 10) 
           : 0;
         
-        console.log(`Scoring ${category} for ${player.name}: Answer "${answer}" is ${isValid ? 'valid' : 'invalid'} and ${answerCount[lowerAnswer] === 1 ? 'unique' : 'not unique'} = ${score} points`);
+        console.log(`[server/index.js] Scoring ${category} for ${player.name}: Answer "${answer}" is ${isValid ? 'valid' : 'invalid'} and ${answerCount[lowerAnswer] === 1 ? 'unique' : 'not unique'} = ${score} points`);
         
         // Get explanation if available
         let explanation = null;
-        if (validation.explanations && validation.explanations[category]) {
-          explanation = validation.explanations[category];
+        // Use safeValidation here
+        if (safeValidation.explanations && safeValidation.explanations[category]) {
+          explanation = safeValidation.explanations[category];
         } else if (categoryExplanations[category]) {
           explanation = categoryExplanations[category];
         }
         
         // Get suggestions
         let suggestions = null;
-        if (validation.suggestions && validation.suggestions[category]) {
-          suggestions = validation.suggestions[category];
+        // Use safeValidation here
+        if (safeValidation.suggestions && safeValidation.suggestions[category]) {
+          suggestions = safeValidation.suggestions[category];
         } else if (categorySuggestions[category]) {
           suggestions = categorySuggestions[category];
         }
@@ -567,8 +630,9 @@ async function validateAndScoreRound(roomId) {
           valid: false,
           score: 0,
           errors: [],
-          suggestions: validation.suggestions && validation.suggestions[category] 
-            ? validation.suggestions[category] 
+          // Use safeValidation here
+          suggestions: safeValidation.suggestions && safeValidation.suggestions[category] 
+            ? safeValidation.suggestions[category] 
             : (categorySuggestions[category] || null),
           explanation: null
         };
@@ -587,19 +651,20 @@ async function validateAndScoreRound(roomId) {
     
     // Update total score
     player.score += roundScore;
-    console.log(`Total score for ${player.name} this round: ${roundScore}`);
+    console.log(`[server/index.js] Total score for ${player.name} this round: ${roundScore}. New total: ${player.score}`);
   });
   
   // Store round results
   room.roundResults = scoresByCategory;
   
   // At the end, before sending results, log admin status
-  console.log("Admin status before sending results:");
+  console.log("[server/index.js] Admin status before sending results:");
   Object.values(room.players).forEach(player => {
     console.log(`- ${player.name} (${player.id}): ${player.isAdmin ? 'Admin' : 'Not Admin'}`);
   });
   
   // Send results to all players
+  console.log(`[server/index.js] Emitting 'roundResults' to room ${roomId}`);
   io.to(roomId).emit('roundResults', {
     scores: scoresByCategory,
     players: Object.values(room.players)
@@ -625,4 +690,4 @@ const startServer = (port) => {
 };
 
 const PORT = process.env.PORT || 5678;
-startServer(PORT); 
+startServer(PORT);

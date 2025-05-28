@@ -72,15 +72,6 @@ async function testApiKey() {
   }
 }
 
-// Run the API key test when the module loads
-testApiKey().then(isValid => {
-  if (isValid) {
-    console.log('✅ OpenAI API is configured correctly');
-  } else {
-    console.error('⚠️ OpenAI API configuration has issues - answer validation may not work');
-  }
-});
-
 // Standard headers for OpenAI API requests
 function getApiHeaders() {
   const headers = {
@@ -105,6 +96,15 @@ function getApiHeaders() {
  */
 async function createThread() {
   try {
+    console.log('🔗 Creating a new thread with OpenAI...');
+    console.log('🔗 Request URL: https://api.openai.com/v1/threads');
+    console.log('🔗 Headers:', JSON.stringify({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${API_KEY ? API_KEY.substring(0, 5) + '...' : 'undefined'}`,
+      'OpenAI-Beta': 'assistants=v2'
+    }, null, 2));
+    
+    const startTime = Date.now();
     const response = await axios.post(
       'https://api.openai.com/v1/threads',
       {},
@@ -112,9 +112,24 @@ async function createThread() {
         headers: getApiHeaders()
       }
     );
+    const endTime = Date.now();
+    
+    console.log(`🔗 Thread creation successful in ${endTime - startTime}ms. Thread ID: ${response.data.id}`);
     return response.data.id;
   } catch (error) {
-    console.error('Error creating thread:', error.response?.data || error.message);
+    console.error('❌ Error creating thread:');
+    
+    if (error.response) {
+      console.error(`Status code: ${error.response.status}`);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      console.error('Response headers:', JSON.stringify(error.response.headers, null, 2));
+    } else if (error.request) {
+      console.error('No response received. Request details:', error.request);
+    } else {
+      console.error('Error message:', error.message);
+    }
+    
+    console.error('Error stack:', error.stack);
     throw error;
   }
 }
@@ -244,7 +259,10 @@ async function waitForRunCompletion(threadId, runId) {
 async function validateAnswers(letter, answers, categories) {
   console.log('🔍 validateAnswers called with letter:', letter);
   console.log('📦 Categories to validate:', categories);
-  console.log('📦 Answers to validate:', answers);
+  console.log('📦 Answers to validate:', JSON.stringify(answers, null, 2));
+  console.log('🧪 ENVIRONMENT CHECK: OpenAI API Key starts with:', API_KEY ? API_KEY.substring(0, 5) + '...' : 'undefined');
+  console.log('🧪 ENVIRONMENT CHECK: Running in environment:', process.env.NODE_ENV || 'unknown');
+  console.log('🧪 ENVIRONMENT CHECK: Current working directory:', process.cwd());
   
   if (!API_KEY || !ASSISTANT_ID) {
     console.warn('⚠️ OpenAI API Key or Assistant ID not set. Skipping validation.');
@@ -261,6 +279,22 @@ async function validateAnswers(letter, answers, categories) {
     console.log('💡 Environment variables loaded:', Object.keys(process.env).filter(key => 
       key.includes('OPENAI') || key.includes('API')).join(', '));
     
+    return { valid: true, errors: [], suggestions: {}, explanations: {} };
+  }
+
+  // Test API key only when needed, not at module load time
+  try {
+    console.log('🔑 Testing API key before validation...');
+    const isKeyValid = await testApiKey();
+    console.log('🔑 API key test result:', isKeyValid ? 'VALID' : 'INVALID');
+    
+    if (!isKeyValid) {
+      console.error('❌ API key test failed during validation request');
+      return { valid: true, errors: [], suggestions: {}, explanations: {} };
+    }
+  } catch (error) {
+    console.error('❌ API key test error:', error.message);
+    console.error('❌ API key test stack:', error.stack);
     return { valid: true, errors: [], suggestions: {}, explanations: {} };
   }
 
