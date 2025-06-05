@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Termination Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.error { background: #fff3cd; color: #856404; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        #log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Session Termination Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Open the main game in another browser tab: <a href="http://localhost:58858" target="_blank">http://localhost:58858</a></li>
+            <li>Create a room and become the admin/host</li>
+            <li>Use the controls below to connect as a second player</li>
+            <li>Test the "TERMINATE SESSION" button from the main game</li>
+            <li>Observe the behavior in both windows</li>
+        </ol>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Client Controls</h2>
+        <div>
+            <label>Player Name: <input type="text" id="playerName" value="TestPlayer" /></label>
+            <label>Room ID: <input type="text" id="roomId" placeholder="Enter room ID from main game" /></label>
+        </div>
+        <div>
+            <button onclick="connect()">Connect to Room</button>
+            <button onclick="disconnect()" class="danger">Disconnect</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </div>
+
+    <div class="test-container">
+        <h2>Connection Log</h2>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        let connected = false;
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(status, className) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = status;
+            statusElement.className = `status ${className}`;
+        }
+
+        function connect() {
+            const playerName = document.getElementById('playerName').value.trim();
+            const roomId = document.getElementById('roomId').value.trim();
+
+            if (!playerName) {
+                alert('Please enter a player name');
+                return;
+            }
+
+            if (!roomId) {
+                alert('Please enter a room ID');
+                return;
+            }
+
+            if (socket) {
+                socket.close();
+            }
+
+            const url = `ws://localhost:58858/party/game`;
+            log(`Connecting to: ${url}`);
+            
+            socket = new WebSocket(url);
+
+            socket.onopen = () => {
+                log('✅ WebSocket connected');
+                updateStatus('Connected', 'connected');
+                connected = true;
+
+                // Join the room
+                const joinMessage = {
+                    type: 'joinRoom',
+                    playerName: playerName,
+                    roomId: roomId,
+                    timeLimit: 60
+                };
+                
+                socket.send(JSON.stringify(joinMessage));
+                log(`📤 Sent join message: ${JSON.stringify(joinMessage)}`);
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`📥 Received: ${JSON.stringify(data, null, 2)}`);
+
+                    if (data.type === 'sessionClosed') {
+                        log('🚫 SESSION CLOSED BY HOST!');
+                        log(`Reason: ${data.reason || data.message || 'Unknown'}`);
+                        updateStatus('Session Closed by Host', 'error');
+                    } else if (data.type === 'joinedRoom' || data.type === 'joined') {
+                        log('✅ Successfully joined room');
+                        updateStatus(`Connected to room ${data.roomId}`, 'connected');
+                    } else if (data.type === 'error') {
+                        log(`❌ Error: ${data.message}`);
+                        updateStatus(`Error: ${data.message}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ Error parsing message: ${error.message}`);
+                }
+            };
+
+            socket.onclose = (event) => {
+                log(`🔌 WebSocket closed. Code: ${event.code}, Reason: ${event.reason || 'No reason'}`);
+                updateStatus('Disconnected', 'disconnected');
+                connected = false;
+
+                if (event.code === 1000 && event.reason === 'Session closed by host') {
+                    log('✅ Connection closed due to session termination - THIS IS EXPECTED!');
+                } else {
+                    log('⚠️ Unexpected disconnection');
+                }
+            };
+
+            socket.onerror = (error) => {
+                log(`❌ WebSocket error: ${error}`);
+                updateStatus('Connection Error', 'error');
+            };
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+                log('🔌 Manually disconnected');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Auto-focus on room ID input
+        document.getElementById('roomId').focus();
+    </script>
+</body>
+</html> 

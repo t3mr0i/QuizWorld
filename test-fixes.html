@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Refactored Fixes</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        button { margin: 5px; padding: 10px; }
+        .success { color: green; }
+        .error { color: red; }
+        .fixed { background-color: #d4edda; border-color: #c3e6cb; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Refactored Stadt Land Fluss Fixes</h1>
+    
+    <div class="test-section fixed">
+        <h2>✅ Fixed Issues Test</h2>
+        <ol>
+            <li><strong>Close Session Button:</strong> Should be visible for admin/host</li>
+            <li><strong>Category Management:</strong> Should be visible for all, editable only by admin</li>
+            <li><strong>Ready Status:</strong> Should show who is ready with badges</li>
+            <li><strong>Debug Links:</strong> "Try Client-Side Start Mode" should be removed</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Open the main app: <a href="http://localhost:1999" target="_blank">http://localhost:1999</a></li>
+            <li>Create a room with your name (you should become the host)</li>
+            <li><strong>✅ Check:</strong> Admin controls section should be visible</li>
+            <li><strong>✅ Check:</strong> "CLOSE SESSION" button should be visible</li>
+            <li><strong>✅ Check:</strong> Categories section should be visible and editable</li>
+            <li><strong>✅ Check:</strong> Ready status should show "0/1 players ready"</li>
+            <li>Click "I'm Ready" button</li>
+            <li><strong>✅ Check:</strong> Ready status should update to "1/1 players ready"</li>
+            <li><strong>✅ Check:</strong> Your player should show "Ready" badge</li>
+            <li><strong>✅ Check:</strong> No "Try Client-Side Start Mode" link in footer</li>
+            <li>Open another browser tab/window and join the same room</li>
+            <li><strong>✅ Check:</strong> Second player should NOT see admin controls</li>
+            <li><strong>✅ Check:</strong> Second player should see categories but cannot edit them</li>
+            <li><strong>✅ Check:</strong> Ready count should show correctly for both players</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Expected Behavior After Fixes</h2>
+        <ul>
+            <li>✅ Host/admin can see and use "CLOSE SESSION" button</li>
+            <li>✅ All players can see categories, only host can add/remove them</li>
+            <li>✅ Ready status displays correctly with badges</li>
+            <li>✅ Ready count updates in real-time</li>
+            <li>✅ Admin controls are properly shown/hidden based on role</li>
+            <li>✅ No debug links visible in production</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Quick WebSocket Test</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <button onclick="testReadyMessage()">Test Ready Message</button>
+        <button onclick="testCloseSession()">Test Close Session (Admin Only)</button>
+        <div id="test-log" class="log">Click buttons above to test functionality...</div>
+    </div>
+
+    <script>
+        function log(message, type = '') {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type ? ` class="${type}"` : '';
+            logDiv.innerHTML += `<div${className}>[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function testConnection() {
+            log('Testing WebSocket connection...');
+            
+            try {
+                const ws = new WebSocket('ws://localhost:1999/parties/main/test-room');
+                
+                ws.onopen = () => {
+                    log('✅ WebSocket connected successfully', 'success');
+                    
+                    // Test join room
+                    const joinMessage = {
+                        type: 'joinRoom',
+                        playerName: 'Test Player',
+                        categories: ['Stadt', 'Land', 'Fluss']
+                    };
+                    ws.send(JSON.stringify(joinMessage));
+                    log('Sent joinRoom message');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📨 Received: ${data.type}`, 'success');
+                        
+                        if (data.type === 'joinedRoom') {
+                            log(`✅ Joined room successfully. Admin: ${data.isAdmin}`, 'success');
+                            log(`Players: ${data.players?.length || 0}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`❌ Error parsing message: ${e.message}`, 'error');
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                };
+                
+                ws.onclose = () => {
+                    log('WebSocket connection closed');
+                };
+                
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testReadyMessage() {
+            log('Testing ready message functionality...');
+            
+            try {
+                const ws = new WebSocket('ws://localhost:1999/parties/main/test-ready');
+                
+                ws.onopen = () => {
+                    log('✅ Connected for ready test', 'success');
+                    
+                    // Join first
+                    ws.send(JSON.stringify({
+                        type: 'joinRoom',
+                        playerName: 'Ready Test Player'
+                    }));
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.type === 'joinedRoom') {
+                            log('✅ Joined room, testing ready status...', 'success');
+                            
+                            // Send ready message
+                            setTimeout(() => {
+                                ws.send(JSON.stringify({
+                                    type: 'playerReady',
+                                    isReady: true,
+                                    playerName: 'Ready Test Player'
+                                }));
+                                log('Sent playerReady message');
+                            }, 500);
+                        }
+                        
+                        if (data.type === 'player-ready-update') {
+                            log(`✅ Ready update received! Ready count: ${data.readyCount}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`❌ Error: ${e.message}`, 'error');
+                    }
+                };
+                
+            } catch (error) {
+                log(`❌ Ready test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function testCloseSession() {
+            log('Testing close session functionality...');
+            
+            try {
+                const ws = new WebSocket('ws://localhost:1999/parties/main/test-close');
+                
+                ws.onopen = () => {
+                    log('✅ Connected for close session test', 'success');
+                    
+                    // Join as admin first
+                    ws.send(JSON.stringify({
+                        type: 'joinRoom',
+                        playerName: 'Admin Test Player'
+                    }));
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.type === 'joinedRoom' && data.isAdmin) {
+                            log('✅ Joined as admin, testing close session...', 'success');
+                            
+                            // Send close session message
+                            setTimeout(() => {
+                                ws.send(JSON.stringify({
+                                    type: 'closeSession',
+                                    reason: 'Test close session'
+                                }));
+                                log('Sent closeSession message');
+                            }, 500);
+                        }
+                        
+                        if (data.type === 'sessionClosed') {
+                            log(`✅ Session closed successfully: ${data.message}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`❌ Error: ${e.message}`, 'error');
+                    }
+                };
+                
+            } catch (error) {
+                log(`❌ Close session test failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

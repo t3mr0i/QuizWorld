@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Handling Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.error { background: #fff3cd; color: #856404; }
+        .status.success { background: #d1ecf1; color: #0c5460; }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #0056b3; }
+        .btn.danger { background: #dc3545; }
+        .btn.danger:hover { background: #c82333; }
+        .btn.success { background: #28a745; }
+        .btn.success:hover { background: #218838; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .player-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .admin-badge {
+            background: #ffc107;
+            color: #212529;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Session Handling Test</h1>
+    
+    <div class="test-container">
+        <h2>Test Configuration</h2>
+        <div>
+            <input type="text" id="playerName1" placeholder="Player 1 Name" value="TestHost">
+            <input type="text" id="playerName2" placeholder="Player 2 Name" value="TestPlayer">
+            <input type="text" id="roomId" placeholder="Room ID (leave empty to create)" value="">
+        </div>
+    </div>
+
+    <div class="test-grid">
+        <!-- Player 1 (Host) -->
+        <div class="test-container">
+            <h2>Player 1 (Host) <span id="admin1" class="admin-badge" style="display:none">HOST</span></h2>
+            <div id="status1" class="status disconnected">Disconnected</div>
+            <div class="player-info">
+                <div>Room ID: <span id="roomId1">-</span></div>
+                <div>Session ID: <span id="sessionId1">-</span></div>
+                <div>Is Admin: <span id="isAdmin1">false</span></div>
+                <div>Players: <span id="playerCount1">0</span></div>
+            </div>
+            <div>
+                <button class="btn" onclick="connectPlayer1()">Connect</button>
+                <button class="btn danger" onclick="disconnectPlayer1()">Disconnect</button>
+                <button class="btn success" onclick="reconnectPlayer1()">Reconnect</button>
+                <button class="btn" onclick="createRoom()">Create Room</button>
+                <button class="btn danger" onclick="closeSession1()">Close Session</button>
+            </div>
+            <h3>Log</h3>
+            <div id="log1" class="log"></div>
+        </div>
+
+        <!-- Player 2 (Regular) -->
+        <div class="test-container">
+            <h2>Player 2 (Regular) <span id="admin2" class="admin-badge" style="display:none">HOST</span></h2>
+            <div id="status2" class="status disconnected">Disconnected</div>
+            <div class="player-info">
+                <div>Room ID: <span id="roomId2">-</span></div>
+                <div>Session ID: <span id="sessionId2">-</span></div>
+                <div>Is Admin: <span id="isAdmin2">false</span></div>
+                <div>Players: <span id="playerCount2">0</span></div>
+            </div>
+            <div>
+                <button class="btn" onclick="connectPlayer2()">Connect</button>
+                <button class="btn danger" onclick="disconnectPlayer2()">Disconnect</button>
+                <button class="btn success" onclick="reconnectPlayer2()">Reconnect</button>
+                <button class="btn" onclick="joinRoom()">Join Room</button>
+            </div>
+            <h3>Log</h3>
+            <div id="log2" class="log"></div>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test Scenarios</h2>
+        <div>
+            <button class="btn" onclick="testScenario1()">Test 1: Create Room & Host Assignment</button>
+            <button class="btn" onclick="testScenario2()">Test 2: Join Existing Room</button>
+            <button class="btn" onclick="testScenario3()">Test 3: Host Reconnection</button>
+            <button class="btn" onclick="testScenario4()">Test 4: Session Persistence</button>
+            <button class="btn danger" onclick="clearLogs()">Clear Logs</button>
+        </div>
+    </div>
+
+    <script>
+        let player1Socket = null;
+        let player2Socket = null;
+        let player1SessionId = null;
+        let player2SessionId = null;
+        let currentRoomId = null;
+
+        function log(playerId, message) {
+            const logElement = document.getElementById(`log${playerId}`);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function updateStatus(playerId, status, isAdmin = false, roomId = '', sessionId = '', playerCount = 0) {
+            const statusElement = document.getElementById(`status${playerId}`);
+            const adminBadge = document.getElementById(`admin${playerId}`);
+            
+            statusElement.className = `status ${status}`;
+            statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            
+            document.getElementById(`roomId${playerId}`).textContent = roomId || '-';
+            document.getElementById(`sessionId${playerId}`).textContent = sessionId || '-';
+            document.getElementById(`isAdmin${playerId}`).textContent = isAdmin;
+            document.getElementById(`playerCount${playerId}`).textContent = playerCount;
+            
+            adminBadge.style.display = isAdmin ? 'inline' : 'none';
+        }
+
+        function generateSessionId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function connectPlayer1() {
+            if (player1Socket) {
+                player1Socket.close();
+            }
+
+            if (!player1SessionId) {
+                player1SessionId = generateSessionId();
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const url = `${protocol}//${host}/party/game`;
+
+            log(1, `Connecting to ${url}`);
+            player1Socket = new WebSocket(url);
+
+            player1Socket.onopen = () => {
+                log(1, 'Connected to server');
+                updateStatus(1, 'connected');
+            };
+
+            player1Socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log(1, `Received: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.type === 'joinedRoom') {
+                    currentRoomId = data.roomId;
+                    updateStatus(1, 'connected', data.isAdmin, data.roomId, player1SessionId, data.players?.length || 0);
+                    document.getElementById('roomId').value = data.roomId;
+                }
+            };
+
+            player1Socket.onclose = () => {
+                log(1, 'Disconnected from server');
+                updateStatus(1, 'disconnected');
+            };
+
+            player1Socket.onerror = (error) => {
+                log(1, `Error: ${error}`);
+                updateStatus(1, 'error');
+            };
+        }
+
+        function connectPlayer2() {
+            if (player2Socket) {
+                player2Socket.close();
+            }
+
+            if (!player2SessionId) {
+                player2SessionId = generateSessionId();
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const url = `${protocol}//${host}/party/game`;
+
+            log(2, `Connecting to ${url}`);
+            player2Socket = new WebSocket(url);
+
+            player2Socket.onopen = () => {
+                log(2, 'Connected to server');
+                updateStatus(2, 'connected');
+            };
+
+            player2Socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log(2, `Received: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.type === 'joinedRoom') {
+                    updateStatus(2, 'connected', data.isAdmin, data.roomId, player2SessionId, data.players?.length || 0);
+                }
+            };
+
+            player2Socket.onclose = () => {
+                log(2, 'Disconnected from server');
+                updateStatus(2, 'disconnected');
+            };
+
+            player2Socket.onerror = (error) => {
+                log(2, `Error: ${error}`);
+                updateStatus(2, 'error');
+            };
+        }
+
+        function disconnectPlayer1() {
+            if (player1Socket) {
+                player1Socket.close();
+                player1Socket = null;
+            }
+        }
+
+        function disconnectPlayer2() {
+            if (player2Socket) {
+                player2Socket.close();
+                player2Socket = null;
+            }
+        }
+
+        function reconnectPlayer1() {
+            log(1, 'Attempting reconnection...');
+            connectPlayer1();
+            
+            setTimeout(() => {
+                if (player1Socket && player1Socket.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'joinRoom',
+                        playerName: document.getElementById('playerName1').value,
+                        roomId: currentRoomId || '',
+                        sessionId: player1SessionId,
+                        isReconnect: true,
+                        timeLimit: 60
+                    };
+                    log(1, `Sending reconnect: ${JSON.stringify(message)}`);
+                    player1Socket.send(JSON.stringify(message));
+                }
+            }, 100);
+        }
+
+        function reconnectPlayer2() {
+            log(2, 'Attempting reconnection...');
+            connectPlayer2();
+            
+            setTimeout(() => {
+                if (player2Socket && player2Socket.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'joinRoom',
+                        playerName: document.getElementById('playerName2').value,
+                        roomId: currentRoomId || '',
+                        sessionId: player2SessionId,
+                        isReconnect: true,
+                        timeLimit: 60
+                    };
+                    log(2, `Sending reconnect: ${JSON.stringify(message)}`);
+                    player2Socket.send(JSON.stringify(message));
+                }
+            }, 100);
+        }
+
+        function createRoom() {
+            if (!player1Socket || player1Socket.readyState !== WebSocket.OPEN) {
+                log(1, 'Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'joinRoom',
+                playerName: document.getElementById('playerName1').value,
+                roomId: '', // Empty = create new room
+                sessionId: player1SessionId,
+                timeLimit: 60
+            };
+            
+            log(1, `Creating room: ${JSON.stringify(message)}`);
+            player1Socket.send(JSON.stringify(message));
+        }
+
+        function joinRoom() {
+            if (!player2Socket || player2Socket.readyState !== WebSocket.OPEN) {
+                log(2, 'Not connected to server');
+                return;
+            }
+
+            const roomId = document.getElementById('roomId').value || currentRoomId;
+            if (!roomId) {
+                log(2, 'No room ID specified');
+                return;
+            }
+
+            const message = {
+                type: 'joinRoom',
+                playerName: document.getElementById('playerName2').value,
+                roomId: roomId,
+                sessionId: player2SessionId,
+                timeLimit: 60
+            };
+            
+            log(2, `Joining room: ${JSON.stringify(message)}`);
+            player2Socket.send(JSON.stringify(message));
+        }
+
+        function closeSession1() {
+            if (!player1Socket || player1Socket.readyState !== WebSocket.OPEN) {
+                log(1, 'Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'closeSession',
+                reason: 'Session closed by host'
+            };
+            
+            log(1, `Closing session: ${JSON.stringify(message)}`);
+            player1Socket.send(JSON.stringify(message));
+        }
+
+        // Test Scenarios
+        function testScenario1() {
+            log(1, '=== TEST 1: Create Room & Host Assignment ===');
+            log(2, '=== TEST 1: Create Room & Host Assignment ===');
+            
+            // Step 1: Connect Player 1
+            connectPlayer1();
+            
+            setTimeout(() => {
+                // Step 2: Create room (Player 1 should become host)
+                createRoom();
+            }, 500);
+        }
+
+        function testScenario2() {
+            log(1, '=== TEST 2: Join Existing Room ===');
+            log(2, '=== TEST 2: Join Existing Room ===');
+            
+            // Step 1: Connect Player 2
+            connectPlayer2();
+            
+            setTimeout(() => {
+                // Step 2: Join existing room
+                joinRoom();
+            }, 500);
+        }
+
+        function testScenario3() {
+            log(1, '=== TEST 3: Host Reconnection ===');
+            log(2, '=== TEST 3: Host Reconnection ===');
+            
+            // Step 1: Disconnect host
+            disconnectPlayer1();
+            
+            setTimeout(() => {
+                // Step 2: Reconnect host (should retain admin status)
+                reconnectPlayer1();
+            }, 2000);
+        }
+
+        function testScenario4() {
+            log(1, '=== TEST 4: Session Persistence ===');
+            log(2, '=== TEST 4: Session Persistence ===');
+            
+            // Step 1: Disconnect both players
+            disconnectPlayer1();
+            disconnectPlayer2();
+            
+            setTimeout(() => {
+                // Step 2: Reconnect both (should restore session)
+                reconnectPlayer1();
+                setTimeout(() => {
+                    reconnectPlayer2();
+                }, 500);
+            }, 2000);
+        }
+
+        function clearLogs() {
+            document.getElementById('log1').textContent = '';
+            document.getElementById('log2').textContent = '';
+        }
+
+        // Auto-connect on page load for quick testing
+        window.addEventListener('load', () => {
+            log(1, 'Page loaded - ready for testing');
+            log(2, 'Page loaded - ready for testing');
+        });
+    </script>
+</body>
+</html> 

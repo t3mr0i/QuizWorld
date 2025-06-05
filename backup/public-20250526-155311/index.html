@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stadt KI Fluss</title>
+  <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Add favicon -->
+  <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
+  
+  <!-- PartyKit Configuration -->
+  <script>
+    // Hard-code the PartyKit host to avoid placeholder issues
+    window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
+    
+    // Enable dev mode to try local server if URL has ?dev parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('dev') || urlParams.has('local')) {
+      window.PARTYKIT_HOST = 'localhost:1999';
+      console.log('Using local development server:', window.PARTYKIT_HOST);
+    }
+    
+    // Add a config flag to disable host-only restriction
+    window.CONFIG = {
+      ALLOW_ANYONE_TO_START: urlParams.has('allow-all') || urlParams.has('all-start')
+    };
+    
+    // Log the configuration
+    console.log('Game configuration:', window.CONFIG);
+    
+    // Check if in offline mode
+    const isOfflineMode = urlParams.has('offline');
+    
+    // Add a visible banner when in local development mode
+    if (urlParams.has('local') || urlParams.has('dev')) {
+      document.addEventListener('DOMContentLoaded', function() {
+        const debugBanner = document.createElement('div');
+        debugBanner.className = 'debug-banner';
+        debugBanner.innerHTML = 'LOCAL DEV MODE';
+        debugBanner.style.position = 'fixed';
+        debugBanner.style.top = '0';
+        debugBanner.style.left = '0';
+        debugBanner.style.right = '0';
+        debugBanner.style.backgroundColor = 'red';
+        debugBanner.style.color = 'white';
+        debugBanner.style.textAlign = 'center';
+        debugBanner.style.padding = '4px';
+        debugBanner.style.zIndex = '9999';
+        debugBanner.style.fontSize = '12px';
+        debugBanner.style.fontWeight = 'bold';
+        document.body.appendChild(debugBanner);
+      });
+    }
+    
+    // Check if server is accessible by making a simple fetch request
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add server status indicator to the welcome screen
+      const welcomeCard = document.querySelector('.welcome-card .card-footer');
+      if (welcomeCard) {
+        const statusElement = document.createElement('div');
+        statusElement.id = 'server-status';
+        statusElement.className = 'server-status checking';
+        
+        if (isOfflineMode) {
+          statusElement.className = 'server-status offline';
+          statusElement.innerHTML = 'Running in offline mode (single player)';
+          welcomeCard.prepend(statusElement);
+          
+          // Add a button to return to online mode
+          const onlineLink = document.createElement('a');
+          onlineLink.href = window.location.pathname;
+          onlineLink.className = 'btn btn-secondary';
+          onlineLink.innerHTML = 'Try Online Mode';
+          onlineLink.style.marginTop = '10px';
+          welcomeCard.appendChild(onlineLink);
+          
+          return;
+        }
+        
+        statusElement.innerHTML = 'Checking server status...';
+        welcomeCard.prepend(statusElement);
+        
+        // Try to fetch the server status
+        const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'http://' : 'https://';
+        fetch(`${protocol}${window.PARTYKIT_HOST}`, { 
+          method: 'HEAD',
+          mode: 'no-cors',
+          cache: 'no-cache'
+        })
+        .then(() => {
+          statusElement.className = 'server-status online';
+          statusElement.innerHTML = 'Game server is online';
+        })
+        .catch(err => {
+          statusElement.className = 'server-status offline';
+          statusElement.innerHTML = 'Game server appears to be offline';
+          console.error('Server status check failed:', err);
+          
+          // Add server status banner
+          const serverBanner = document.createElement('div');
+          serverBanner.className = 'server-banner';
+          serverBanner.innerHTML = `
+            <div class="banner-content">
+              <strong>Server Status:</strong> The game server appears to be offline.
+              <div class="banner-actions">
+                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
+                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
+              </div>
+            </div>
+          `;
+          document.querySelector('.app-container').prepend(serverBanner);
+        });
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Navigation and header -->
+    <div class="navbar fixed-top">
+        <div class="container d-flex justify-content-between align-items-center">
+            <a href="#" class="navbar-brand">
+                <h1 class="mb-0">Stadt Land Fluss</h1>
+            </a>
+        </div>
+    </div>
+
+    <main class="game-container">
+      <!-- Welcome Screen -->
+      <div id="welcome-screen" class="game-screen active">
+        <div class="card welcome-card">
+          <div class="card-header" data-id="SLF-001">
+            <h2>Join or start a Game</h2>
+          </div>
+          <div class="card-body">
+            <form class="join-form">
+              <div class="form-group">
+                <label for="player-name">Your Name</label>
+                <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="room-id">Room ID</label>
+                  <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
+                  <small>Leave empty to create a new game room</small>
+                </div>
+                
+                <div class="form-group">
+                  <label for="time-limit">Time Limit (seconds)</label>
+                  <div class="time-selector">
+                    <button type="button" class="time-btn decrease">−</button>
+                    <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+                    <button type="button" class="time-btn increase">+</button>
+                  </div>
+                </div>
+              </div>
+              
+              <button type="button" id="join-game-btn" class="btn btn-primary btn-large">ENTER VOID</button>
+            </form>
+          </div>
+          <div class="card-footer">
+            <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lobby Screen -->
+      <div id="lobby-screen" class="game-screen hidden">
+        <div class="card lobby-card">
+          <div class="card-header" data-id="SLF-002">
+            <h2>Game Lobby</h2>
+            <div class="room-info">
+              <span class="room-label">Room ID:</span>
+              <span id="display-room-id" class="room-id">0000</span>
+              <button id="copy-link-btn" class="btn btn-icon" title="Copy invite link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <div class="lobby-layout">
+              <div class="player-section">
+                <h3>Players</h3>
+                <ul id="player-list" class="player-list"></ul>
+                <div id="waiting-message" class="waiting-message">
+                  <p>You can start playing alone or wait for others to join...</p>
+                </div>
+                <div class="ready-system">
+                  <div class="ready-status">
+                    <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
+                  </div>
+                  <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
+                  <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
+                </div>
+              </div>
+
+              <div class="category-management">
+                <h3>Categories</h3>
+                <div class="category-management-container">
+                  <div id="categoryList" class="category-list">
+                    <!-- Categories will be populated dynamically -->
+                  </div>
+                  
+                  <div class="add-category-container">
+                    <input type="text" id="new-category-input" placeholder="New category" class="category-input">
+                    <button type="button" id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                  </div>
+                </div>
+                
+                <div class="category-instructions">
+                  <p><small>Add or remove categories for your game. Each player will need to provide answers for these categories.</small></p>
+                </div>
+                <!-- Template for category item with remove button -->
+                <template id="category-item-template">
+                  <div class="category-item">
+                    <span class="category-name"></span>
+                    <button type="button" class="btn-icon category-remove" title="Remove category">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <div id="admin-controls" class="admin-controls">
+                <div id="game-starter" class="game-starter">
+                  <button id="start-game-btn" class="btn btn-primary btn-large">
+                    <span class="start-icon">▶</span> INITIATE SEQUENCE
+                  </button>
+                  <p id="admin-message" class="admin-message">System ready. Initiating on command.</p>
+                </div>
+                
+                <div class="admin-session-controls">
+                  <button id="close-session-btn" class="btn btn-danger btn-outline">
+                    <span class="close-icon">✕</span> CLOSE SESSION
+                  </button>
+                  <p class="close-session-hint">End the game and disconnect all players</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card-footer">
+            <p class="text-center footer-hint">Anyone can click this button to start the game!</p>
+            <button id="universal-start-btn" class="btn btn-primary btn-lg" disabled>FORCE START</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Screen -->
+      <div id="game-screen" class="game-screen hidden">
+        <div class="card wide-card">
+          <div class="card-header game-header" data-id="SLF-003">
+            <div class="letter-display">
+              <span class="label">Letter:</span>
+              <span id="current-letter" class="current-letter">A</span>
+            </div>
+            <div class="timer-container">
+              <span class="label">Time Left:</span>
+              <span id="timer" class="timer">60</span>s
+            </div>
+          </div>
+
+          <div class="card-body">
+            <form id="answers-form" class="answers-form">
+              <div class="categories-grid">
+                <!-- Categories will be dynamically populated -->
+              </div>
+              <button type="submit" id="submit-btn" class="btn btn-primary btn-large">TRANSMIT DATA</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Screen -->
+      <div id="results-screen" class="game-screen hidden">
+        <div class="card wide-card">
+          <div class="card-header" data-id="SLF-004">
+            <h2>Round Results</h2>
+            <div class="round-letter">Letter: <span id="result-letter" class="result-letter">A</span></div>
+          </div>
+          
+          <div class="card-body">
+            <div class="results-layout">
+              <div class="results-container">
+                <div class="results-header">
+                  <div class="results-title">Category Results</div>
+                  <div class="results-subtitle">See how your answers compare!</div>
+                </div>
+                
+                <table id="results-table" class="results-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Answer</th>
+                      <th>Points</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody id="results-body">
+                    <!-- Results will be filled dynamically -->
+                  </tbody>
+                </table>
+              </div>
+              
+              <div class="scores-container">
+                <h3>🏆 Leaderboard 🏆</h3>
+                <ul id="scores-list" class="scores-list">
+                  <!-- Scores will be filled dynamically -->
+                </ul>
+              </div>
+            </div>
+            
+            <button id="next-round-btn" class="btn btn-primary btn-large">
+              <span class="btn-icon">⟳</span> NEXT SEQUENCE
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <p>Stadt Land Fluss &copy; 2025</p>
+    </footer>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Error</h3>
+          <button class="modal-close" id="error-close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="error-message"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="error-ok-btn">OK</button>
+        </div>
+      </div>
+      <div class="modal-overlay"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- Core State & DOM Utilities -->
+  <script type="module" src="/js/state.js"></script>
+  <script type="module" src="/js/dom.js"></script>
+  <script type="module" src="/js/ui.js"></script>
+  
+  <!-- Game Logic Modules -->
+  <script type="module" src="/js/lobby.js"></script>
+  <script type="module" src="/js/game.js"></script>
+
+  <!-- WebSocket Connection -->
+  <script src="/js/partysocket.js"></script>
+
+  <!-- WebSocket Event Handling (Depends on partysocket and handlers in other files) -->
+  <script type="module" src="/js/socket.js"></script>
+
+  <!-- Main Application (Initializes everything) -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html> 

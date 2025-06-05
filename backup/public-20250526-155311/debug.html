@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PartyKit Debug Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #e63946;
+    }
+    pre {
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-radius: 5px;
+      overflow: auto;
+      max-height: 400px;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    button {
+      background-color: #e63946;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    input {
+      padding: 8px;
+      margin-top: 5px;
+      width: 300px;
+    }
+    .connection-info {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>PartyKit Debug Page</h1>
+  <p>This page helps debug PartyKit WebSocket connections.</p>
+  
+  <div class="connection-info">
+    <h2>Connection Information</h2>
+    <div>
+      <label for="host-input">PartyKit Host:</label><br>
+      <input type="text" id="host-input" value="stadt-land-fluss.t3mr0i.partykit.dev">
+    </div>
+    <button id="connect-btn">Test Connection</button>
+    <div id="connection-status"></div>
+  </div>
+  
+  <h2>Connection Log</h2>
+  <pre id="log"></pre>
+  
+  <script>
+    // Configuration
+    const hostInput = document.getElementById('host-input');
+    const connectBtn = document.getElementById('connect-btn');
+    const connectionStatus = document.getElementById('connection-status');
+    const log = document.getElementById('log');
+    
+    // Log function
+    function logMessage(msg, isError = false) {
+      const now = new Date().toISOString().split('T')[1].slice(0, -1);
+      const entry = document.createElement('div');
+      entry.innerHTML = `[${now}] ${msg}`;
+      if (isError) entry.className = 'error';
+      log.appendChild(entry);
+      console.log(`[${now}] ${msg}`);
+      log.scrollTop = log.scrollHeight;
+    }
+    
+    // Update status
+    function updateStatus(msg, isSuccess = true) {
+      connectionStatus.innerHTML = msg;
+      connectionStatus.className = isSuccess ? 'success' : 'error';
+    }
+    
+    // Test PartyKit connection
+    connectBtn.addEventListener('click', function() {
+      const host = hostInput.value.trim();
+      if (!host) {
+        updateStatus('Please enter a host', false);
+        return;
+      }
+      
+      // Clear previous logs
+      log.innerHTML = '';
+      
+      logMessage(`Testing connection to PartyKit host: ${host}`);
+      updateStatus('Connecting...', true);
+      
+      // Get protocol
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const url = `${protocol}//${host}/party/game`;
+      
+      logMessage(`WebSocket URL: ${url}`);
+      
+      try {
+        const socket = new WebSocket(url);
+        
+        socket.onopen = function() {
+          logMessage('✅ Connection established!');
+          updateStatus('Connected successfully!', true);
+          
+          // Send a test message
+          const testMsg = JSON.stringify({
+            type: 'debug',
+            message: 'Hello from debug page',
+            timestamp: Date.now()
+          });
+          socket.send(testMsg);
+          logMessage(`Sent test message: ${testMsg}`);
+        };
+        
+        socket.onmessage = function(event) {
+          logMessage(`Received message: ${event.data}`);
+        };
+        
+        socket.onclose = function(event) {
+          logMessage(`Connection closed: Code ${event.code}`, event.code !== 1000);
+          updateStatus(`Connection closed with code ${event.code}`, event.code === 1000);
+        };
+        
+        socket.onerror = function(error) {
+          logMessage(`WebSocket error: ${error}`, true);
+          updateStatus('Connection error', false);
+        };
+      } catch (error) {
+        logMessage(`Error creating WebSocket: ${error.message}`, true);
+        updateStatus('Failed to create WebSocket', false);
+      }
+    });
+    
+    // Environment info
+    logMessage('Environment information:');
+    logMessage(`User Agent: ${navigator.userAgent}`);
+    logMessage(`Page URL: ${window.location.href}`);
+    logMessage(`Protocol: ${window.location.protocol}`);
+    logMessage(`Host: ${window.location.host}`);
+    
+    // Add event to test with configured host
+    window.addEventListener('DOMContentLoaded', () => {
+      logMessage(`PartyKit host from window: ${window.PARTYKIT_HOST || 'Not set'}`);
+    });
+  </script>
+</body>
+</html> 

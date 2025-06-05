@@ -53,145 +53,6 @@ const MIME_TYPES: Record<string, string> = {
 // Default categories
 const DEFAULT_CATEGORIES = ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'];
 
-// Add a simple inline validator function for fallback
-// This is for when the external validator module doesn't work
-function inlineValidateAnswers(letter: string, playerAnswers: Record<string, Record<string, string>>, categories: string[]): Record<string, Record<string, any>> {
-  console.log('🔍 INLINE VALIDATOR: Running simple inline validation');
-  console.log(`🔍 INLINE VALIDATOR: Letter: ${letter}, Categories: ${categories.join(', ')}`);
-  
-  const results: Record<string, Record<string, any>> = {};
-  
-  Object.keys(playerAnswers).forEach(playerId => {
-    results[playerId] = {};
-    const answers = playerAnswers[playerId];
-    
-    Object.keys(answers).forEach(category => {
-      const answer = answers[category];
-      const isValid = answer && answer.length > 0 && answer.toLowerCase().startsWith(letter.toLowerCase());
-      
-      results[playerId][category] = {
-        valid: isValid,
-        explanation: isValid 
-          ? `"${answer}" ist eine gültige Antwort für ${category}.` 
-          : `"${answer}" ist ungültig oder beginnt nicht mit dem Buchstaben ${letter.toUpperCase()}.`,
-        suggestions: null
-      };
-    });
-  });
-  
-  console.log('🔍 INLINE VALIDATOR: Validation complete');
-  return results;
-}
-
-// Fetch polyfill for direct API calls
-async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number }) {
-  const { timeout = 10000, ...fetchOptions } = options;
-  
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  
-  try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      signal: controller.signal
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    clearTimeout(id);
-    throw error;
-  }
-}
-
-// Direct OpenAI API call as another fallback
-async function directOpenAIValidation(letter: string, playerAnswers: Record<string, Record<string, string>>, categories: string[]): Promise<Record<string, Record<string, any>>> {
-  console.log('🔍 DIRECT API: Attempting direct OpenAI API call');
-  
-  try {
-    // Try simplified validation with GPT-3.5
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('API key not available');
-    }
-    
-    const prompt = `
-      Validate the following answers for the game Stadt-Land-Fluss with the letter "${letter}":
-      
-      Categories: ${categories.join(', ')}
-      
-      Answers:
-      ${Object.entries(playerAnswers).map(([playerId, answers]) => 
-        `Player ${playerId}:\n${Object.entries(answers).map(([category, answer]) => 
-          `- ${category}: "${answer}"`).join('\n')}`
-      ).join('\n\n')}
-      
-      Rules:
-      1. Each answer must start with the letter "${letter}" (case insensitive)
-      2. The answer must be real and accurate for its category
-      3. Answers that don't follow these rules are invalid
-      
-      Please provide validation results as a JSON object with the following structure:
-      {
-        "playerId1": {
-          "category1": { "valid": true/false, "explanation": "reason" },
-          "category2": { "valid": true/false, "explanation": "reason" }
-        },
-        "playerId2": {
-          ...
-        }
-      }
-    `;
-    
-    const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 1000
-      }),
-      timeout: 8000 // 8 second timeout
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content) {
-      throw new Error('Empty response from OpenAI');
-    }
-    
-    // Try to parse JSON from the response
-    try {
-      // Find JSON in the response - look for anything between curly braces
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in response');
-      }
-      
-      const validationResults = JSON.parse(jsonMatch[0]);
-      console.log('🔍 DIRECT API: Successfully parsed validation results');
-      return validationResults;
-    } catch (parseError) {
-      console.error('🔍 DIRECT API: Error parsing response:', parseError);
-      throw parseError;
-    }
-  } catch (error) {
-    console.error('🔍 DIRECT API: Error calling OpenAI API directly:', error);
-    
-    // Return a simple validation as fallback
-    console.log('🔍 DIRECT API: Using simple validation as ultimate fallback');
-    return inlineValidateAnswers(letter, playerAnswers, categories);
-  }
-}
-
 // Define a type for our validator module
 interface ValidatorModule {
   validateAnswers: (letter: string, answers: any, categories: string[]) => Promise<any>;
@@ -213,180 +74,6 @@ try {
 } catch (error) {
   console.error("❌ SERVER: Error in preload validator attempt:", error);
   validatorLoadAttempted = true;
-}
-
-// Embedded validator functions that don't require external modules
-/**
- * Direct OpenAI API call for validation when module import fails
- */
-async function embeddedValidateAnswers(letter: string, playerAnswers: Record<string, Record<string, string>>, categories: string[]): Promise<Record<string, Record<string, any>>> {
-  console.log('🔍 EMBEDDED: validateAnswers called with letter:', letter);
-  console.log('📦 EMBEDDED: Categories to validate:', categories);
-  console.log('📦 EMBEDDED: Answers to validate:', JSON.stringify(playerAnswers, null, 2));
-  
-  const API_KEY = process.env.OPENAI_API_KEY;
-  
-  if (!API_KEY) {
-    console.warn('⚠️ EMBEDDED: OpenAI API Key not set. Using basic validation.');
-    return basicValidateAnswers(letter, playerAnswers, categories);
-  }
-  
-  try {
-    // Create validation prompt
-    const validationPrompt = JSON.stringify({
-      task: "Validate user-submitted answers for the game 'Stadt, Land, Fluss'.",
-      rules: {
-        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE. ALWAYS ANSWER IN GERMAN",
-        categories: {
-          Stadt: "Must be a real, existing city or town with official city rights.",
-          Land: "Must be a recognized sovereign country, federal state, or well-known historical region.",
-          Fluss: "Must be a real, existing river.",
-          Name: "Must be a commonly recognized first name used for people.",
-          Beruf: "Must be a recognized official profession or occupation.",
-          Pflanze: "Must be a specific plant species, including trees, flowers, or crops.",
-          Tier: "Must be a specific animal species, using either scientific or common name.",
-          "*": "For any other category, validate that the answer is real, accurate, and fits the category's theme."
-        }
-      },
-      letter,
-      answers: playerAnswers,
-      categories,
-      output_format: {
-        valid: "Boolean indicating if ALL answers are valid",
-        errors: "Array of strings describing validation errors for specific answers",
-        suggestions: "Object with category keys and string values containing alternate suggestions that start with the required letter",
-        explanations: "Object with category keys and string values containing brief explanations for each valid answer AND invalid answer"
-      }
-    });
-
-    console.log(`EMBEDDED: Sending validation request for letter ${letter}`);
-    
-    // Make direct API call to OpenAI
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a validator for the game 'Stadt Land Fluss'. Validate if answers start with the given letter and are correct for their categories."
-          },
-          {
-            role: "user",
-            content: validationPrompt
-          }
-        ],
-        temperature: 0.2
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('EMBEDDED: OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data || !data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-      throw new Error('Invalid response from OpenAI API');
-    }
-    
-    const content = data.choices[0].message.content;
-    console.log('EMBEDDED: Raw validation response:', content);
-    
-    try {
-      // Remove any comments from the JSON string before parsing
-      const cleanedJson = content.replace(/\/\/.*$/gm, '').trim();
-      // Try to parse the response as JSON
-      const parsedResponse = JSON.parse(cleanedJson);
-      console.log('EMBEDDED: Parsed validation result:', parsedResponse);
-      
-      // Process the validation results
-      const playerResults: Record<string, Record<string, any>> = {};
-      
-      // For each player's answers
-      Object.entries(playerAnswers).forEach(([playerId, answers]) => {
-        playerResults[playerId] = {};
-        
-        // For each category
-        Object.entries(answers).forEach(([category, answer]) => {
-          if (!answer) {
-            playerResults[playerId][category] = {
-              valid: false,
-              explanation: "Keine Antwort angegeben",
-              suggestions: null
-            };
-            return;
-          }
-          
-          // Get the validation result for this category
-          const categoryValidation = {
-            valid: parsedResponse.valid,
-            explanation: parsedResponse.explanations?.[category] || "Keine Erklärung verfügbar",
-            suggestions: parsedResponse.suggestions?.[category] || null
-          };
-          
-          // Check if the answer starts with the correct letter
-          if (!answer.toLowerCase().startsWith(letter.toLowerCase())) {
-            categoryValidation.valid = false;
-            categoryValidation.explanation = `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`;
-            categoryValidation.suggestions = null;
-          }
-          
-          playerResults[playerId][category] = categoryValidation;
-        });
-      });
-      
-      return playerResults;
-    } catch (e) {
-      console.error('EMBEDDED: Failed to parse OpenAI response as JSON:', e);
-      return basicValidateAnswers(letter, playerAnswers, categories);
-    }
-  } catch (error) {
-    console.error('EMBEDDED: Error in validateAnswers:', error);
-    return basicValidateAnswers(letter, playerAnswers, categories);
-  }
-}
-
-/**
- * Basic validation when OpenAI API fails
- */
-function basicValidateAnswers(letter: string, playerAnswers: Record<string, Record<string, string>>, categories: string[]): Record<string, Record<string, any>> {
-  console.log('🔍 BASIC: Performing basic validation for letter:', letter);
-  
-  const playerResults: Record<string, Record<string, any>> = {};
-  
-  Object.entries(playerAnswers).forEach(([playerId, answers]) => {
-    playerResults[playerId] = {};
-    
-    Object.entries(answers).forEach(([category, answer]) => {
-      if (!answer) {
-        playerResults[playerId][category] = {
-          valid: false,
-          explanation: "Keine Antwort angegeben",
-          suggestions: null
-        };
-        return;
-      }
-      
-      const startsWithLetter = answer.toLowerCase().startsWith(letter.toLowerCase());
-      
-      playerResults[playerId][category] = {
-        valid: startsWithLetter,
-        explanation: startsWithLetter 
-          ? `"${answer}" ist eine gültige Antwort für ${category}.`
-          : `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`,
-        suggestions: null
-      };
-    });
-  });
-  
-  return playerResults;
 }
 
 export default class StadtLandFlussServer implements Party.Server {
@@ -972,7 +659,7 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   private async processValidation() {
-    console.log(`[PartyKit] --- Entering processValidation for room ${this.roomId} ---`); // <-- ADD LOG
+    console.log(`[PartyKit] --- Entering processValidation for room ${this.roomId} ---`);
     // Check roundInProgress *after* logging entry
     if (!this.roomState.roundInProgress) {
         console.log(`[PartyKit] processValidation aborted: roundInProgress is false.`);
@@ -1001,104 +688,56 @@ export default class StadtLandFlussServer implements Party.Server {
     this.roomState.roundInProgress = false;
     
     try {
-      console.log("⏱️ VALIDATION: Starting validation process");
+      console.log("⏱️ VALIDATION: Starting AI validation process");
       const startTime = Date.now();
       
-      // Get validation results
+      // Get validation results - NO FALLBACKS, AI ONLY
       let validationResults;
-      try {
-        // Check if the validator module was successfully preloaded
-        if (validatorModule && typeof validatorModule.validateAnswers === 'function') {
-          console.log("⏱️ VALIDATION: Using preloaded validator module");
-          validationResults = await validatorModule.validateAnswers(
-        this.roomState.currentLetter || 'A',
-        playerAnswers,
-            this.roomState.categories
-          );
-          console.log("⏱️ VALIDATION: Preloaded validator completed successfully");
-        } 
-        // Try dynamic import if preload failed
-        else if (!validatorLoadAttempted) {
-          console.log("⏱️ VALIDATION: Attempting dynamic import of validator");
-          try {
-            const validator = await import("../server/chatgpt-validator.js");
-            console.log("⏱️ VALIDATION: Dynamic import successful, validator is:", typeof validator);
-            
-            if (validator && typeof validator.validateAnswers === 'function') {
-              console.log("⏱️ VALIDATION: Using dynamically imported validator");
-              validationResults = await validator.validateAnswers(
-                this.roomState.currentLetter || 'A',
-                playerAnswers,
-                this.roomState.categories
-              );
-              console.log("⏱️ VALIDATION: Dynamic import validator completed successfully");
-            } else {
-              console.error("⏱️ VALIDATION: Dynamic import failed to get validateAnswers function");
-              throw new Error("Dynamic import failed");
-            }
-          } catch (importError) {
-            console.error("⏱️ VALIDATION: Dynamic import error:", importError);
-            throw importError; // Propagate to the next fallback
-          }
-        }
-        else {
-          // If preload failed and dynamic import wasn't attempted or failed, throw error to trigger next fallback
-          console.error("⏱️ VALIDATION: Preload and dynamic import failed. Proceeding to direct API call fallback.");
-          throw new Error("Validator module loading failed");
-        }
-
-        console.log(`⏱️ VALIDATION: Validator completed in ${Date.now() - startTime}ms`);
+      
+      // Check if the validator module was successfully preloaded
+      if (validatorModule && typeof validatorModule.validateAnswers === 'function') {
+        console.log("⏱️ VALIDATION: Using preloaded validator module");
+        validationResults = await validatorModule.validateAnswers(
+          this.roomState.currentLetter || 'A',
+          playerAnswers,
+          this.roomState.categories
+        );
+        console.log("⏱️ VALIDATION: Preloaded validator completed successfully");
+      } 
+      // Try dynamic import if preload failed
+      else if (!validatorLoadAttempted) {
+        console.log("⏱️ VALIDATION: Attempting dynamic import of validator");
+        const validator = await import("../server/chatgpt-validator.js");
+        console.log("⏱️ VALIDATION: Dynamic import successful, validator is:", typeof validator);
         
-        // Check if we got valid results
-        if (!validationResults || Object.keys(validationResults).length === 0) {
-          console.error("⚠️ VALIDATION: Empty results returned from validator");
-          throw new Error("Empty validation results");
-        }
-      } catch (validationError) {
-        console.error("⚠️ VALIDATION ERROR:", validationError);
-        
-        // Try direct API call as another fallback
-        try {
-          console.log("⏱️ VALIDATION: Trying direct OpenAI API call");
-          validationResults = await directOpenAIValidation(
+        if (validator && typeof validator.validateAnswers === 'function') {
+          console.log("⏱️ VALIDATION: Using dynamically imported validator");
+          validationResults = await validator.validateAnswers(
             this.roomState.currentLetter || 'A',
             playerAnswers,
             this.roomState.categories
           );
-          console.log("⏱️ VALIDATION: Direct API call completed successfully");
-        } catch (directApiError) {
-          console.error("⏱️ VALIDATION: Direct API call failed:", directApiError);
-          
-          // Try our embedded validator as another fallback
-          try {
-            console.log("⏱️ VALIDATION: Trying embedded validator");
-            validationResults = await embeddedValidateAnswers(
-              this.roomState.currentLetter || 'A',
-              playerAnswers,
-              this.roomState.categories
-            );
-            console.log("⏱️ VALIDATION: Embedded validator completed successfully");
-          } catch (embeddedError) {
-            console.error("⏱️ VALIDATION: Embedded validator failed:", embeddedError);
-            
-            // Use inline validator as final fallback
-            console.log("⏱️ VALIDATION: Using inline validator as final fallback");
-            validationResults = inlineValidateAnswers(
-              this.roomState.currentLetter || 'A',
-              playerAnswers,
-              this.roomState.categories
-            );
-            console.log("⏱️ VALIDATION: Inline validator completed");
-          }
+          console.log("⏱️ VALIDATION: Dynamic import validator completed successfully");
+        } else {
+          throw new Error("Dynamic import failed to get validateAnswers function");
         }
       }
+      else {
+        throw new Error("No AI validator available - preload and dynamic import both failed");
+      }
+
+      console.log(`⏱️ VALIDATION: AI Validator completed in ${Date.now() - startTime}ms`);
       
-      console.log(`Validation completed for room ${this.roomId}`);
+      // Check if we got valid results
+      if (!validationResults || Object.keys(validationResults).length === 0) {
+        throw new Error("Empty validation results returned from AI");
+      }
+      
+      console.log(`AI Validation completed successfully for room ${this.roomId}`);
       
       // Initialize structured results
       const structuredScores: Record<string, Record<string, any>> = {};
       
-      try {
       // Process validation results into expected structure
       this.roomState.categories.forEach(category => {
         structuredScores[category] = {};
@@ -1118,17 +757,22 @@ export default class StadtLandFlussServer implements Party.Server {
             // Get the validation result for this category
             const categoryValidation = validationResults[playerId]?.[category];
             
+            // Add debugging to see what validation results we're getting
+            console.log(`🔍 VALIDATION DEBUG for ${category}:"${playerAnswer}":`, categoryValidation);
+            
             if (categoryValidation) {
               // Use the AI's explanation
               structuredScores[category][playerId].explanation = categoryValidation.explanation;
               
-              // Determine score based on validation
-              if (categoryValidation.valid) {
+              // Determine score based on validation - be more strict
+              if (categoryValidation.valid === true) {
                 // Check if answer is unique
                 const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
                 structuredScores[category][playerId].score = isUnique ? 20 : 10;
+                console.log(`✅ VALID: "${playerAnswer}" for ${category} - Score: ${isUnique ? 20 : 10}`);
               } else {
                 structuredScores[category][playerId].score = 0;
+                console.log(`❌ INVALID: "${playerAnswer}" for ${category} - Score: 0`);
               }
               
               // Add suggestions if available
@@ -1136,34 +780,11 @@ export default class StadtLandFlussServer implements Party.Server {
                 structuredScores[category][playerId].suggestion = categoryValidation.suggestions;
               }
             } else {
-              // Fallback if no validation result
-              structuredScores[category][playerId].explanation = "Answer could not be validated";
+              throw new Error(`No validation result for player ${playerId}, category ${category}, answer "${playerAnswer}"`);
             }
           }
         });
       });
-      } catch (processingError) {
-        console.error("⚠️ ERROR processing validation results:", processingError);
-        
-        // If processing fails, create a simple scoring object
-        this.roomState.categories.forEach(category => {
-          structuredScores[category] = {};
-          
-          Object.keys(playerAnswers).forEach(playerId => {
-            const answer = playerAnswers[playerId][category] || '';
-            const letter = this.roomState.currentLetter?.toLowerCase() || 'a';
-            const isValid = answer.length > 0 && answer.toLowerCase().startsWith(letter);
-            
-            structuredScores[category][playerId] = {
-              answer: answer,
-              score: isValid ? 10 : 0,  // Give 10 points for any valid answer as a fallback
-              explanation: isValid 
-                ? `"${answer}" ist eine gültige Antwort für ${category}.` 
-                : `"${answer}" ist ungültig oder beginnt nicht mit dem Buchstaben ${this.roomState.currentLetter}.`
-            };
-          });
-        });
-      }
       
       // Update player scores
       Object.entries(structuredScores).forEach(([category, categoryScores]) => {
@@ -1175,37 +796,33 @@ export default class StadtLandFlussServer implements Party.Server {
       });
       
       // Send results to all players
-      try {
-        console.log(`📢 Broadcasting round results for room ${this.roomId}`);
+      console.log(`📢 Broadcasting round results for room ${this.roomId}`);
       this.party.broadcast(JSON.stringify({
         type: "roundResults",
         scores: structuredScores,
         players: Object.values(this.roomState.players),
-        categories: this.roomState.categories // Include current categories
+        categories: this.roomState.categories
       }));
-        console.log(`✅ Broadcast successful`);
-      } catch (broadcastError) {
-        console.error(`❌ Error broadcasting round results:`, broadcastError);
-      }
+      console.log(`✅ Broadcast successful`);
       
       // Store results
       this.roomState.roundResults = structuredScores;
       
-      // Save state
-      // await this.party.storage.put(`room:${this.roomId}`, this.roomState);
-      // Save state moved to end of onMessage for consistency
-      
     } catch (error) {
-      console.error("❌ Final error processing validation results:", error);
-      // Attempt to send error back to clients if validation failed catastrophically
-      try {
+      console.error("❌ AI VALIDATION FAILED:", error);
+      
+      // Send clear error message to all players
       this.party.broadcast(JSON.stringify({
-        type: "error",
-              message: "Failed to process round results due to server error."
+        type: "validationError",
+        message: "AI validation failed. Please try again or contact support.",
+        error: error.message
       }));
-      } catch (broadcastError) {
-          console.error("❌ Failed to broadcast final validation error:", broadcastError);
-      }
+      
+      // Reset round state so they can try again
+      this.roomState.roundInProgress = false;
+      Object.values(this.roomState.players).forEach(player => {
+        player.submitted = false;
+      });
     }
   }
   
@@ -1316,35 +933,6 @@ export default class StadtLandFlussServer implements Party.Server {
         players: Object.values(this.roomState.players)
       }));
     }
-  }
-
-  // Simple fallback validation - does basic checks without calling OpenAI
-  private performSimpleValidation(allAnswers: Record<string, Record<string, string>>) {
-    console.log("Running simple validation fallback");
-    const results: Record<string, Record<string, any>> = {};
-    
-    Object.keys(allAnswers).forEach(playerId => {
-      results[playerId] = {};
-      const playerAnswers = allAnswers[playerId];
-      
-      Object.keys(playerAnswers).forEach(category => {
-        const answer = playerAnswers[category] || '';
-        const letter = this.roomState.currentLetter?.toLowerCase() || 'a';
-        
-        // Basic validation: answer must start with the letter
-        const isValid = answer.length > 0 && answer.toLowerCase().startsWith(letter);
-        
-        results[playerId][category] = {
-          valid: isValid,
-          explanation: isValid 
-            ? `"${answer}" ist eine gültige Antwort für ${category}.` 
-            : `"${answer}" ist ungültig oder beginnt nicht mit dem Buchstaben ${this.roomState.currentLetter}.`,
-          suggestions: null
-        };
-      });
-    });
-    
-    return results;
   }
 
   private handleReturnToLobby(sender: Party.Connection) {

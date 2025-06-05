@@ -279,7 +279,7 @@ async function validateAnswers(letter, answers, categories) {
     console.log('💡 Environment variables loaded:', Object.keys(process.env).filter(key => 
       key.includes('OPENAI') || key.includes('API')).join(', '));
     
-    return { valid: true, errors: [], suggestions: {}, explanations: {} };
+    throw new Error('OpenAI API Key or Assistant ID not configured');
   }
 
   // Test API key only when needed, not at module load time
@@ -290,12 +290,12 @@ async function validateAnswers(letter, answers, categories) {
     
     if (!isKeyValid) {
       console.error('❌ API key test failed during validation request');
-      return { valid: true, errors: [], suggestions: {}, explanations: {} };
+      throw new Error('API key validation failed');
     }
   } catch (error) {
     console.error('❌ API key test error:', error.message);
     console.error('❌ API key test stack:', error.stack);
-    return { valid: true, errors: [], suggestions: {}, explanations: {} };
+    throw new Error(`API key test failed: ${error.message}`);
   }
 
   try {
@@ -303,17 +303,22 @@ async function validateAnswers(letter, answers, categories) {
     const validationPrompt = JSON.stringify({
       task: "Validate user-submitted answers for the game 'Stadt, Land, Fluss'.",
       rules: {
-        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE. ALWAYS ANSWER IN GERMAN",
+        general: "Each answer must start with the specified letter and fit the category. Be EXTREMELY strict with validation and make sure answers are REAL and ACCURATE. ALWAYS ANSWER IN GERMAN. For any sports-related categories, verify the facts carefully!",
         categories: {
           Stadt: "Must be a real, existing city or town with official city rights. Fictional cities, neighborhoods, districts, misspellings, or made-up names are INVALID. Check for misspellings like 'Föln' instead of 'Köln' and mark them as INVALID. Include geographic location in explanation.",
-          Land: "Must be a recognized sovereign country, federal state, or well-known historical region. Fictional countries or misspellings are INVALID. Include geographic location in explanation.",
+          Land: "Must be a recognized sovereign country, federal state, or well-known historical region. CITIES like Köln, Berlin, München are NOT countries! Fictional countries or misspellings are INVALID. Include geographic location in explanation.",
           Fluss: "Must be a real, existing river. Streams, creeks, lakes, or fictional rivers are INVALID. Made-up or misspelled river names are INVALID. Include geographic location in explanation.",
           Name: "Must be a commonly recognized first name used for people. Nicknames are valid only if widely recognized. Fictional or made-up names are INVALID. Include origin information in explanation.",
-          Beruf: "Must be a recognized official profession or occupation. Obsolete, fictional, or made-up jobs are INVALID. Include a brief description of the profession in explanation.",
+          Beruf: "Must be a recognized official profession or occupation. Gibberish words like 'Kadoesfrf' are INVALID! Obsolete, fictional, or made-up jobs are INVALID. Include a brief description of the profession in explanation.",
           Pflanze: "Must be a specific plant species, including trees, flowers, or crops. Generic terms are INVALID. Made-up or misspelled plant names are INVALID. Include scientific details in explanation.",
           Tier: "Must be a specific animal species, using either scientific or common name. Generic terms, fictional, or made-up animal names are INVALID. Include habitat information in explanation.",
+          "BVB Spieler": "ONLY accept verified current or former Borussia Dortmund players. Double-check facts! Names like 'Ziko' which are not real BVB players are INVALID. Include years played for BVB in explanation.",
+          "FC Bayern Spieler": "ONLY accept verified current or former FC Bayern München players. Double-check facts! Include years played for Bayern in explanation.",
+          "Fußballspieler": "Must be a real, professional football player. Verify they exist! Include team(s) and years active in explanation.",
+          "Bundesliga Spieler": "Must be a real player who has played in the German Bundesliga. Verify facts! Include team(s) and years in explanation.",
           // Add dynamic category validation rules
-          "*": "For any other category, validate that the answer is real, accurate, and fits the category's theme. Include relevant details in the explanation. For example, for 'Videospiele' (Video Games), validate that it's a real, existing game title and include release year and genre in the explanation."
+          "*": "For any other category, validate that the answer is real, accurate, and fits the category's theme. Include relevant details in the explanation. For sports categories, be EXTREMELY strict about player/team verification - if unsure, mark as INVALID. For example, for 'Videospiele' (Video Games), validate that it's a real, existing game title and include release year and genre in the explanation.",
+          sports_warning: "CRITICAL: For ANY sports-related category (teams, players, clubs, etc.), you MUST verify the factual accuracy. If you're not 100% certain a player played for that team or a fact is correct, mark it as INVALID. Better to be too strict than to allow fake answers!"
         }
       },
       letter,
@@ -325,7 +330,7 @@ async function validateAnswers(letter, answers, categories) {
         suggestions: "Object with category keys and string values containing alternate suggestions that start with the required letter",
         explanations: "Object with category keys and string values containing brief explanations for each valid answer AND invalid answer"
       },
-      important_instruction: "IMPORTANT: Be EXTREMELY strict in your validation. First check if answers start with the specified letter (case-insensitive). Then verify each answer exists in reality and is correctly spelled - misspelled entries are INVALID. For each answer, provide an explanation whether it's valid or invalid (1-2 sentences). For invalid answers, explain why it's invalid and suggest valid alternatives that start with the required letter. If an answer looks like a misspelling of a real entity, explicitly point this out in your explanation."
+      important_instruction: "IMPORTANT: Be EXTREMELY strict in your validation. First check if answers start with the specified letter (case-insensitive). Then verify each answer exists in reality and is correctly spelled - misspelled entries are INVALID. For sports categories (teams, players, etc.), verify factual accuracy - if unsure, mark as INVALID! For each answer, provide an explanation whether it's valid or invalid (1-2 sentences). For invalid answers, explain why it's invalid and suggest valid alternatives that start with the required letter. If an answer looks like a misspelling of a real entity, explicitly point this out in your explanation."
     });
 
     console.log(`Sending validation request for letter ${letter} with answers:`, answers);
@@ -473,35 +478,7 @@ async function validateAnswers(letter, answers, categories) {
       console.error('Failed to parse assistant response as JSON:', content);
       console.error('Parse error:', e);
       
-      // Return a structured response with basic validation
-      const playerResults = {};
-      
-      Object.entries(answers).forEach(([playerId, playerAnswers]) => {
-        playerResults[playerId] = {};
-        
-        Object.entries(playerAnswers).forEach(([category, answer]) => {
-          if (!answer) {
-            playerResults[playerId][category] = {
-              valid: false,
-              explanation: "Keine Antwort angegeben",
-              suggestions: null
-            };
-            return;
-          }
-          
-          const startsWithLetter = answer.toLowerCase().startsWith(letter.toLowerCase());
-          
-          playerResults[playerId][category] = {
-            valid: startsWithLetter,
-            explanation: startsWithLetter 
-              ? `"${answer}" ist eine gültige Antwort für ${category}.`
-              : `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`,
-            suggestions: null
-          };
-        });
-      });
-      
-      return playerResults;
+      throw new Error(`Failed to parse AI response: ${e.message}`);
     }
   } catch (error) {
     console.error('Error in validateAnswers:', error);
@@ -514,35 +491,7 @@ async function validateAnswers(letter, answers, categories) {
       console.error('Headers:', error.response.headers);
     }
     
-    // Return a fallback response so the game can continue
-    const playerResults = {};
-    
-    Object.entries(answers).forEach(([playerId, playerAnswers]) => {
-      playerResults[playerId] = {};
-      
-      Object.entries(playerAnswers).forEach(([category, answer]) => {
-        if (!answer) {
-          playerResults[playerId][category] = {
-            valid: false,
-            explanation: "Keine Antwort angegeben",
-            suggestions: null
-          };
-          return;
-        }
-        
-        const startsWithLetter = answer.toLowerCase().startsWith(letter.toLowerCase());
-        
-        playerResults[playerId][category] = {
-          valid: startsWithLetter,
-          explanation: startsWithLetter 
-            ? `"${answer}" ist eine gültige Antwort für ${category}.`
-            : `"${answer}" beginnt nicht mit dem Buchstaben "${letter}".`,
-          suggestions: null
-        };
-      });
-    });
-    
-    return playerResults;
+    throw error; // Re-throw the error instead of returning fallback
   }
 }
 
