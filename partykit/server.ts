@@ -71,28 +71,55 @@ async function validateAnswersWithOpenAI(letter: string, answers: Record<string,
     throw new Error("OpenAI API key not found");
   }
 
+  // Language mapping for clear instructions
+  const languageNames = {
+    'de': 'German',
+    'en': 'English', 
+    'fr': 'French',
+    'es': 'Spanish',
+    'it': 'Italian',
+    'nl': 'Dutch'
+  };
+  
+  const languageName = languageNames[language as keyof typeof languageNames] || 'German';
+  
   // Prepare the validation message for the OpenAI Assistant
-  const message = `Letter: ${letter}
-Language: ${language}
+  const message = `VALIDATION REQUEST
+Letter: ${letter}
+Language: ${language} (${languageName})
+Game Context: Stadt Land Fluss (City Country River)
+
+IMPORTANT: Provide all explanations in ${languageName}. Adapt validation context to ${languageName} cultural knowledge and spelling conventions.
 
 Categories and answers to validate:
 ${Object.entries(answers).map(([playerId, playerAnswers]) => 
   `Player ${playerId}:\n${categories.map(cat => `  ${cat}: ${playerAnswers[cat] || '(no answer)'}`).join('\n')}`
 ).join('\n\n')}
 
-Please validate each answer according to your system instructions and return a JSON object with the following structure for each player and category:
+REQUIRED RESPONSE FORMAT (JSON only):
 {
   "playerId": {
-    "category": {
+    "categoryName": {
       "valid": true/false,
       "score": 0/10/15/20,
-      "explanation": "explanation text in ${language === 'de' ? 'German' : language === 'en' ? 'English' : language === 'fr' ? 'French' : language === 'es' ? 'Spanish' : language === 'it' ? 'Italian' : language === 'nl' ? 'Dutch' : 'the specified language'}"
+      "explanation": "explanation in ${languageName}"
     }
   }
-}`;
+}
+
+Scoring Guidelines:
+- 20 points: Perfect, unique, creative answer
+- 15 points: Correct but with minor spelling errors
+- 10 points: Valid but common/duplicate answer  
+- 0 points: Invalid or doesn't fit category
+
+Remember: Be lenient with spelling, accept cultural variations, and provide educational explanations in ${languageName}.`;
 
   try {
     console.log("🤖 Creating thread for OpenAI Assistant...");
+    console.log("🌍 Language:", language, `(${languageName})`);
+    console.log("🔤 Letter:", letter);
+    console.log("📝 Categories:", categories.join(', '));
     console.log("🔑 API Key exists:", !!apiKey);
     console.log("🔑 API Key prefix:", apiKey ? apiKey.substring(0, 10) + '...' : 'undefined');
     console.log("🤖 Assistant ID:", assistantId);
