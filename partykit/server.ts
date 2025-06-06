@@ -70,13 +70,25 @@ async function validateAnswersWithOpenAI(letter: string, answers: Record<string,
     throw new Error("OpenAI API key not found");
   }
 
-  // Prepare the validation message
-  const message = `Letter: ${letter}
+  // Prepare the validation message for your specific assistant format
+  const message = `Please validate these Stadt Land Fluss answers and return the results in JSON format.
+
+Letter: ${letter}
 
 Categories and answers to validate:
 ${Object.entries(answers).map(([playerId, playerAnswers]) => 
   `Player ${playerId}:\n${categories.map(cat => `  ${cat}: ${playerAnswers[cat] || '(no answer)'}`).join('\n')}`
-).join('\n\n')}`;
+).join('\n\n')}
+
+Please validate each answer and return a JSON object with the following structure for each player and category:
+{
+  "playerId": {
+    "category": {
+      "valid": true/false,
+      "explanation": "explanation text"
+    }
+  }
+}`;
 
   try {
     console.log("🤖 Creating thread for OpenAI Assistant...");
@@ -912,10 +924,12 @@ export default class StadtLandFlussServer implements Party.Server {
       
       // Check if we got valid results
       if (!validationResults || Object.keys(validationResults).length === 0) {
-        throw new Error("Empty validation results returned from AI");
+        console.warn("Empty validation results, using fallback scoring");
+        validationResults = {};
       }
       
       console.log(`AI Validation completed successfully for room ${this.roomId}`);
+      console.log("🔍 Full validation results:", JSON.stringify(validationResults, null, 2));
       
       // Initialize structured results
       const structuredScores: Record<string, Record<string, any>> = {};
@@ -944,9 +958,9 @@ export default class StadtLandFlussServer implements Party.Server {
             
             if (categoryValidation) {
               // Use the AI's explanation
-              structuredScores[category][playerId].explanation = categoryValidation.explanation;
+              structuredScores[category][playerId].explanation = categoryValidation.explanation || "AI validation completed";
               
-              // Determine score based on validation - be more strict
+              // Determine score based on validation - invalid answers get 0 points, valid answers get points
               if (categoryValidation.valid === true) {
                 // Check if answer is unique
                 const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
@@ -962,7 +976,11 @@ export default class StadtLandFlussServer implements Party.Server {
                 structuredScores[category][playerId].suggestion = categoryValidation.suggestions;
               }
             } else {
-              throw new Error(`No validation result for player ${playerId}, category ${category}, answer "${playerAnswer}"`);
+              // If no validation result, give basic points for having an answer
+              console.warn(`⚠️ No validation result for player ${playerId}, category ${category}, answer "${playerAnswer}" - giving basic points`);
+              const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
+              structuredScores[category][playerId].score = isUnique ? 10 : 5;
+              structuredScores[category][playerId].explanation = "Answer provided (validation incomplete)";
             }
           }
         });
