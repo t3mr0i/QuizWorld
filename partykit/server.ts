@@ -80,6 +80,28 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
 
   try {
     console.log("🤖 Creating thread for OpenAI Assistant...");
+    console.log("🔑 API Key exists:", !!apiKey);
+    console.log("🔑 API Key prefix:", apiKey ? apiKey.substring(0, 10) + '...' : 'undefined');
+    console.log("🤖 Assistant ID:", assistantId);
+    
+    // Step 0: Verify assistant exists (optional check)
+    try {
+      const assistantCheck = await fetch(`https://api.openai.com/v1/assistants/${assistantId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+      
+      if (assistantCheck.ok) {
+        console.log("✅ Assistant verified successfully");
+      } else {
+        const errorText = await assistantCheck.text();
+        console.warn("⚠️ Assistant verification failed:", assistantCheck.status, errorText);
+      }
+    } catch (verifyError) {
+      console.warn("⚠️ Assistant verification error:", verifyError);
+    }
     
     // Step 1: Create a thread
     const threadResponse = await fetch('https://api.openai.com/v1/threads', {
@@ -93,7 +115,9 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
     });
 
     if (!threadResponse.ok) {
-      throw new Error(`Failed to create thread: ${threadResponse.status} ${threadResponse.statusText}`);
+      const errorText = await threadResponse.text();
+      console.error("❌ Thread creation failed:", threadResponse.status, threadResponse.statusText, errorText);
+      throw new Error(`Failed to create thread: ${threadResponse.status} ${threadResponse.statusText} - ${errorText}`);
     }
 
     const thread = await threadResponse.json();
@@ -115,7 +139,9 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
     });
 
     if (!messageResponse.ok) {
-      throw new Error(`Failed to add message: ${messageResponse.status} ${messageResponse.statusText}`);
+      const errorText = await messageResponse.text();
+      console.error("❌ Message creation failed:", messageResponse.status, messageResponse.statusText, errorText);
+      throw new Error(`Failed to add message: ${messageResponse.status} ${messageResponse.statusText} - ${errorText}`);
     }
 
     console.log("✅ Message added to thread");
@@ -134,7 +160,9 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
     });
 
     if (!runResponse.ok) {
-      throw new Error(`Failed to run assistant: ${runResponse.status} ${runResponse.statusText}`);
+      const errorText = await runResponse.text();
+      console.error("❌ Assistant run failed:", runResponse.status, runResponse.statusText, errorText);
+      throw new Error(`Failed to run assistant: ${runResponse.status} ${runResponse.statusText} - ${errorText}`);
     }
 
     const run = await runResponse.json();
@@ -190,7 +218,9 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
     });
 
     if (!messagesResponse.ok) {
-      throw new Error(`Failed to get messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+      const errorText = await messagesResponse.text();
+      console.error("❌ Messages retrieval failed:", messagesResponse.status, messagesResponse.statusText, errorText);
+      throw new Error(`Failed to get messages: ${messagesResponse.status} ${messagesResponse.statusText} - ${errorText}`);
     }
 
     const messagesData = await messagesResponse.json();
