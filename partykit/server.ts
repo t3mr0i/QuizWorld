@@ -61,87 +61,149 @@ let validatorLoadAttempted = false;
 // AI Validator for PartyKit environment using fetch API
 console.log("🚀 SERVER STARTING: AI Validator enabled using fetch API");
 
-// AI Validation function using OpenAI API
+// AI Validation function using OpenAI Assistant API
 async function validateAnswersWithOpenAI(letter: string, answers: Record<string, Record<string, string>>, categories: string[]): Promise<any> {
   const apiKey = process.env.OPENAI_API_KEY;
+  const assistantId = 'asst_3Lqlm7XjAeciaGU8VbVOS8Al';
   
   if (!apiKey) {
     throw new Error("OpenAI API key not found");
   }
 
-  // Prepare the validation prompt
-  const prompt = `You are validating answers for a German word game "Stadt Land Fluss" (City Country River).
-
-Rules:
-- All answers must start with the letter "${letter}"
-- Answers must be in German
-- Answers must be real, existing things (no made-up words)
-- Each answer must fit the category
+  // Prepare the validation message
+  const message = `Letter: ${letter}
 
 Categories and answers to validate:
 ${Object.entries(answers).map(([playerId, playerAnswers]) => 
   `Player ${playerId}:\n${categories.map(cat => `  ${cat}: ${playerAnswers[cat] || '(no answer)'}`).join('\n')}`
-).join('\n\n')}
-
-For each player and category, respond with a JSON object in this exact format:
-{
-  "playerId": {
-    "category": {
-      "valid": true/false,
-      "explanation": "Brief explanation why it's valid or invalid"
-    }
-  }
-}
-
-Only return the JSON object, no other text.`;
+).join('\n\n')}`;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    console.log("🤖 Creating thread for OpenAI Assistant...");
+    
+    // Step 1: Create a thread
+    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({})
+    });
+
+    if (!threadResponse.ok) {
+      throw new Error(`Failed to create thread: ${threadResponse.status} ${threadResponse.statusText}`);
+    }
+
+    const thread = await threadResponse.json();
+    const threadId = thread.id;
+    console.log(`✅ Thread created: ${threadId}`);
+
+    // Step 2: Add message to thread
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert at the German word game "Stadt Land Fluss". Validate answers strictly according to the rules.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 2000
+        role: 'user',
+        content: message
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    if (!messageResponse.ok) {
+      throw new Error(`Failed to add message: ${messageResponse.status} ${messageResponse.statusText}`);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content) {
-      throw new Error("No content received from OpenAI");
+    console.log("✅ Message added to thread");
+
+    // Step 3: Run the assistant
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({
+        assistant_id: assistantId
+      })
+    });
+
+    if (!runResponse.ok) {
+      throw new Error(`Failed to run assistant: ${runResponse.status} ${runResponse.statusText}`);
     }
+
+    const run = await runResponse.json();
+    const runId = run.id;
+    console.log(`✅ Assistant run started: ${runId}`);
+
+    // Step 4: Poll for completion
+    let runStatus = 'queued';
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout
+
+    while (runStatus !== 'completed' && runStatus !== 'failed' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      attempts++;
+
+      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error(`Failed to check run status: ${statusResponse.status} ${statusResponse.statusText}`);
+      }
+
+      const statusData = await statusResponse.json();
+      runStatus = statusData.status;
+      console.log(`🔄 Run status: ${runStatus} (attempt ${attempts})`);
+    }
+
+    if (runStatus !== 'completed') {
+      throw new Error(`Assistant run failed or timed out. Status: ${runStatus}`);
+    }
+
+    // Step 5: Get the assistant's response
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'OpenAI-Beta': 'assistants=v2'
+      }
+    });
+
+    if (!messagesResponse.ok) {
+      throw new Error(`Failed to get messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+    }
+
+    const messagesData = await messagesResponse.json();
+    const assistantMessage = messagesData.data.find((msg: any) => msg.role === 'assistant');
+    
+    if (!assistantMessage || !assistantMessage.content || !assistantMessage.content[0]) {
+      throw new Error("No response from assistant");
+    }
+
+    const content = assistantMessage.content[0].text.value;
+    console.log("📝 Assistant response received");
 
     // Parse the JSON response
     try {
       const validationResults = JSON.parse(content);
-      console.log("✅ OpenAI validation successful");
+      console.log("✅ OpenAI Assistant validation successful");
       return validationResults;
     } catch (parseError) {
-      console.error("Failed to parse OpenAI response:", content);
-      throw new Error("Invalid JSON response from OpenAI");
+      console.error("Failed to parse assistant response:", content);
+      throw new Error("Invalid JSON response from OpenAI Assistant");
     }
 
   } catch (error) {
-    console.error("OpenAI validation error:", error);
+    console.error("OpenAI Assistant validation error:", error);
     throw error;
   }
 }
