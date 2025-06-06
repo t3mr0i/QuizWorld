@@ -240,11 +240,11 @@
                             </div>
                         </div>
                         
-                        <div id="admin-start-controls" class="admin-controls game-starter">
-                            <div class="start-game-center">
+                        <div id="admin-start-controls" class="admin-controls">
+                            <div class="game-starter-box">
                                 <button id="start-game-btn" class="btn btn-primary btn-large">START GAME</button>
                             </div>
-                            <div class="admin-session-controls bottom-right">
+                            <div class="session-controls-box">
                                 <button id="close-session-btn" class="btn btn-danger btn-outline">
                                     <span class="close-icon">×</span> TERMINATE SESSION
                                 </button>
@@ -740,6 +740,9 @@
                     case 'validationError':
                         this.handleValidationError(data);
                         break;
+                    case 'timerReduced':
+                        this.handleTimerReduced(data);
+                        break;
                     case 'error':
                         this.showError(data.message || 'Server error');
                         break;
@@ -1017,6 +1020,58 @@
                 this.updatePlayerList();
             }
 
+            handleTimerReduced(data) {
+                console.log('Timer reduced:', data);
+                
+                const { timeReduction, newTimeRemaining, submittedPlayer } = data;
+                
+                // Update the current time remaining
+                this.timeLeft = newTimeRemaining;
+                
+                // Update the timer display immediately
+                const timerElement = document.getElementById('timer');
+                if (timerElement) {
+                    timerElement.textContent = newTimeRemaining;
+                    
+                    // Add a visual effect to show the time reduction
+                    timerElement.classList.add('timer-reduced');
+                    setTimeout(() => {
+                        timerElement.classList.remove('timer-reduced');
+                    }, 1000);
+                    
+                    // Update warning/danger classes based on new time
+                    if (newTimeRemaining <= 10) {
+                        timerElement.classList.remove('timer-warning');
+                        timerElement.classList.add('timer-danger');
+                    } else if (newTimeRemaining <= 30) {
+                        timerElement.classList.add('timer-warning');
+                        timerElement.classList.remove('timer-danger');
+                    } else {
+                        timerElement.classList.remove('timer-warning', 'timer-danger');
+                    }
+                }
+                
+                // Show a notification to players
+                this.showTimerReductionNotification(timeReduction, submittedPlayer);
+            }
+
+            showTimerReductionNotification(timeReduction, submittedPlayer) {
+                // Create a temporary notification element
+                const notification = document.createElement('div');
+                notification.className = 'timer-reduction-notification';
+                notification.textContent = `⏰ ${submittedPlayer} submitted! Time reduced by ${timeReduction}s`;
+                
+                // Add to the body
+                document.body.appendChild(notification);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 3000);
+            }
+
             joinGame() {
                 const playerName = document.getElementById('player-name').value.trim();
                 const roomId = document.getElementById('room-id').value.trim();
@@ -1044,7 +1099,7 @@
                 });
                 
                 const btn = document.getElementById('ready-btn');
-                btn.textContent = this.gameState.isReady ? "SYSTEM NOT READY" : "SYSTEM READY";
+                btn.textContent = this.gameState.isReady ? "PLAYER NOT READY" : "PLAYER READY";
                 btn.className = this.gameState.isReady ? 'btn btn-outline-danger' : 'btn btn-outline-success';
             }
 

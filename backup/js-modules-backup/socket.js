@@ -7,7 +7,7 @@ import { gameState } from './state.js';
 import { DOM, showScreen, showError } from './dom.js';
 import { updatePlayerList, updateScores, updateAdminControls, updateReadyStatus, displayRoundResults, updateButtonStates } from './ui.js';
 import { initializeCategoryManagement } from './lobby.js';
-import { setupCategoriesForm, startTimer, processLocalResults } from './game.js';
+import { setupCategoriesForm, startTimer, processLocalResults, handleTimerReduction } from './game.js';
 
 // Use the global socket from partysocket.js
 const socket = window.gameSocket;
@@ -154,6 +154,7 @@ function handleSocketMessage(data) {
         'playerSubmitted': handlePlayerSubmitted,
         'sessionClosed': handleSessionClosed,
         'echo-response': handleEchoResponse,
+        'timerReduced': handleTimerReduced,
         'error': handleErrorMessage
     };
 
@@ -648,4 +649,14 @@ function handleEchoResponse(data) {
             document.body.removeChild(statusDiv);
         }
     }, 5000);
+}
+
+/**
+ * Handles timer reduction notifications from server
+ */
+function handleTimerReduced(data) {
+    console.log('[socket.js] Timer reduction received:', data);
+    
+    // Call the timer reduction handler from game.js
+    handleTimerReduction(data);
 }

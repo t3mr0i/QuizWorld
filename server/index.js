@@ -273,6 +273,35 @@ io.on('connection', (socket) => {
         return; // Exit if player somehow doesn't exist
     }
 
+    // Calculate time reduction when a player submits
+    const room = rooms[roomId];
+    const currentTime = Date.now();
+    const timeRemaining = Math.max(0, Math.floor((room.timerEnd - currentTime) / 1000));
+    
+    // Calculate reduction percentage based on original time limit
+    // Reduce by 15% of the original time limit when someone submits
+    const reductionPercentage = 0.15;
+    const timeReduction = Math.floor(room.timeLimit * reductionPercentage);
+    
+    // Count how many players have submitted (including this one)
+    const submittedCount = Object.values(room.players).filter(p => p.isReady).length;
+    
+    // Only apply reduction if there's enough time remaining and this is the first submission
+    if (timeRemaining > timeReduction && submittedCount === 1) {
+      const newTimerEnd = new Date(room.timerEnd.getTime() - (timeReduction * 1000));
+      room.timerEnd = newTimerEnd;
+      
+      const newTimeRemaining = Math.max(0, Math.floor((newTimerEnd - currentTime) / 1000));
+      console.log(`[server/index.js] Timer reduced by ${timeReduction}s due to first submission. New time remaining: ${newTimeRemaining}s`);
+      
+      // Notify all players about the time reduction
+      io.to(roomId).emit('timerReduced', {
+        timeReduction: timeReduction,
+        newTimeRemaining: newTimeRemaining,
+        submittedPlayer: room.players[socket.id].name
+      });
+    }
+
 
     // Check if all players are ready
     console.log(`[server/index.js] Checking if all players are ready in room ${roomId}`); // <-- ADD LOG 2

@@ -101,16 +101,17 @@ REQUIRED RESPONSE FORMAT (JSON only):
   "playerId": {
     "categoryName": {
       "valid": true/false,
-      "score": 0/10/15/20,
+      "score": 0/5/10/15/20,
       "explanation": "explanation in ${languageName}"
     }
   }
 }
 
 Scoring Guidelines:
-- 20 points: Perfect, unique, creative answer
-- 15 points: Correct but with minor spelling errors
-- 10 points: Valid but common/duplicate answer  
+- 20 points: Spelled correctly AND unique answer
+- 15 points: Spelled incorrectly BUT unique answer  
+- 10 points: Spelled correctly BUT not unique (common/duplicate)
+- 5 points: Spelled incorrectly AND not unique (common/duplicate)
 - 0 points: Invalid or doesn't fit category
 
 Remember: Be lenient with spelling, accept cultural variations, and provide educational explanations in ${languageName}.`;
@@ -1005,8 +1006,9 @@ export default class StadtLandFlussServer implements Party.Server {
                 structuredScores[category][playerId].score = categoryValidation.score;
                 console.log(`🤖 AI SCORE: "${playerAnswer}" for ${category} - Score: ${categoryValidation.score}`);
               } else if (categoryValidation.valid === true) {
-                // Fallback to old logic if AI didn't provide score
+                // Fallback scoring logic if AI didn't provide score
                 const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
+                // Assume correct spelling if AI marked as valid, apply new scoring system
                 structuredScores[category][playerId].score = isUnique ? 20 : 10;
                 console.log(`✅ VALID: "${playerAnswer}" for ${category} - Score: ${isUnique ? 20 : 10}`);
               } else {
@@ -1022,7 +1024,8 @@ export default class StadtLandFlussServer implements Party.Server {
               // If no validation result, give basic points for having an answer
               console.warn(`⚠️ No validation result for player ${playerId}, category ${category}, answer "${playerAnswer}" - giving basic points`);
               const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
-              structuredScores[category][playerId].score = isUnique ? 10 : 5;
+              // Conservative scoring when validation fails - assume spelling issues
+              structuredScores[category][playerId].score = isUnique ? 15 : 5;
               structuredScores[category][playerId].explanation = "Answer provided (validation incomplete)";
             }
           }

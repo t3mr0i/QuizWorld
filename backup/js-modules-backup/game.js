@@ -116,8 +116,12 @@ export function startTimer(duration) {
     timerElement.textContent = timeRemaining;
     timerElement.classList.remove('timer-warning', 'timer-danger'); // Reset classes
 
+    // Store the timer reference in gameState for external access
+    gameState.currentTimeRemaining = timeRemaining;
+
     gameState.timerInterval = setInterval(() => {
         timeRemaining--;
+        gameState.currentTimeRemaining = timeRemaining;
         timerElement.textContent = timeRemaining;
 
         // Add visual indication for time running out
@@ -139,6 +143,64 @@ export function startTimer(duration) {
             }
         }
     }, 1000);
+}
+
+// Function to handle timer reduction from server
+export function handleTimerReduction(data) {
+    const { timeReduction, newTimeRemaining, submittedPlayer } = data;
+    
+    console.log(`[game.js] Timer reduced by ${timeReduction}s due to ${submittedPlayer}'s submission. New time: ${newTimeRemaining}s`);
+    
+    // Update the current time remaining
+    gameState.currentTimeRemaining = newTimeRemaining;
+    
+    // Update the timer display immediately
+    const timerElement = DOM.get('timer');
+    if (timerElement) {
+        timerElement.textContent = newTimeRemaining;
+        
+        // Add a visual effect to show the time reduction
+        timerElement.classList.add('timer-reduced');
+        setTimeout(() => {
+            timerElement.classList.remove('timer-reduced');
+        }, 1000);
+        
+        // Update warning/danger classes based on new time
+        if (newTimeRemaining <= 10 && newTimeRemaining > 5) {
+            timerElement.classList.add('timer-warning');
+            timerElement.classList.remove('timer-danger');
+        } else if (newTimeRemaining <= 5) {
+            timerElement.classList.remove('timer-warning');
+            timerElement.classList.add('timer-danger');
+        } else {
+            timerElement.classList.remove('timer-warning', 'timer-danger');
+        }
+    }
+    
+    // Show a notification to players
+    showTimerReductionNotification(timeReduction, submittedPlayer);
+}
+
+// Function to show timer reduction notification
+function showTimerReductionNotification(timeReduction, submittedPlayer) {
+    // Create a temporary notification element
+    const notification = DOM.create('div', {
+        className: 'timer-reduction-notification',
+        textContent: `⏰ ${submittedPlayer} submitted! Time reduced by ${timeReduction}s`
+    });
+    
+    // Add to the game screen
+    const gameScreen = DOM.get('game-screen');
+    if (gameScreen) {
+        gameScreen.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
 }
 
 // Submits the player's answers

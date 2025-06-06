@@ -17,6 +17,7 @@ export const gameState = {
   timeLimit: 60,
   players: [], // Array of { id, name, score, isReady, submitted (server-confirmed) }
   timerInterval: null,
+  currentTimeRemaining: 0, // Track current time remaining for timer reduction
   // Add debugging fields
   lastSubmitTime: null,
   validationTimeoutId: null,
