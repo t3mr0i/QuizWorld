@@ -141,33 +141,44 @@ ${Object.entries(answers).map(([playerId, playerAnswers]) =>
     const runId = run.id;
     console.log(`✅ Assistant run started: ${runId}`);
 
-    // Step 4: Poll for completion
+    // Step 4: Poll for completion with shorter timeout for PartyKit
     let runStatus = 'queued';
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+    const maxAttempts = 15; // 15 seconds timeout (reduced for PartyKit)
 
     while (runStatus !== 'completed' && runStatus !== 'failed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
       attempts++;
 
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
+      try {
+        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'OpenAI-Beta': 'assistants=v2'
+          }
+        });
+
+        if (!statusResponse.ok) {
+          console.warn(`Status check failed: ${statusResponse.status}, continuing...`);
+          continue;
         }
-      });
 
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to check run status: ${statusResponse.status} ${statusResponse.statusText}`);
+        const statusData = await statusResponse.json();
+        runStatus = statusData.status;
+        console.log(`🔄 Run status: ${runStatus} (attempt ${attempts}/${maxAttempts})`);
+        
+        // Break early on terminal states
+        if (runStatus === 'failed' || runStatus === 'cancelled' || runStatus === 'expired') {
+          break;
+        }
+      } catch (error) {
+        console.warn(`Status check error on attempt ${attempts}:`, error);
+        // Continue polling unless we've exceeded max attempts
       }
-
-      const statusData = await statusResponse.json();
-      runStatus = statusData.status;
-      console.log(`🔄 Run status: ${runStatus} (attempt ${attempts})`);
     }
 
     if (runStatus !== 'completed') {
-      throw new Error(`Assistant run failed or timed out. Status: ${runStatus}`);
+      throw new Error(`Assistant run failed or timed out. Status: ${runStatus} after ${attempts} attempts`);
     }
 
     // Step 5: Get the assistant's response
@@ -713,7 +724,7 @@ export default class StadtLandFlussServer implements Party.Server {
       try {
         console.log(`🔍 Sending duplicate submission acknowledgment to ${sender.id}`);
         sender.send(JSON.stringify({
-          type: "submission-ack",
+          type: "error",
           message: "Your answers have already been received"
         }));
         console.log(`✅ Sent duplicate submission acknowledgment successfully`);
@@ -736,12 +747,15 @@ export default class StadtLandFlussServer implements Party.Server {
     
     console.log(`⬆️ SUBMISSION: ${submittedCount}/${allPlayers.length} players have submitted`);
     
-    // Send an immediate acknowledgment to the sender
+    // Send an immediate acknowledgment to the sender using a known message type
     console.log(`⬆️ SUBMISSION: Sending acknowledgment to player ${sender.id}`);
     try {
       sender.send(JSON.stringify({
-        type: "submission-ack",
-        submitted: true
+        type: "playerSubmitted",
+        playerId: sender.id,
+        playerName: player.name,
+        submitted: true,
+        message: "Answers submitted successfully!"
       }));
       console.log(`✅ Sent submission acknowledgment successfully`);
     } catch (error) {
@@ -768,7 +782,7 @@ export default class StadtLandFlussServer implements Party.Server {
     const timeExpired = this.roomState.timerEnd ? new Date() > this.roomState.timerEnd : false;
     
     if (allSubmitted || timeExpired) {
-      console.log(`[PartyKit] Condition met for validation: allSubmitted=${allSubmitted}, timeExpired=${timeExpired}`); // <-- ADD LOG
+      console.log(`[PartyKit] Condition met for validation: allSubmitted=${allSubmitted}, timeExpired=${timeExpired}`);
 
       // Immediately notify all players that validation is starting
       this.party.broadcast(JSON.stringify({
@@ -776,15 +790,25 @@ export default class StadtLandFlussServer implements Party.Server {
         message: "All players submitted! Processing results with AI..."
       }));
 
-      // Call processValidation as a non-blocking operation
-      setTimeout(() => {
-        console.log(`[PartyKit] Calling processValidation in setTimeout for room ${this.roomId}`); // <-- ADD LOG
-        this.processValidation().catch(error => {
-          console.error('❌ [PartyKit] Error during async processValidation call:', error);
+      // Call processValidation as a non-blocking operation with better error handling
+      this.processValidation().catch(error => {
+        console.error('❌ [PartyKit] Critical error during processValidation:', error);
+        
+        // Send error message to all players
+        this.party.broadcast(JSON.stringify({
+          type: "validationError",
+          message: "Validation failed. Please try again.",
+          error: error.message
+        }));
+        
+        // Reset round state so players can try again
+        this.roomState.roundInProgress = false;
+        Object.values(this.roomState.players).forEach(player => {
+          player.submitted = false;
         });
-      }, 0);
+      });
     } else {
-      console.log(`[PartyKit] Waiting for ${allPlayers.length - submittedCount} more players to submit`); // <-- Modified LOG
+      console.log(`[PartyKit] Waiting for ${allPlayers.length - submittedCount} more players to submit`);
     }
     
     console.log(`🔍 SUBMIT_ANSWERS HANDLER END for player ${sender.id}`);
