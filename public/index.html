@@ -154,10 +154,23 @@
                                     <label for="time-limit">Time Limit (seconds)</label>
                                     <div class="time-selector">
                                         <button type="button" class="time-btn decrease">−</button>
-                                        <input type="number" id="time-limit" value="60" min="30" max="300" step="10">
+                                        <input type="number" id="time-limit" value="90" min="30" max="300" step="10">
                                         <button type="button" class="time-btn increase">+</button>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="game-language">Game Language</label>
+                                <select id="game-language" class="language-selector">
+                                    <option value="de">🇩🇪 Deutsch (German)</option>
+                                    <option value="en">🇺🇸 English</option>
+                                    <option value="fr">🇫🇷 Français (French)</option>
+                                    <option value="es">🇪🇸 Español (Spanish)</option>
+                                    <option value="it">🇮🇹 Italiano (Italian)</option>
+                                    <option value="nl">🇳🇱 Nederlands (Dutch)</option>
+                                </select>
+                                <small>Language for AI explanations and validation context</small>
                             </div>
                             
                             <button type="button" id="join-btn" class="btn btn-primary btn-large">ENTER VOID</button>
@@ -200,22 +213,38 @@
                                 </div>
                             </div>
                             
-                            <div class="category-management">
-                                <h3>Categories</h3>
-                                <div id="categories-display" class="category-list"></div>
-                                <div id="admin-controls" class="admin-controls">
-                                    <div class="add-category-container">
-                                        <input type="text" id="new-category" class="category-input" placeholder="Add new category">
-                                        <button id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                            <div class="lobby-info-section">
+                                <div class="lobby-language-display">
+                                    <h3>Game Settings</h3>
+                                    <div class="setting-item">
+                                        <span class="setting-label">Language:</span>
+                                        <span id="lobby-language" class="setting-value">🇩🇪 Deutsch</span>
                                     </div>
-                                    <p class="category-instructions">Add custom categories to the game</p>
+                                    <div class="setting-item">
+                                        <span class="setting-label">Time Limit:</span>
+                                        <span id="lobby-time-limit" class="setting-value">90 seconds</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="category-management">
+                                    <h3>Categories</h3>
+                                    <div id="categories-display" class="category-list"></div>
+                                    <div id="category-controls" class="category-controls">
+                                        <div class="add-category-container">
+                                            <input type="text" id="new-category" class="category-input" placeholder="Add new category">
+                                            <button id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                                        </div>
+                                        <p class="category-instructions">All players can add or remove categories</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
                         <div id="admin-start-controls" class="admin-controls game-starter">
-                            <button id="start-game-btn" class="btn btn-primary btn-large">START GAME</button>
-                            <div class="admin-session-controls">
+                            <div class="start-game-center">
+                                <button id="start-game-btn" class="btn btn-primary btn-large">START GAME</button>
+                            </div>
+                            <div class="admin-session-controls bottom-right">
                                 <button id="close-session-btn" class="btn btn-danger btn-outline">
                                     <span class="close-icon">×</span> TERMINATE SESSION
                                 </button>
@@ -323,6 +352,43 @@
         </main>
     </div>
 
+    <!-- Modal for notifications -->
+    <div id="notification-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Notification</h3>
+                <button id="modal-close" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-icon" class="modal-icon"></div>
+                <p id="modal-message">Message content</p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-ok" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal hidden">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="confirm-title">Confirm Action</h3>
+                <button id="confirm-close" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="confirm-icon" class="modal-icon info"></div>
+                <p id="confirm-message">Are you sure?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancel" class="btn btn-secondary">Cancel</button>
+                <button id="confirm-ok" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Simplified GameClient following PartyKit best practices
         class GameClient {
@@ -336,6 +402,7 @@
                     categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'],
                     currentLetter: '',
                     timeLimit: 60,
+                    language: 'de',
                     isReady: false
                 };
                 this.currentScreen = 'welcome';
@@ -347,6 +414,7 @@
 
             init() {
                 this.setupEventListeners();
+                this.setupModal();
                 this.showScreen('welcome');
                 
                 // Check for room ID in URL
@@ -413,14 +481,111 @@
                 console.log(`Switched to ${screenName} screen`);
             }
 
+            setupModal() {
+                // Setup notification modal
+                const modal = document.getElementById('notification-modal');
+                const closeBtn = document.getElementById('modal-close');
+                const okBtn = document.getElementById('modal-ok');
+                const overlay = modal.querySelector('.modal-overlay');
+                
+                // Close modal handlers
+                const closeModal = () => {
+                    modal.classList.add('hidden');
+                };
+                
+                closeBtn.onclick = closeModal;
+                okBtn.onclick = closeModal;
+                overlay.onclick = closeModal;
+                
+                // Setup confirmation modal
+                const confirmModal = document.getElementById('confirmation-modal');
+                const confirmCloseBtn = document.getElementById('confirm-close');
+                const confirmCancelBtn = document.getElementById('confirm-cancel');
+                const confirmOverlay = confirmModal.querySelector('.modal-overlay');
+                
+                // Close confirmation modal handlers
+                const closeConfirmModal = () => {
+                    confirmModal.classList.add('hidden');
+                    if (this.confirmReject) {
+                        this.confirmReject();
+                        this.confirmReject = null;
+                        this.confirmResolve = null;
+                    }
+                };
+                
+                confirmCloseBtn.onclick = closeConfirmModal;
+                confirmCancelBtn.onclick = closeConfirmModal;
+                confirmOverlay.onclick = closeConfirmModal;
+                
+                // Confirm button handler
+                document.getElementById('confirm-ok').onclick = () => {
+                    confirmModal.classList.add('hidden');
+                    if (this.confirmResolve) {
+                        this.confirmResolve();
+                        this.confirmResolve = null;
+                        this.confirmReject = null;
+                    }
+                };
+                
+                // Close on Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        if (!modal.classList.contains('hidden')) {
+                            closeModal();
+                        } else if (!confirmModal.classList.contains('hidden')) {
+                            closeConfirmModal();
+                        }
+                    }
+                });
+            }
+
+            showModal(title, message, type = 'info') {
+                const modal = document.getElementById('notification-modal');
+                const titleEl = document.getElementById('modal-title');
+                const messageEl = document.getElementById('modal-message');
+                const iconEl = document.getElementById('modal-icon');
+                
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                
+                // Reset icon classes and set the appropriate one
+                iconEl.className = `modal-icon ${type}`;
+                
+                // Show modal
+                modal.classList.remove('hidden');
+            }
+
             showError(message) {
                 console.error('Error:', message);
-                alert(message); // Simple error display
+                this.showModal('Error', message, 'error');
             }
 
             showSuccess(message) {
                 console.log('Success:', message);
-                // Could add a toast notification here
+                this.showModal('Success', message, 'success');
+            }
+
+            showInfo(message) {
+                console.log('Info:', message);
+                this.showModal('Information', message, 'info');
+            }
+
+            showConfirm(title, message) {
+                return new Promise((resolve, reject) => {
+                    const confirmModal = document.getElementById('confirmation-modal');
+                    const titleEl = document.getElementById('confirm-title');
+                    const messageEl = document.getElementById('confirm-message');
+                    
+                    titleEl.textContent = title;
+                    messageEl.textContent = message;
+                    
+                    // Store resolve/reject for later use
+                    this.confirmResolve = resolve;
+                    this.confirmReject = reject;
+                    
+                    // Show modal
+                    confirmModal.classList.remove('hidden');
+                });
             }
 
             connectWebSocket() {
@@ -451,7 +616,8 @@
                         type: 'joinRoom',
                         playerName: this.gameState.playerName,
                         roomId: this.gameState.roomId,
-                        timeLimit: this.gameState.timeLimit
+                        timeLimit: this.gameState.timeLimit,
+                        language: this.gameState.language
                     });
                 };
                 
@@ -546,6 +712,8 @@
                 this.gameState.isAdmin = data.isAdmin || false;
                 this.gameState.players = data.players || [];
                 this.gameState.categories = data.categories || this.gameState.categories;
+                this.gameState.timeLimit = data.timeLimit || this.gameState.timeLimit;
+                this.gameState.language = data.language || this.gameState.language;
                 
                 console.log(`[DEBUG] Set gameState.isAdmin to: ${this.gameState.isAdmin}`);
                 
@@ -554,13 +722,10 @@
                 this.updatePlayerList();
                 this.updateCategoriesDisplay();
                 this.updateAdminControls();
+                this.updateLobbySettings();
                 this.showScreen('lobby');
                 
-                if (data.isAdmin) {
-                    this.showSuccess('Room created! You are the host.');
-                } else {
-                    this.showSuccess('Successfully joined the game!');
-                }
+             
             }
 
             handlePlayerUpdate(data) {
@@ -578,6 +743,17 @@
                     if (wasAdmin !== this.gameState.isAdmin) {
                         console.log(`[DEBUG] Admin status changed from ${wasAdmin} to ${this.gameState.isAdmin}`);
                     }
+                }
+                
+                // Update language and time limit if provided
+                if (data.language && data.language !== this.gameState.language) {
+                    this.gameState.language = data.language;
+                    this.updateLobbySettings();
+                }
+                
+                if (data.timeLimit && data.timeLimit !== this.gameState.timeLimit) {
+                    this.gameState.timeLimit = data.timeLimit;
+                    this.updateLobbySettings();
                 }
                 
                 this.updatePlayerList();
@@ -801,6 +977,7 @@
                 const playerName = document.getElementById('player-name').value.trim();
                 const roomId = document.getElementById('room-id').value.trim();
                 const timeLimit = parseInt(document.getElementById('time-limit').value) || 60;
+                const language = document.getElementById('game-language').value || 'de';
                 
                 if (!playerName) {
                     this.showError('Please enter your name');
@@ -810,6 +987,7 @@
                 this.gameState.playerName = playerName;
                 this.gameState.roomId = roomId;
                 this.gameState.timeLimit = timeLimit;
+                this.gameState.language = language;
                 
                 this.connectWebSocket();
             }
@@ -835,17 +1013,23 @@
                 this.sendMessage({ type: 'startRound' });
             }
 
-            closeSession() {
+            async closeSession() {
                 if (!this.gameState.isAdmin) {
                     this.showError('Only the host can close the session');
                     return;
                 }
                 
-                if (confirm('Are you sure you want to close this session? All players will be disconnected.')) {
+                try {
+                    await this.showConfirm(
+                        'Close Session', 
+                        'Are you sure you want to close this session? All players will be disconnected.'
+                    );
                     this.sendMessage({ 
                         type: 'closeSession',
                         reason: 'Session closed by host'
                     });
+                } catch {
+                    // User cancelled, do nothing
                 }
             }
 
@@ -927,7 +1111,7 @@
             }
 
             updateCategoriesDisplay() {
-                console.log(`[DEBUG] updateCategoriesDisplay called. isAdmin: ${this.gameState.isAdmin}`);
+                console.log(`[DEBUG] updateCategoriesDisplay called. Categories: ${this.gameState.categories.length}`);
                 const display = document.getElementById('categories-display');
                 display.innerHTML = '';
                 
@@ -941,21 +1125,17 @@
                     
                     item.appendChild(categoryName);
                     
-                    // Add remove button for admins
-                    if (this.gameState.isAdmin) {
-                        console.log(`[DEBUG] Adding remove button for category: ${category}`);
-                        const removeBtn = document.createElement('button');
-                        removeBtn.className = 'category-remove';
-                        removeBtn.innerHTML = '×';
-                        removeBtn.title = `Remove ${category}`;
-                        removeBtn.onclick = (e) => {
-                            e.preventDefault();
-                            this.removeCategory(index);
-                        };
-                        item.appendChild(removeBtn);
-                    } else {
-                        console.log(`[DEBUG] Not admin, skipping remove button for category: ${category}`);
-                    }
+                    // Add remove button for all players (everyone can manage categories)
+                    console.log(`[DEBUG] Adding remove button for category: ${category}`);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'category-remove';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.title = `Remove ${category}`;
+                    removeBtn.onclick = (e) => {
+                        e.preventDefault();
+                        this.removeCategory(index);
+                    };
+                    item.appendChild(removeBtn);
                     
                     display.appendChild(item);
                 });
@@ -963,19 +1143,18 @@
                 console.log(`[DEBUG] Categories display updated with ${this.gameState.categories.length} categories`);
             }
 
-            removeCategory(index) {
-                if (!this.gameState.isAdmin) {
-                    this.showError('Only the host can remove categories');
-                    return;
-                }
-                
+            async removeCategory(index) {
                 if (this.gameState.categories.length <= 3) {
                     this.showError('You must have at least 3 categories');
                     return;
                 }
                 
                 const categoryName = this.gameState.categories[index];
-                if (confirm(`Remove "${categoryName}" category?`)) {
+                try {
+                    await this.showConfirm(
+                        'Remove Category',
+                        `Remove "${categoryName}" category?`
+                    );
                     this.gameState.categories.splice(index, 1);
                     
                     this.sendMessage({
@@ -984,13 +1163,17 @@
                     });
                     
                     this.updateCategoriesDisplay();
+                } catch {
+                    // User cancelled, do nothing
                 }
             }
 
             updateAdminControls() {
                 console.log(`[DEBUG] updateAdminControls called. isAdmin: ${this.gameState.isAdmin}`);
                 const adminControls = document.querySelectorAll('.admin-controls');
+                const adminOnlyElements = document.querySelectorAll('.admin-only');
                 console.log(`[DEBUG] Found ${adminControls.length} admin-controls elements`);
+                console.log(`[DEBUG] Found ${adminOnlyElements.length} admin-only elements`);
                 
                 adminControls.forEach((control, index) => {
                     console.log(`[DEBUG] Control ${index}: current classes = "${control.className}"`);
@@ -1004,8 +1187,51 @@
                     console.log(`[DEBUG] Control ${index}: final classes = "${control.className}"`);
                 });
                 
-                // Also ensure categories display is updated to show remove buttons for admins
+                adminOnlyElements.forEach((element, index) => {
+                    console.log(`[DEBUG] Admin-only element ${index}: current classes = "${element.className}"`);
+                    if (this.gameState.isAdmin) {
+                        element.classList.add('visible');
+                        console.log(`[DEBUG] Added 'visible' class to admin-only element ${index}`);
+                    } else {
+                        element.classList.remove('visible');
+                        console.log(`[DEBUG] Removed 'visible' class from admin-only element ${index}`);
+                    }
+                    console.log(`[DEBUG] Admin-only element ${index}: final classes = "${element.className}"`);
+                });
+                
+                // Ensure category management is always visible for all players
+                const categoryManagement = document.querySelector('.category-management');
+                const categoryControls = document.querySelector('.category-controls');
+                if (categoryManagement) {
+                    categoryManagement.style.display = 'flex';
+                }
+                if (categoryControls) {
+                    categoryControls.style.display = 'block';
+                }
+                
+                // Update categories display (remove buttons are available to all players)
                 this.updateCategoriesDisplay();
+            }
+
+            updateLobbySettings() {
+                const languageElement = document.getElementById('lobby-language');
+                const timeLimitElement = document.getElementById('lobby-time-limit');
+                
+                if (languageElement) {
+                    const languageMap = {
+                        'de': '🇩🇪 Deutsch',
+                        'en': '🇺🇸 English',
+                        'fr': '🇫🇷 Français',
+                        'es': '🇪🇸 Español',
+                        'it': '🇮🇹 Italiano',
+                        'nl': '🇳🇱 Nederlands'
+                    };
+                    languageElement.textContent = languageMap[this.gameState.language] || '🇩🇪 Deutsch';
+                }
+                
+                if (timeLimitElement) {
+                    timeLimitElement.textContent = `${this.gameState.timeLimit} seconds`;
+                }
             }
 
             setupGameForm() {
@@ -1136,7 +1362,8 @@
                 this.sendMessage({
                     type: 'submitAnswers',
                     answers: answers,
-                    letter: this.gameState.currentLetter
+                    letter: this.gameState.currentLetter,
+                    language: this.gameState.language
                 });
                 
                 // Update UI to show submission
@@ -1162,20 +1389,31 @@
                 const scoresList = document.getElementById('scores-list');
                 
                 // Display results table
-                let html = '<table class="results-table"><thead><tr><th>Player</th><th>Category</th><th>Answer</th><th>Points</th></tr></thead><tbody>';
+                let html = '<table class="results-table"><thead><tr><th>Player</th><th>Category</th><th>Answer</th><th>Points</th><th>Explanation</th></tr></thead><tbody>';
                 
                 if (data.scores && data.players && data.categories) {
-                    data.categories.forEach(category => {
+                    data.categories.forEach((category, categoryIndex) => {
+                        // Add category header row for visual separation
+                        if (categoryIndex > 0) {
+                            html += '<tr class="category-spacer"><td colspan="5"></td></tr>';
+                        }
+                        html += `<tr class="category-header">
+                            <td colspan="5" class="category-name">${category}</td>
+                        </tr>`;
+                        
+                        // Add player rows for this category
                         data.players.forEach(player => {
                             const scoreData = data.scores[category]?.[player.id];
                             const answer = scoreData?.answer || '-';
                             const points = scoreData?.score || 0;
+                            const explanation = scoreData?.explanation || 'Keine Erklärung verfügbar';
                             
                             html += `<tr>
                                 <td>${player.name}</td>
                                 <td>${category}</td>
                                 <td>${answer}</td>
                                 <td>${points}</td>
+                                <td class="explanation">${explanation}</td>
                             </tr>`;
                         });
                     });

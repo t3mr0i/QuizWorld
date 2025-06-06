@@ -25,6 +25,7 @@ interface RoomState {
   timerEnd: Date | null;
   categories: string[];
   readyCount: number;
+  language: string;
 }
 
 // Store for game states by room ID
@@ -62,7 +63,7 @@ let validatorLoadAttempted = false;
 console.log("🚀 SERVER STARTING: AI Validator enabled using fetch API");
 
 // AI Validation function using OpenAI Assistant API
-async function validateAnswersWithOpenAI(letter: string, answers: Record<string, Record<string, string>>, categories: string[]): Promise<any> {
+async function validateAnswersWithOpenAI(letter: string, answers: Record<string, Record<string, string>>, categories: string[], language: string = 'de'): Promise<any> {
   const apiKey = process.env.OPENAI_API_KEY;
   const assistantId = 'asst_3Lqlm7XjAeciaGU8VbVOS8Al';
   
@@ -70,22 +71,22 @@ async function validateAnswersWithOpenAI(letter: string, answers: Record<string,
     throw new Error("OpenAI API key not found");
   }
 
-  // Prepare the validation message for your specific assistant format
-  const message = `Please validate these Stadt Land Fluss answers and return the results in JSON format.
-
-Letter: ${letter}
+  // Prepare the validation message for the OpenAI Assistant
+  const message = `Letter: ${letter}
+Language: ${language}
 
 Categories and answers to validate:
 ${Object.entries(answers).map(([playerId, playerAnswers]) => 
   `Player ${playerId}:\n${categories.map(cat => `  ${cat}: ${playerAnswers[cat] || '(no answer)'}`).join('\n')}`
 ).join('\n\n')}
 
-Please validate each answer and return a JSON object with the following structure for each player and category:
+Please validate each answer according to your system instructions and return a JSON object with the following structure for each player and category:
 {
   "playerId": {
     "category": {
       "valid": true/false,
-      "explanation": "explanation text"
+      "score": 0/10/15/20,
+      "explanation": "explanation text in ${language === 'de' ? 'German' : language === 'en' ? 'English' : language === 'fr' ? 'French' : language === 'es' ? 'Spanish' : language === 'it' ? 'Italian' : language === 'nl' ? 'Dutch' : 'the specified language'}"
     }
   }
 }`;
@@ -294,6 +295,7 @@ export default class StadtLandFlussServer implements Party.Server {
         timerEnd: null,
         categories: [...DEFAULT_CATEGORIES],
         readyCount: 0,
+        language: 'de',
       };
     }
   }
@@ -329,6 +331,7 @@ export default class StadtLandFlussServer implements Party.Server {
           timerEnd: null,
           categories: [...DEFAULT_CATEGORIES],
           readyCount: 0,
+          language: 'de',
         };
       }
       
@@ -517,6 +520,7 @@ export default class StadtLandFlussServer implements Party.Server {
         timerEnd: null,
         categories: [...DEFAULT_CATEGORIES],
         readyCount: 0,
+        language: 'de',
       };
       this.party.storage.put(`room:${this.roomId}`, roomStates[this.roomId]);
       return;
@@ -590,6 +594,7 @@ export default class StadtLandFlussServer implements Party.Server {
     const requestedRoomId = data.roomId;
     const isReconnect = data.isReconnect || false;
     const timeLimit = data.timeLimit || 60;
+    const language = data.language || 'de';
     
     console.log(`[handleJoinRoom] Player ${playerName} (${sender.id}) joining room ${this.roomId}`);
     console.log(`[handleJoinRoom] Requested room ID: "${requestedRoomId}"`);
@@ -623,10 +628,15 @@ export default class StadtLandFlussServer implements Party.Server {
       console.log(`[handleJoinRoom] Setting ${sender.id} as admin`);
     }
     
-    // Update time limit if this is the admin setting it
+    // Update time limit and language if this is the admin setting it
     if (shouldBeAdmin && timeLimit !== this.roomState.timeLimit) {
       this.roomState.timeLimit = timeLimit;
       console.log(`[handleJoinRoom] Admin set time limit to ${timeLimit}`);
+    }
+    
+    if (shouldBeAdmin && language !== this.roomState.language) {
+      this.roomState.language = language;
+      console.log(`[handleJoinRoom] Admin set language to ${language}`);
     }
     
     // Create or update player
@@ -657,6 +667,7 @@ export default class StadtLandFlussServer implements Party.Server {
       isAdmin: shouldBeAdmin,
       categories: this.roomState.categories,
       timeLimit: this.roomState.timeLimit,
+      language: this.roomState.language,
       readyCount: readyCount,
       isReconnect: isReconnect
     }));
@@ -897,7 +908,8 @@ export default class StadtLandFlussServer implements Party.Server {
         validationResults = await validateAnswersWithOpenAI(
           this.roomState.currentLetter || 'A',
           playerAnswers,
-          this.roomState.categories
+          this.roomState.categories,
+          this.roomState.language
         );
         console.log("✅ OpenAI validation completed successfully");
       } catch (error) {
@@ -960,9 +972,13 @@ export default class StadtLandFlussServer implements Party.Server {
               // Use the AI's explanation
               structuredScores[category][playerId].explanation = categoryValidation.explanation || "AI validation completed";
               
-              // Determine score based on validation - invalid answers get 0 points, valid answers get points
-              if (categoryValidation.valid === true) {
-                // Check if answer is unique
+              // Use AI's provided score if available, otherwise calculate based on validation
+              if (categoryValidation.score !== undefined) {
+                // AI provided a specific score (0, 10, 15, or 20)
+                structuredScores[category][playerId].score = categoryValidation.score;
+                console.log(`🤖 AI SCORE: "${playerAnswer}" for ${category} - Score: ${categoryValidation.score}`);
+              } else if (categoryValidation.valid === true) {
+                // Fallback to old logic if AI didn't provide score
                 const isUnique = this.isUniqueAnswer(playerAnswer, category, playerAnswers);
                 structuredScores[category][playerId].score = isUnique ? 20 : 10;
                 console.log(`✅ VALID: "${playerAnswer}" for ${category} - Score: ${isUnique ? 20 : 10}`);
@@ -1236,6 +1252,7 @@ export default class StadtLandFlussServer implements Party.Server {
       timerEnd: null,
       categories: [...DEFAULT_CATEGORIES],
       readyCount: 0,
+      language: 'de',
     };
     
     // Clear storage
