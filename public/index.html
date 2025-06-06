@@ -56,66 +56,7 @@
             });
         }
         
-        // Check if server is accessible by making a simple fetch request
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add server status indicator to the welcome screen
-            const welcomeCard = document.querySelector('.welcome-card .card-footer');
-            if (welcomeCard) {
-                const statusElement = document.createElement('div');
-                statusElement.id = 'server-status';
-                statusElement.className = 'server-status checking';
-                
-                if (isOfflineMode) {
-                    statusElement.className = 'server-status offline';
-                    statusElement.innerHTML = 'Running in offline mode (single player)';
-                    welcomeCard.prepend(statusElement);
-                    
-                    // Add a button to return to online mode
-                    const onlineLink = document.createElement('a');
-                    onlineLink.href = window.location.pathname;
-                    onlineLink.className = 'btn btn-secondary';
-                    onlineLink.innerHTML = 'Try Online Mode';
-                    onlineLink.style.marginTop = '10px';
-                    welcomeCard.appendChild(onlineLink);
-                    
-                    return;
-                }
-                
-                statusElement.innerHTML = 'Checking server status...';
-                welcomeCard.prepend(statusElement);
-                
-                // Try to fetch the server status
-                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'http://' : 'https://';
-                fetch(`${protocol}${window.PARTYKIT_HOST}`, { 
-                    method: 'HEAD',
-                    mode: 'no-cors',
-                    cache: 'no-cache'
-                })
-                .then(() => {
-                    statusElement.className = 'server-status online';
-                    statusElement.innerHTML = 'Game server is online';
-                })
-                .catch(err => {
-                    statusElement.className = 'server-status offline';
-                    statusElement.innerHTML = 'Game server appears to be offline';
-                    console.error('Server status check failed:', err);
-                    
-                    // Add server status banner
-                    const serverBanner = document.createElement('div');
-                    serverBanner.className = 'server-banner';
-                    serverBanner.innerHTML = `
-                        <div class="banner-content">
-                            <strong>Server Status:</strong> The game server appears to be offline.
-                            <div class="banner-actions">
-                                <a href="?offline" class="btn btn-accent">Play Offline Mode</a>
-                                <a href="?dev" class="btn btn-secondary">Try Local Server</a>
-                            </div>
-                        </div>
-                    `;
-                    document.querySelector('.app-container').prepend(serverBanner);
-                });
-            }
-        });
+
     </script>
 </head>
 <body>
@@ -132,7 +73,8 @@
         <main class="game-container">
             <!-- Welcome Screen -->
             <div id="welcome-screen" class="game-screen active">
-                <div class="card welcome-card">
+                <!-- Normal Welcome Screen -->
+                <div id="normal-welcome" class="card welcome-card">
                     <div class="card-header" data-id="SLF-001">
                         <h2>Join or start a Game</h2>
                     </div>
@@ -177,7 +119,39 @@
                         </form>
                     </div>
                     <div class="card-footer">
-                        <button id="debug-btn" class="btn btn-text">Having trouble connecting?</button>
+                        <div class="game-explanation">
+                            <button id="explanation-toggle" class="btn btn-text">WAS IST SMART LAND PLUS?</button>
+                            <div id="explanation-content" class="explanation-content hidden">
+                                <div class="explanation-text" id="explanation-text">
+                                    <!-- Content will be dynamically updated based on language -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simplified Join Screen for Direct Room Links -->
+                <div id="join-room-welcome" class="card welcome-card hidden">
+                    <div class="card-header" data-id="SLF-001">
+                        <h2>Join Game Room</h2>
+                        <div class="room-info">
+                            <span class="room-label">Room ID:</span>
+                            <span id="join-room-id" class="room-id">XXXXXX</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <form class="join-form">
+                            <div class="form-group">
+                                <label for="join-player-name">Your Name</label>
+                                <input type="text" id="join-player-name" placeholder="Enter your name to join" required autocomplete="off">
+                                <small>You're joining an existing game room</small>
+                            </div>
+                            
+                            <button type="button" id="join-room-btn" class="btn btn-primary btn-large">JOIN GAME</button>
+                        </form>
+                    </div>
+                    <div class="card-footer">
+                        <button id="create-new-game-btn" class="btn btn-text">Want to create a new game instead?</button>
                     </div>
                 </div>
             </div>
@@ -417,13 +391,40 @@
                 this.setupModal();
                 this.showScreen('welcome');
                 
+                // Initialize explanation content with default language
+                this.updateExplanationLanguage();
+                
                 // Check for room ID in URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const roomId = urlParams.get('room');
                 if (roomId) {
-                    document.getElementById('room-id').value = roomId;
-                    this.disableRoomSettings();
+                    this.showJoinRoomInterface(roomId);
+                } else {
+                    this.showNormalWelcome();
                 }
+            }
+
+            showJoinRoomInterface(roomId) {
+                // Hide normal welcome and show join room interface
+                document.getElementById('normal-welcome').classList.add('hidden');
+                document.getElementById('join-room-welcome').classList.remove('hidden');
+                
+                // Set the room ID in the display
+                document.getElementById('join-room-id').textContent = roomId;
+                
+                // Store the room ID for later use
+                this.gameState.roomId = roomId;
+                
+                // Focus on the name input
+                setTimeout(() => {
+                    document.getElementById('join-player-name').focus();
+                }, 100);
+            }
+
+            showNormalWelcome() {
+                // Show normal welcome and hide join room interface
+                document.getElementById('normal-welcome').classList.remove('hidden');
+                document.getElementById('join-room-welcome').classList.add('hidden');
             }
 
             disableRoomSettings() {
@@ -464,8 +465,12 @@
             }
 
             setupEventListeners() {
-                // Welcome screen
+                // Welcome screen - normal
                 document.getElementById('join-btn').onclick = () => this.joinGame();
+                
+                // Welcome screen - join room
+                document.getElementById('join-room-btn').onclick = () => this.joinRoomDirectly();
+                document.getElementById('create-new-game-btn').onclick = () => this.switchToNormalWelcome();
                 
                 // Lobby screen
                 document.getElementById('ready-btn').onclick = () => this.toggleReady();
@@ -485,6 +490,9 @@
                 document.getElementById('player-name').onkeypress = (e) => {
                     if (e.key === 'Enter') this.joinGame();
                 };
+                document.getElementById('join-player-name').onkeypress = (e) => {
+                    if (e.key === 'Enter') this.joinRoomDirectly();
+                };
                 document.getElementById('room-id').onkeypress = (e) => {
                     if (e.key === 'Enter') this.joinGame();
                 };
@@ -495,6 +503,15 @@
                 // Time selector buttons
                 document.querySelector('.time-btn.decrease').onclick = () => this.adjustTime(-10);
                 document.querySelector('.time-btn.increase').onclick = () => this.adjustTime(10);
+                
+                // Explanation toggle
+                document.getElementById('explanation-toggle').onclick = () => this.toggleExplanation();
+                
+                // Language selector change
+                document.getElementById('game-language').onchange = (e) => {
+                    this.gameState.language = e.target.value;
+                    this.updateExplanationLanguage();
+                };
             }
 
             adjustTime(delta) {
@@ -507,6 +524,39 @@
                 
                 const newValue = Math.max(30, Math.min(300, parseInt(input.value) + delta));
                 input.value = newValue;
+            }
+
+            toggleExplanation() {
+                const content = document.getElementById('explanation-content');
+                const button = document.getElementById('explanation-toggle');
+                const currentLang = this.gameState.language || 'de';
+                const langContent = EXPLANATION_CONTENT[currentLang] || EXPLANATION_CONTENT['de'];
+                
+                if (content.classList.contains('hidden')) {
+                    content.classList.remove('hidden');
+                    button.textContent = langContent.toggleButtonExpanded;
+                } else {
+                    content.classList.add('hidden');
+                    button.textContent = langContent.toggleButton;
+                }
+            }
+
+            updateExplanationLanguage() {
+                const currentLang = this.gameState.language || 'de';
+                const langContent = EXPLANATION_CONTENT[currentLang] || EXPLANATION_CONTENT['de'];
+                const explanationText = document.getElementById('explanation-text');
+                const button = document.getElementById('explanation-toggle');
+                const content = document.getElementById('explanation-content');
+                
+                // Update content
+                explanationText.innerHTML = langContent.content;
+                
+                // Update button text based on current state
+                if (content.classList.contains('hidden')) {
+                    button.textContent = langContent.toggleButton;
+                } else {
+                    button.textContent = langContent.toggleButtonExpanded;
+                }
             }
 
             showScreen(screenName) {
@@ -1091,6 +1141,41 @@
                 this.connectWebSocket();
             }
 
+            joinRoomDirectly() {
+                const playerName = document.getElementById('join-player-name').value.trim();
+                
+                if (!playerName) {
+                    this.showError('Please enter your name');
+                    return;
+                }
+                
+                // Room ID is already set in gameState from URL
+                this.gameState.playerName = playerName;
+                // Use default values for time limit and language since we're joining an existing room
+                this.gameState.timeLimit = 90;
+                this.gameState.language = 'de';
+                
+                this.connectWebSocket();
+            }
+
+            switchToNormalWelcome() {
+                // Clear the URL parameter
+                const url = new URL(window.location);
+                url.searchParams.delete('room');
+                window.history.replaceState({}, '', url);
+                
+                // Reset game state
+                this.gameState.roomId = '';
+                
+                // Show normal welcome interface
+                this.showNormalWelcome();
+                
+                // Focus on the player name input
+                setTimeout(() => {
+                    document.getElementById('player-name').focus();
+                }, 100);
+            }
+
             toggleReady() {
                 this.gameState.isReady = !this.gameState.isReady;
                 this.sendMessage({
@@ -1555,6 +1640,238 @@
                 this.showScreen('lobby');
             }
         }
+
+        // Language content for explanations
+        const EXPLANATION_CONTENT = {
+            de: {
+                toggleButton: 'WAS IST SMART LAND PLUS?',
+                toggleButtonExpanded: 'ERKLÄRUNG AUSBLENDEN',
+                content: `
+                    <h4>WAS IST SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus ist ein intelligentes Wortspiel, das Kreativität, Wissen und schnelles Denken kombiniert. Spieler müssen Wörter zu verschiedenen Kategorien finden, die alle mit demselben Buchstaben beginnen.</p>
+                    
+                    <h4>WIE FUNKTIONIERT DAS SPIEL?</h4>
+                    <ol>
+                        <li><strong>RAUM ERSTELLEN ODER BEITRETEN:</strong> Gib deinen Namen ein und erstelle einen neuen Raum oder tritt einem bestehenden bei.</li>
+                        <li><strong>KATEGORIEN FESTLEGEN:</strong> Alle Spieler können Kategorien hinzufügen oder entfernen (z.B. Stadt, Land, Fluss, Name, Beruf, Tier, Pflanze).</li>
+                        <li><strong>BEREIT MACHEN:</strong> Alle Spieler müssen sich als "bereit" markieren, bevor das Spiel beginnt.</li>
+                        <li><strong>BUCHSTABE WIRD GEWÄHLT:</strong> Ein zufälliger Buchstabe wird ausgewählt - alle Antworten müssen mit diesem Buchstaben beginnen.</li>
+                        <li><strong>ZEIT LÄUFT:</strong> Du hast eine begrenzte Zeit (standardmäßig 90 Sekunden), um für jede Kategorie ein passendes Wort zu finden.</li>
+                        <li><strong>ANTWORTEN EINREICHEN:</strong> Sobald du fertig bist oder die Zeit abläuft, werden deine Antworten automatisch eingereicht.</li>
+                        <li><strong>KI-BEWERTUNG:</strong> Unsere intelligente KI bewertet alle Antworten auf Korrektheit, Kreativität und Einzigartigkeit.</li>
+                        <li><strong>PUNKTE ERHALTEN:</strong> Du erhältst Punkte basierend auf der Qualität deiner Antworten und ob andere Spieler dieselben Wörter verwendet haben.</li>
+                    </ol>
+                    
+                    <h4>PUNKTESYSTEM:</h4>
+                    <ul>
+                        <li><strong>EINZIGARTIGE ANTWORT:</strong> Volle Punkte, wenn nur du diese Antwort hattest</li>
+                        <li><strong>GETEILTE ANTWORT:</strong> Reduzierte Punkte, wenn andere Spieler dasselbe Wort verwendet haben</li>
+                        <li><strong>KREATIVITÄT:</strong> Bonus-Punkte für besonders kreative oder ungewöhnliche Antworten</li>
+                        <li><strong>FALSCHE ANTWORT:</strong> Keine Punkte für Wörter, die nicht zur Kategorie passen oder mit dem falschen Buchstaben beginnen</li>
+                    </ul>
+                    
+                    <h4>TIPPS FÜR BESSERE ERGEBNISSE:</h4>
+                    <ul>
+                        <li>Denke an ungewöhnliche Wörter - sie bringen mehr Punkte</li>
+                        <li>Achte darauf, dass deine Antworten wirklich zur Kategorie passen</li>
+                        <li>Nutze die volle Zeit, aber vergiss nicht rechtzeitig abzugeben</li>
+                        <li>Bei schwierigen Buchstaben wie X, Y oder Q: Auch Fremdwörter sind oft erlaubt</li>
+                    </ul>
+                    
+                    <p><strong>VIEL ERFOLG BEIM SPIELEN.</strong></p>
+                `
+            },
+            en: {
+                toggleButton: 'WHAT IS SMART LAND PLUS?',
+                toggleButtonExpanded: 'HIDE EXPLANATION',
+                content: `
+                    <h4>WHAT IS SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus is an intelligent word game that combines creativity, knowledge and quick thinking. Players must find words for different categories that all start with the same letter.</p>
+                    
+                    <h4>HOW DOES THE GAME WORK?</h4>
+                    <ol>
+                        <li><strong>CREATE OR JOIN ROOM:</strong> Enter your name and create a new room or join an existing one.</li>
+                        <li><strong>SET CATEGORIES:</strong> All players can add or remove categories (e.g. City, Country, River, Name, Profession, Animal, Plant).</li>
+                        <li><strong>GET READY:</strong> All players must mark themselves as "ready" before the game starts.</li>
+                        <li><strong>LETTER IS CHOSEN:</strong> A random letter is selected - all answers must start with this letter.</li>
+                        <li><strong>TIME RUNS:</strong> You have a limited time (default 90 seconds) to find a suitable word for each category.</li>
+                        <li><strong>SUBMIT ANSWERS:</strong> Once you're done or time runs out, your answers are automatically submitted.</li>
+                        <li><strong>AI EVALUATION:</strong> Our intelligent AI evaluates all answers for correctness, creativity and uniqueness.</li>
+                        <li><strong>RECEIVE POINTS:</strong> You receive points based on the quality of your answers and whether other players used the same words.</li>
+                    </ol>
+                    
+                    <h4>SCORING SYSTEM:</h4>
+                    <ul>
+                        <li><strong>UNIQUE ANSWER:</strong> Full points if only you had this answer</li>
+                        <li><strong>SHARED ANSWER:</strong> Reduced points if other players used the same word</li>
+                        <li><strong>CREATIVITY:</strong> Bonus points for particularly creative or unusual answers</li>
+                        <li><strong>WRONG ANSWER:</strong> No points for words that don't fit the category or start with the wrong letter</li>
+                    </ul>
+                    
+                    <h4>TIPS FOR BETTER RESULTS:</h4>
+                    <ul>
+                        <li>Think of unusual words - they bring more points</li>
+                        <li>Make sure your answers really fit the category</li>
+                        <li>Use the full time, but don't forget to submit on time</li>
+                        <li>For difficult letters like X, Y or Q: Foreign words are often allowed</li>
+                    </ul>
+                    
+                    <p><strong>GOOD LUCK PLAYING.</strong></p>
+                `
+            },
+            fr: {
+                toggleButton: 'QU\'EST-CE QUE SMART LAND PLUS?',
+                toggleButtonExpanded: 'MASQUER L\'EXPLICATION',
+                content: `
+                    <h4>QU'EST-CE QUE SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus est un jeu de mots intelligent qui combine créativité, connaissances et réflexion rapide. Les joueurs doivent trouver des mots pour différentes catégories qui commencent tous par la même lettre.</p>
+                    
+                    <h4>COMMENT FONCTIONNE LE JEU?</h4>
+                    <ol>
+                        <li><strong>CRÉER OU REJOINDRE UNE SALLE:</strong> Entrez votre nom et créez une nouvelle salle ou rejoignez-en une existante.</li>
+                        <li><strong>DÉFINIR LES CATÉGORIES:</strong> Tous les joueurs peuvent ajouter ou supprimer des catégories (ex: Ville, Pays, Rivière, Nom, Profession, Animal, Plante).</li>
+                        <li><strong>SE PRÉPARER:</strong> Tous les joueurs doivent se marquer comme "prêts" avant que le jeu commence.</li>
+                        <li><strong>LETTRE CHOISIE:</strong> Une lettre aléatoire est sélectionnée - toutes les réponses doivent commencer par cette lettre.</li>
+                        <li><strong>TEMPS LIMITÉ:</strong> Vous avez un temps limité (90 secondes par défaut) pour trouver un mot approprié pour chaque catégorie.</li>
+                        <li><strong>SOUMETTRE LES RÉPONSES:</strong> Une fois terminé ou le temps écoulé, vos réponses sont automatiquement soumises.</li>
+                        <li><strong>ÉVALUATION IA:</strong> Notre IA intelligente évalue toutes les réponses pour leur exactitude, créativité et unicité.</li>
+                        <li><strong>RECEVOIR DES POINTS:</strong> Vous recevez des points basés sur la qualité de vos réponses et si d'autres joueurs ont utilisé les mêmes mots.</li>
+                    </ol>
+                    
+                    <h4>SYSTÈME DE POINTS:</h4>
+                    <ul>
+                        <li><strong>RÉPONSE UNIQUE:</strong> Points complets si vous seul avez eu cette réponse</li>
+                        <li><strong>RÉPONSE PARTAGÉE:</strong> Points réduits si d'autres joueurs ont utilisé le même mot</li>
+                        <li><strong>CRÉATIVITÉ:</strong> Points bonus pour des réponses particulièrement créatives ou inhabituelles</li>
+                        <li><strong>MAUVAISE RÉPONSE:</strong> Aucun point pour les mots qui ne correspondent pas à la catégorie ou commencent par la mauvaise lettre</li>
+                    </ul>
+                    
+                    <h4>CONSEILS POUR DE MEILLEURS RÉSULTATS:</h4>
+                    <ul>
+                        <li>Pensez à des mots inhabituels - ils rapportent plus de points</li>
+                        <li>Assurez-vous que vos réponses correspondent vraiment à la catégorie</li>
+                        <li>Utilisez tout le temps, mais n'oubliez pas de soumettre à temps</li>
+                        <li>Pour les lettres difficiles comme X, Y ou Q: Les mots étrangers sont souvent autorisés</li>
+                    </ul>
+                    
+                    <p><strong>BONNE CHANCE POUR JOUER.</strong></p>
+                `
+            },
+            es: {
+                toggleButton: '¿QUÉ ES SMART LAND PLUS?',
+                toggleButtonExpanded: 'OCULTAR EXPLICACIÓN',
+                content: `
+                    <h4>¿QUÉ ES SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus es un juego de palabras inteligente que combina creatividad, conocimiento y pensamiento rápido. Los jugadores deben encontrar palabras para diferentes categorías que comiencen con la misma letra.</p>
+                    
+                    <h4>¿CÓMO FUNCIONA EL JUEGO?</h4>
+                    <ol>
+                        <li><strong>CREAR O UNIRSE A SALA:</strong> Ingresa tu nombre y crea una nueva sala o únete a una existente.</li>
+                        <li><strong>ESTABLECER CATEGORÍAS:</strong> Todos los jugadores pueden agregar o eliminar categorías (ej: Ciudad, País, Río, Nombre, Profesión, Animal, Planta).</li>
+                        <li><strong>PREPARARSE:</strong> Todos los jugadores deben marcarse como "listos" antes de que comience el juego.</li>
+                        <li><strong>LETRA ELEGIDA:</strong> Se selecciona una letra aleatoria - todas las respuestas deben comenzar con esta letra.</li>
+                        <li><strong>TIEMPO LIMITADO:</strong> Tienes un tiempo limitado (90 segundos por defecto) para encontrar una palabra adecuada para cada categoría.</li>
+                        <li><strong>ENVIAR RESPUESTAS:</strong> Una vez terminado o agotado el tiempo, tus respuestas se envían automáticamente.</li>
+                        <li><strong>EVALUACIÓN IA:</strong> Nuestra IA inteligente evalúa todas las respuestas por exactitud, creatividad y singularidad.</li>
+                        <li><strong>RECIBIR PUNTOS:</strong> Recibes puntos basados en la calidad de tus respuestas y si otros jugadores usaron las mismas palabras.</li>
+                    </ol>
+                    
+                    <h4>SISTEMA DE PUNTUACIÓN:</h4>
+                    <ul>
+                        <li><strong>RESPUESTA ÚNICA:</strong> Puntos completos si solo tú tuviste esta respuesta</li>
+                        <li><strong>RESPUESTA COMPARTIDA:</strong> Puntos reducidos si otros jugadores usaron la misma palabra</li>
+                        <li><strong>CREATIVIDAD:</strong> Puntos bonus por respuestas particularmente creativas o inusuales</li>
+                        <li><strong>RESPUESTA INCORRECTA:</strong> Sin puntos por palabras que no encajan en la categoría o comienzan con la letra incorrecta</li>
+                    </ul>
+                    
+                    <h4>CONSEJOS PARA MEJORES RESULTADOS:</h4>
+                    <ul>
+                        <li>Piensa en palabras inusuales - traen más puntos</li>
+                        <li>Asegúrate de que tus respuestas realmente encajen en la categoría</li>
+                        <li>Usa todo el tiempo, pero no olvides enviar a tiempo</li>
+                        <li>Para letras difíciles como X, Y o Q: Las palabras extranjeras a menudo están permitidas</li>
+                    </ul>
+                    
+                    <p><strong>BUENA SUERTE JUGANDO.</strong></p>
+                `
+            },
+            it: {
+                toggleButton: 'COS\'È SMART LAND PLUS?',
+                toggleButtonExpanded: 'NASCONDI SPIEGAZIONE',
+                content: `
+                    <h4>COS'È SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus è un gioco di parole intelligente che combina creatività, conoscenza e pensiero veloce. I giocatori devono trovare parole per diverse categorie che iniziano tutte con la stessa lettera.</p>
+                    
+                    <h4>COME FUNZIONA IL GIOCO?</h4>
+                    <ol>
+                        <li><strong>CREARE O UNIRSI A STANZA:</strong> Inserisci il tuo nome e crea una nuova stanza o unisciti a una esistente.</li>
+                        <li><strong>IMPOSTARE CATEGORIE:</strong> Tutti i giocatori possono aggiungere o rimuovere categorie (es: Città, Paese, Fiume, Nome, Professione, Animale, Pianta).</li>
+                        <li><strong>PREPARARSI:</strong> Tutti i giocatori devono segnarsi come "pronti" prima che inizi il gioco.</li>
+                        <li><strong>LETTERA SCELTA:</strong> Viene selezionata una lettera casuale - tutte le risposte devono iniziare con questa lettera.</li>
+                        <li><strong>TEMPO LIMITATO:</strong> Hai un tempo limitato (90 secondi di default) per trovare una parola adatta per ogni categoria.</li>
+                        <li><strong>INVIARE RISPOSTE:</strong> Una volta finito o scaduto il tempo, le tue risposte vengono inviate automaticamente.</li>
+                        <li><strong>VALUTAZIONE IA:</strong> La nostra IA intelligente valuta tutte le risposte per correttezza, creatività e unicità.</li>
+                        <li><strong>RICEVERE PUNTI:</strong> Ricevi punti basati sulla qualità delle tue risposte e se altri giocatori hanno usato le stesse parole.</li>
+                    </ol>
+                    
+                    <h4>SISTEMA DI PUNTEGGIO:</h4>
+                    <ul>
+                        <li><strong>RISPOSTA UNICA:</strong> Punti pieni se solo tu hai avuto questa risposta</li>
+                        <li><strong>RISPOSTA CONDIVISA:</strong> Punti ridotti se altri giocatori hanno usato la stessa parola</li>
+                        <li><strong>CREATIVITÀ:</strong> Punti bonus per risposte particolarmente creative o inusuali</li>
+                        <li><strong>RISPOSTA SBAGLIATA:</strong> Nessun punto per parole che non si adattano alla categoria o iniziano con la lettera sbagliata</li>
+                    </ul>
+                    
+                    <h4>CONSIGLI PER RISULTATI MIGLIORI:</h4>
+                    <ul>
+                        <li>Pensa a parole inusuali - portano più punti</li>
+                        <li>Assicurati che le tue risposte si adattino davvero alla categoria</li>
+                        <li>Usa tutto il tempo, ma non dimenticare di inviare in tempo</li>
+                        <li>Per lettere difficili come X, Y o Q: Le parole straniere sono spesso permesse</li>
+                    </ul>
+                    
+                    <p><strong>BUONA FORTUNA GIOCANDO.</strong></p>
+                `
+            },
+            nl: {
+                toggleButton: 'WAT IS SMART LAND PLUS?',
+                toggleButtonExpanded: 'UITLEG VERBERGEN',
+                content: `
+                    <h4>WAT IS SMART LAND PLUS?</h4>
+                    <p>Smart Land Plus is een intelligent woordspel dat creativiteit, kennis en snel denken combineert. Spelers moeten woorden vinden voor verschillende categorieën die allemaal met dezelfde letter beginnen.</p>
+                    
+                    <h4>HOE WERKT HET SPEL?</h4>
+                    <ol>
+                        <li><strong>KAMER MAKEN OF DEELNEMEN:</strong> Voer je naam in en maak een nieuwe kamer of neem deel aan een bestaande.</li>
+                        <li><strong>CATEGORIEËN INSTELLEN:</strong> Alle spelers kunnen categorieën toevoegen of verwijderen (bijv: Stad, Land, Rivier, Naam, Beroep, Dier, Plant).</li>
+                        <li><strong>KLAAR MAKEN:</strong> Alle spelers moeten zichzelf markeren als "klaar" voordat het spel begint.</li>
+                        <li><strong>LETTER GEKOZEN:</strong> Een willekeurige letter wordt geselecteerd - alle antwoorden moeten met deze letter beginnen.</li>
+                        <li><strong>BEPERKTE TIJD:</strong> Je hebt beperkte tijd (standaard 90 seconden) om een geschikt woord voor elke categorie te vinden.</li>
+                        <li><strong>ANTWOORDEN INDIENEN:</strong> Zodra je klaar bent of de tijd op is, worden je antwoorden automatisch ingediend.</li>
+                        <li><strong>AI EVALUATIE:</strong> Onze intelligente AI evalueert alle antwoorden op juistheid, creativiteit en uniciteit.</li>
+                        <li><strong>PUNTEN ONTVANGEN:</strong> Je ontvangt punten gebaseerd op de kwaliteit van je antwoorden en of andere spelers dezelfde woorden hebben gebruikt.</li>
+                    </ol>
+                    
+                    <h4>PUNTENSYSTEEM:</h4>
+                    <ul>
+                        <li><strong>UNIEK ANTWOORD:</strong> Volle punten als alleen jij dit antwoord had</li>
+                        <li><strong>GEDEELD ANTWOORD:</strong> Verminderde punten als andere spelers hetzelfde woord gebruikten</li>
+                        <li><strong>CREATIVITEIT:</strong> Bonuspunten voor bijzonder creatieve of ongewone antwoorden</li>
+                        <li><strong>FOUT ANTWOORD:</strong> Geen punten voor woorden die niet bij de categorie passen of met de verkeerde letter beginnen</li>
+                    </ul>
+                    
+                    <h4>TIPS VOOR BETERE RESULTATEN:</h4>
+                    <ul>
+                        <li>Denk aan ongewone woorden - ze brengen meer punten</li>
+                        <li>Zorg ervoor dat je antwoorden echt bij de categorie passen</li>
+                        <li>Gebruik de volledige tijd, maar vergeet niet op tijd in te dienen</li>
+                        <li>Voor moeilijke letters zoals X, Y of Q: Vreemde woorden zijn vaak toegestaan</li>
+                    </ul>
+                    
+                    <p><strong>VEEL SUCCES MET SPELEN.</strong></p>
+                `
+            }
+        };
 
         // Initialize the game when page loads
         window.addEventListener('DOMContentLoaded', () => {

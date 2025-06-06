@@ -159,6 +159,29 @@ a:hover {
   background: var(--primary-accent-color);
 }
 
+#join-room-welcome .card-header {
+  background-color: rgba(255, 70, 0, 0.1);
+}
+
+#join-room-welcome .card-header h2 {
+  color: var(--primary-accent-color);
+}
+
+#join-room-welcome .room-info {
+  margin-top: var(--spacing-sm);
+}
+
+/* Welcome screen interface visibility */
+#normal-welcome.hidden,
+#join-room-welcome.hidden {
+  display: none !important;
+}
+
+#normal-welcome,
+#join-room-welcome {
+  display: block;
+}
+
 .lobby-card {
   max-width: 900px;
 }
@@ -1785,6 +1808,124 @@ select {
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
+/* ===== GAME EXPLANATION STYLES ===== */
+.game-explanation {
+  margin-top: var(--spacing-md);
+}
+
+.explanation-content {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background-color: rgba(19, 20, 23, 0.05);
+  border: 3px solid var(--kb-black);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.1);
+  transition: all var(--transition-normal);
+}
+
+.explanation-content.hidden {
+  display: none;
+}
+
+.explanation-text {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: var(--spacing-sm);
+}
+
+.explanation-text h4 {
+  color: var(--kb-black);
+  font-size: 1.1rem;
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  font-weight: var(--font-weight-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
+}
+
+.explanation-text h4:first-child {
+  margin-top: 0;
+}
+
+.explanation-text p {
+  color: var(--text-color-secondary);
+  margin-bottom: var(--spacing-md);
+  line-height: 1.6;
+}
+
+.explanation-text ol,
+.explanation-text ul {
+  margin-bottom: var(--spacing-md);
+  padding-left: var(--spacing-lg);
+}
+
+.explanation-text li {
+  color: var(--text-color-secondary);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.5;
+}
+
+.explanation-text li strong {
+  color: var(--kb-black);
+  font-weight: var(--font-weight-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.explanation-text ol li {
+  counter-increment: step-counter;
+}
+
+.explanation-text ul li {
+  list-style-type: disc;
+}
+
+.explanation-text ul li::marker {
+  color: var(--primary-accent-color);
+}
+
+.explanation-text ol li::marker {
+  color: var(--primary-accent-color);
+  font-weight: 600;
+}
+
+/* Custom scrollbar for explanation text */
+.explanation-text::-webkit-scrollbar {
+  width: 6px;
+}
+
+.explanation-text::-webkit-scrollbar-track {
+  background: rgba(19, 20, 23, 0.05);
+  border-radius: 3px;
+}
+
+.explanation-text::-webkit-scrollbar-thumb {
+  background: var(--primary-accent-color);
+  border-radius: 3px;
+}
+
+.explanation-text::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-accent-color-1);
+}
+
+#explanation-toggle {
+  color: var(--kb-black);
+  font-size: 0.9rem;
+  font-weight: var(--font-weight-heading);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--spacing-sm) 0;
+  transition: color var(--transition-fast);
+  border: none;
+  background: none;
+}
+
+#explanation-toggle:hover {
+  color: var(--primary-accent-color);
+}
+
 @media (max-width: 992px) {
   .lobby-layout {
     grid-template-columns: 1fr;
@@ -2056,6 +2197,18 @@ select {
   }
   
   .loading-message {
+    font-size: 1rem;
+  }
+
+  .explanation-content {
+    padding: var(--spacing-md);
+  }
+
+  .explanation-text {
+    max-height: 300px;
+  }
+
+  .explanation-text h4 {
     font-size: 1rem;
   }
 } 
