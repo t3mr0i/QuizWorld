@@ -887,6 +887,13 @@
                 this.updateGamePlayerList();
                 this.startTimer();
                 this.showScreen('game');
+                
+                // Scroll to top on mobile when game starts
+                if (window.innerWidth <= 768) {
+                    setTimeout(() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 100);
+                }
             }
 
             handleRoundResults(data) {
@@ -1420,15 +1427,41 @@
                 const container = document.getElementById('game-categories');
                 container.innerHTML = '';
                 
-                this.gameState.categories.forEach(category => {
+                this.gameState.categories.forEach((category, index) => {
                     const div = document.createElement('div');
                     div.className = 'category-group';
                     div.innerHTML = `
                         <label>${category}</label>
-                        <input type="text" name="${category}" placeholder="${window.i18n.t('game.categoryPlaceholder', { category, letter: this.gameState.currentLetter })}">
+                        <input type="text" name="${category}" placeholder="${window.i18n.t('game.categoryPlaceholder', { category, letter: this.gameState.currentLetter })}" data-category-index="${index}">
                     `;
                     container.appendChild(div);
                 });
+                
+                // Add Enter key navigation for mobile
+                const inputs = container.querySelectorAll('input[type="text"]');
+                inputs.forEach((input, index) => {
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault(); // Prevent form submission
+                            
+                            // Move to next input or submit if last input
+                            const nextIndex = index + 1;
+                            if (nextIndex < inputs.length) {
+                                inputs[nextIndex].focus();
+                            } else {
+                                // If it's the last input, submit the form
+                                this.submitAnswers();
+                            }
+                        }
+                    });
+                });
+                
+                // Focus on first input after a short delay
+                setTimeout(() => {
+                    if (inputs.length > 0) {
+                        inputs[0].focus();
+                    }
+                }, 200);
             }
 
             updateGamePlayerList() {
