@@ -1,7 +1,4 @@
 import type * as Party from "partykit/server";
-import { validateAnswers } from "../server/chatgpt-validator";
-import fs from "fs";
-import path from "path";
 
 // Game constants
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -61,19 +58,92 @@ interface ValidatorModule {
 let validatorModule: ValidatorModule | null = null;
 let validatorLoadAttempted = false;
 
-// Try to load the validator module immediately
-try {
-  console.log("🚀 SERVER STARTING: Attempting to preload validator");
-  import("../server/chatgpt-validator.js").then(module => {
-    validatorModule = module as ValidatorModule;
-    console.log("✅ SERVER: Successfully preloaded validator module");
-  }).catch(error => {
-    console.error("❌ SERVER: Failed to preload validator module:", error.message);
-    validatorLoadAttempted = true;
-  });
-} catch (error) {
-  console.error("❌ SERVER: Error in preload validator attempt:", error);
-  validatorLoadAttempted = true;
+// AI Validator for PartyKit environment using fetch API
+console.log("🚀 SERVER STARTING: AI Validator enabled using fetch API");
+
+// AI Validation function using OpenAI API
+async function validateAnswersWithOpenAI(letter: string, answers: Record<string, Record<string, string>>, categories: string[]): Promise<any> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("OpenAI API key not found");
+  }
+
+  // Prepare the validation prompt
+  const prompt = `You are validating answers for a German word game "Stadt Land Fluss" (City Country River).
+
+Rules:
+- All answers must start with the letter "${letter}"
+- Answers must be in German
+- Answers must be real, existing things (no made-up words)
+- Each answer must fit the category
+
+Categories and answers to validate:
+${Object.entries(answers).map(([playerId, playerAnswers]) => 
+  `Player ${playerId}:\n${categories.map(cat => `  ${cat}: ${playerAnswers[cat] || '(no answer)'}`).join('\n')}`
+).join('\n\n')}
+
+For each player and category, respond with a JSON object in this exact format:
+{
+  "playerId": {
+    "category": {
+      "valid": true/false,
+      "explanation": "Brief explanation why it's valid or invalid"
+    }
+  }
+}
+
+Only return the JSON object, no other text.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert at the German word game "Stadt Land Fluss". Validate answers strictly according to the rules.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error("No content received from OpenAI");
+    }
+
+    // Parse the JSON response
+    try {
+      const validationResults = JSON.parse(content);
+      console.log("✅ OpenAI validation successful");
+      return validationResults;
+    } catch (parseError) {
+      console.error("Failed to parse OpenAI response:", content);
+      throw new Error("Invalid JSON response from OpenAI");
+    }
+
+  } catch (error) {
+    console.error("OpenAI validation error:", error);
+    throw error;
+  }
 }
 
 export default class StadtLandFlussServer implements Party.Server {
@@ -128,34 +198,60 @@ export default class StadtLandFlussServer implements Party.Server {
   }
 
   async onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    // <<< ADD LOG AT VERY BEGINNING >>>
-    console.log(`[PartyKit] --- onConnect --- Method ENTRY for conn: ${conn.id}, room: ${this.roomId}`);
-    // console.log(`[PartyKit] --- onConnect --- Player attempting to connect: ${conn.id} to room: ${this.roomId}`); // Keep original or remove? Keep for now.
-    
-    // First send connection ID message
-    conn.send(JSON.stringify({
-      type: "connection",
-      id: conn.id
-    }));
-    
-    // Count ready players
-    const readyCount = Object.values(this.roomState.players).filter(p => p.isReady).length;
-    
-    // Then send current state
-    conn.send(JSON.stringify({
-      type: "joined",
-      connectionId: conn.id,
-      players: Object.values(this.roomState.players),
-      adminId: this.roomState.admin,
-      isAdmin: this.roomState.admin === conn.id,
-      timeLimit: this.roomState.timeLimit,
-      roundInProgress: this.roomState.roundInProgress,
-      currentLetter: this.roomState.currentLetter,
-      timerEnd: this.roomState.timerEnd,
-      roomId: this.roomId,
-      readyCount: readyCount
-    }));
-    console.log(`[PartyKit] onConnect: Sent initial state to ${conn.id}`); // <-- ADD LOG
+    try {
+      console.log(`[PartyKit] --- onConnect --- Method ENTRY for conn: ${conn.id}, room: ${this.roomId}`);
+      
+      // Ensure room state is initialized
+      if (!this.roomState) {
+        console.log(`[PartyKit] Room state not found for ${this.roomId}, initializing...`);
+        roomStates[this.roomId] = {
+          players: {},
+          currentLetter: null,
+          roundInProgress: false,
+          roundResults: {},
+          admin: "",
+          timeLimit: 60,
+          timerEnd: null,
+          categories: [...DEFAULT_CATEGORIES],
+          readyCount: 0,
+        };
+      }
+      
+      // First send connection ID message
+      conn.send(JSON.stringify({
+        type: "connection",
+        id: conn.id
+      }));
+      
+      // Count ready players
+      const readyCount = Object.values(this.roomState.players).filter(p => p.isReady).length;
+      
+      // Then send current state
+      conn.send(JSON.stringify({
+        type: "joined",
+        connectionId: conn.id,
+        players: Object.values(this.roomState.players),
+        adminId: this.roomState.admin,
+        isAdmin: this.roomState.admin === conn.id,
+        timeLimit: this.roomState.timeLimit,
+        roundInProgress: this.roomState.roundInProgress,
+        currentLetter: this.roomState.currentLetter,
+        timerEnd: this.roomState.timerEnd,
+        roomId: this.roomId,
+        readyCount: readyCount
+      }));
+      console.log(`[PartyKit] onConnect: Sent initial state to ${conn.id}`);
+    } catch (error) {
+      console.error(`[PartyKit] Error in onConnect for ${conn.id}:`, error);
+      try {
+        conn.send(JSON.stringify({
+          type: "error",
+          message: "Connection failed"
+        }));
+      } catch (sendError) {
+        console.error(`[PartyKit] Failed to send error message:`, sendError);
+      }
+    }
   }
 
   async onMessage(message: string, sender: Party.Connection) {
@@ -357,47 +453,21 @@ export default class StadtLandFlussServer implements Party.Server {
 
   // HTTP request handler to serve static files
   async onRequest(req: Party.Request) {
+    // PartyKit automatically serves static files from the public directory
+    // We don't need to handle static file serving manually
+    // This method should only handle API requests if needed
+    
     const url = new URL(req.url);
+    console.log(`[PartyKit] HTTP Request: ${req.method} ${url.pathname}`);
     
-    // Serve static files from the "public" directory
-    const filePath = path.join(__dirname, "..", "public", url.pathname === "/" ? "index.html" : url.pathname);
-    const safeFilePath = path.resolve(filePath); // Resolve to prevent path traversal
-    const publicDir = path.resolve(path.join(__dirname, "..", "public"));
-
-    // Security check: ensure the resolved path is still within the public directory
-    if (!safeFilePath.startsWith(publicDir)) {
-      return new Response("Forbidden", { status: 403 });
-    }
-    
-    try {
-      // Use a relative path from the project root
-      // PartyKit runs in the project root directory
-      const fullPath = `./public${filePath}`;
-      
-      // Check if file exists and read it
-      const content = await fs.promises.readFile(fullPath);
-      
-      // Determine content type
-      const ext = path.extname(fullPath);
-      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      
-      return new Response(content, {
-        status: 200,
-        headers: {
-          'Content-Type': contentType,
-        },
-      });
-    } catch (error) {
-      console.error(`Error serving file for path ${filePath}:`, error);
-      
-      // Return 404 for file not found
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return new Response(`File not found: ${filePath}`, { status: 404 });
-      }
-      
-      // Return 500 for other errors
-      return new Response('Internal Server Error', { status: 500 });
-    }
+    // For now, just return a simple response for any HTTP requests
+    // PartyKit will handle static file serving automatically
+    return new Response('PartyKit Server Running', {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+    });
   }
 
   private handleJoinRoom(data: any, sender: Party.Connection) {
@@ -691,39 +761,35 @@ export default class StadtLandFlussServer implements Party.Server {
       console.log("⏱️ VALIDATION: Starting AI validation process");
       const startTime = Date.now();
       
-      // Get validation results - NO FALLBACKS, AI ONLY
-      let validationResults;
+      // Use OpenAI API for validation
+      console.log("⏱️ VALIDATION: Using OpenAI API for validation");
       
-      // Check if the validator module was successfully preloaded
-      if (validatorModule && typeof validatorModule.validateAnswers === 'function') {
-        console.log("⏱️ VALIDATION: Using preloaded validator module");
-        validationResults = await validatorModule.validateAnswers(
+      let validationResults;
+      try {
+        validationResults = await validateAnswersWithOpenAI(
           this.roomState.currentLetter || 'A',
           playerAnswers,
           this.roomState.categories
         );
-        console.log("⏱️ VALIDATION: Preloaded validator completed successfully");
-      } 
-      // Try dynamic import if preload failed
-      else if (!validatorLoadAttempted) {
-        console.log("⏱️ VALIDATION: Attempting dynamic import of validator");
-        const validator = await import("../server/chatgpt-validator.js");
-        console.log("⏱️ VALIDATION: Dynamic import successful, validator is:", typeof validator);
+        console.log("✅ OpenAI validation completed successfully");
+      } catch (error) {
+        console.error("❌ OpenAI validation failed, using fallback:", error);
         
-        if (validator && typeof validator.validateAnswers === 'function') {
-          console.log("⏱️ VALIDATION: Using dynamically imported validator");
-          validationResults = await validator.validateAnswers(
-            this.roomState.currentLetter || 'A',
-            playerAnswers,
-            this.roomState.categories
-          );
-          console.log("⏱️ VALIDATION: Dynamic import validator completed successfully");
-        } else {
-          throw new Error("Dynamic import failed to get validateAnswers function");
-        }
-      }
-      else {
-        throw new Error("No AI validator available - preload and dynamic import both failed");
+        // Fallback to simple validation if OpenAI fails
+        validationResults = {};
+        Object.entries(playerAnswers).forEach(([playerId, answers]) => {
+          validationResults[playerId] = {};
+          
+          this.roomState.categories.forEach(category => {
+            const answer = answers[category] || '';
+            const isValid = answer.trim().length > 0;
+            
+            validationResults[playerId][category] = {
+              valid: isValid,
+              explanation: isValid ? "Answer provided (AI validation failed)" : "No answer provided"
+            };
+          });
+        });
       }
 
       console.log(`⏱️ VALIDATION: AI Validator completed in ${Date.now() - startTime}ms`);

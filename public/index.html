@@ -430,8 +430,9 @@
                     console.log('Generated new room ID:', this.gameState.roomId);
                 }
                 
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const host = window.location.host;
+                // Use PartyKit host for WebSocket connection
+                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
+                const host = window.PARTYKIT_HOST;
                 const url = `${protocol}//${host}/party/${this.gameState.roomId}`;
                 
                 console.log('Connecting to:', url);
