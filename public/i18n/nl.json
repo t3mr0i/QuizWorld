@@ -12,7 +12,7 @@
     "timeLimitLabel": "Tijdslimiet (seconden)",
     "gameLanguageLabel": "Speltaal",
     "gameLanguageHelp": "Taal voor AI-uitleg en validatiecontext",
-    "enterVoidButton": "BETREED DE LEEGTE"
+    "enterVoidButton": "SPEL MAKEN"
   },
   "joinRoom": {
     "title": "Deelnemen aan spelkamer",
@@ -50,7 +50,8 @@
     "submitAnswersButton": "ANTWOORDEN INDIENEN",
     "submittedStatus": "INGEDIEND ✓",
     "submittedCount": "ingediend",
-    "playersTitle": "Spelers"
+    "playersTitle": "Spelers",
+    "categoryPlaceholder": "Voer {category} in die begint met {letter}"
   },
   "loading": {
     "processingTitle": "Resultaten verwerken",

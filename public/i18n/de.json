@@ -12,7 +12,7 @@
     "timeLimitLabel": "Zeitlimit (Sekunden)",
     "gameLanguageLabel": "Spielsprache",
     "gameLanguageHelp": "Sprache für KI-Erklärungen und Validierungskontext",
-    "enterVoidButton": "VOID BETRETEN"
+    "enterVoidButton": "SPIEL ERSTELLEN"
   },
   "joinRoom": {
     "title": "Spielraum beitreten",
@@ -29,7 +29,7 @@
     "playersTitle": "Spieler",
     "waitingMessage": "Du kannst alleine spielen oder warten, bis andere beitreten...",
     "readyStatus": "Spieler bereit",
-    "systemReadyButton": "SYSTEM BEREIT",
+    "systemReadyButton": "SPIELER BEREIT",
     "playerNotReadyButton": "SPIELER NICHT BEREIT",
     "playerReadyButton": "SPIELER BEREIT",
     "readyHint": "Bereitschaft zur Teilnahme signalisieren. Sequenz beginnt, wenn alle Systeme Bereitschaft melden.",
@@ -50,7 +50,8 @@
     "submitAnswersButton": "ANTWORTEN EINREICHEN",
     "submittedStatus": "EINGEREICHT ✓",
     "submittedCount": "eingereicht",
-    "playersTitle": "Spieler"
+    "playersTitle": "Spieler",
+    "categoryPlaceholder": "{category} mit {letter} eingeben"
   },
   "loading": {
     "processingTitle": "Ergebnisse werden verarbeitet",

@@ -159,11 +159,11 @@
             <div id="lobby-screen" class="game-screen hidden">
                 <div class="card lobby-card">
                     <div class="card-header" data-id="SLF-002">
-                        <h2>Game Lobby</h2>
+                        <h2 data-i18n="lobby.title">Game Lobby</h2>
                         <div class="room-info">
-                            <span class="room-label">Room ID:</span>
+                            <span class="room-label" data-i18n="lobby.roomLabel">Room ID:</span>
                             <span id="display-room-id" class="room-id">0000</span>
-                            <button id="copy-link-btn" class="btn btn-icon" title="Copy invite link">
+                            <button id="copy-link-btn" class="btn btn-icon" data-i18n="lobby.copyLinkTitle" title="Copy invite link">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                             </button>
                         </div>
@@ -172,42 +172,42 @@
                     <div class="card-body">
                         <div class="lobby-layout">
                             <div class="player-section">
-                                <h3>Players</h3>
+                                <h3 data-i18n="lobby.playersTitle">Players</h3>
                                 <ul id="player-list" class="player-list"></ul>
                                 <div id="waiting-message" class="waiting-message">
-                                    <p>You can start playing alone or wait for others to join...</p>
+                                    <p data-i18n="lobby.waitingMessage">You can start playing alone or wait for others to join...</p>
                                 </div>
                                 <div class="ready-system">
                                     <div class="ready-status">
-                                        <span id="ready-count">0</span>/<span id="total-players">0</span> players ready
+                                        <span id="ready-count">0</span>/<span id="total-players">0</span> <span data-i18n="lobby.readyStatus">players ready</span>
                                     </div>
-                                    <button id="ready-btn" class="btn btn-outline-success">SYSTEM READY</button>
-                                    <p class="footer-hint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
+                                    <button id="ready-btn" class="btn btn-outline-success" data-i18n="lobby.systemReadyButton">SYSTEM READY</button>
+                                    <p class="footer-hint" data-i18n="lobby.readyHint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
                                 </div>
                             </div>
                             
                             <div class="lobby-info-section">
                                 <div class="lobby-language-display">
-                                    <h3>Game Settings</h3>
+                                    <h3 data-i18n="lobby.gameSettingsTitle">Game Settings</h3>
                                     <div class="setting-item">
-                                        <span class="setting-label">Language:</span>
+                                        <span class="setting-label" data-i18n="lobby.languageLabel">Language:</span>
                                         <span id="lobby-language" class="setting-value">🇩🇪 Deutsch</span>
                                     </div>
                                     <div class="setting-item">
-                                        <span class="setting-label">Time Limit:</span>
+                                        <span class="setting-label" data-i18n="lobby.timeLimitDisplayLabel">Time Limit:</span>
                                         <span id="lobby-time-limit" class="setting-value">90 seconds</span>
                                     </div>
                                 </div>
                                 
                                 <div class="category-management">
-                                    <h3>Categories</h3>
+                                    <h3 data-i18n="lobby.categoriesTitle">Categories</h3>
                                     <div id="categories-display" class="category-list"></div>
                                     <div id="category-controls" class="category-controls">
                                         <div class="add-category-container">
-                                            <input type="text" id="new-category" class="category-input" placeholder="Add new category">
-                                            <button id="add-category-btn" class="btn btn-secondary">Add Category</button>
+                                            <input type="text" id="new-category" class="category-input" data-i18n="lobby.addCategoryPlaceholder" placeholder="Add new category">
+                                            <button id="add-category-btn" class="btn btn-secondary" data-i18n="lobby.addCategoryButton">Add Category</button>
                                         </div>
-                                        <p class="category-instructions">All players can add or remove categories</p>
+                                        <p class="category-instructions" data-i18n="lobby.categoryInstructions">All players can add or remove categories</p>
                                     </div>
                                 </div>
                             </div>
@@ -215,13 +215,13 @@
                         
                         <div id="admin-start-controls" class="admin-controls">
                             <div class="game-starter-box">
-                                <button id="start-game-btn" class="btn btn-primary btn-large">START GAME</button>
+                                <button id="start-game-btn" class="btn btn-primary btn-large" data-i18n="lobby.startGameButton">START GAME</button>
                             </div>
                             <div class="session-controls-box">
                                 <button id="close-session-btn" class="btn btn-danger btn-outline">
-                                    <span class="close-icon">×</span> TERMINATE SESSION
+                                    <span class="close-icon">×</span> <span data-i18n="lobby.terminateSessionButton">TERMINATE SESSION</span>
                                 </button>
-                                <p class="close-session-hint">End the current game session for all players</p>
+                                <p class="close-session-hint" data-i18n="lobby.closeSessionHint">End the current game session for all players</p>
                             </div>
                         </div>
                     </div>
@@ -233,11 +233,11 @@
                 <div class="card wide-card">
                     <div class="game-header">
                         <div class="letter-display">
-                            <span class="label">CURRENT LETTER:</span>
+                            <span class="label" data-i18n="game.currentLetterLabel">CURRENT LETTER:</span>
                             <span id="current-letter" class="current-letter">A</span>
                         </div>
                         <div class="timer-container">
-                            <span class="label">TIME LEFT:</span>
+                            <span class="label" data-i18n="game.timeLeftLabel">TIME LEFT:</span>
                             <div id="timer" class="timer">60</div>
                         </div>
                     </div>
@@ -247,16 +247,16 @@
                             <div class="game-main">
                                 <form id="answers-form" class="answers-form">
                                     <div id="game-categories" class="categories-grid"></div>
-                                    <button type="submit" id="submit-btn" class="btn btn-primary btn-large">SUBMIT ANSWERS</button>
+                                    <button type="submit" id="submit-btn" class="btn btn-primary btn-large" data-i18n="game.submitAnswersButton">SUBMIT ANSWERS</button>
                                 </form>
                             </div>
                             
                             <div class="game-sidebar">
-                                <h3>Players</h3>
+                                <h3 data-i18n="game.playersTitle">Players</h3>
                                 <div id="game-player-list" class="game-player-list"></div>
                                 <div class="submission-status">
                                     <div class="status-summary">
-                                        <span id="submitted-count">0</span>/<span id="total-game-players">0</span> submitted
+                                        <span id="submitted-count">0</span>/<span id="total-game-players">0</span> <span data-i18n="game.submittedCount">submitted</span>
                                     </div>
                                 </div>
                             </div>
@@ -278,13 +278,13 @@
                                     <span>.</span>
                                 </div>
                             </div>
-                            <h2 class="loading-title">Processing Results</h2>
-                            <p class="loading-message" id="loading-message">All players submitted! AI is analyzing answers...</p>
+                            <h2 class="loading-title" data-i18n="loading.processingTitle">Processing Results</h2>
+                            <p class="loading-message" id="loading-message" data-i18n="loading.processingMessage">All players submitted! AI is analyzing answers...</p>
                             <div class="loading-progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill"></div>
                                 </div>
-                                <p class="progress-text">This may take a few seconds</p>
+                                <p class="progress-text" data-i18n="loading.progressText">This may take a few seconds</p>
                             </div>
                         </div>
                     </div>
@@ -296,9 +296,9 @@
                 <div class="card wide-card">
                     <div class="card-header">
                         <div class="results-header">
-                            <h2 class="results-title">ROUND RESULTS</h2>
+                            <h2 class="results-title" data-i18n="results.title">ROUND RESULTS</h2>
                             <div class="results-subtitle">
-                                Letter: <span id="result-letter" class="round-letter">A</span>
+                                <span data-i18n="results.letterLabel">Letter:</span> <span id="result-letter" class="round-letter">A</span>
                             </div>
                         </div>
                     </div>
@@ -310,14 +310,14 @@
                             </div>
                             
                             <div class="scores-container">
-                                <h3>LEADERBOARD</h3>
+                                <h3 data-i18n="results.leaderboardTitle">LEADERBOARD</h3>
                                 <div id="scores-list" class="scores-list"></div>
                             </div>
                         </div>
                         
                         <div class="game-controls">
-                            <button id="next-round-btn" class="btn btn-primary">NEXT ROUND</button>
-                            <button id="back-to-lobby-btn" class="btn btn-secondary">RETURN TO LOBBY</button>
+                            <button id="next-round-btn" class="btn btn-primary" data-i18n="results.nextRoundButton">NEXT ROUND</button>
+                            <button id="back-to-lobby-btn" class="btn btn-secondary" data-i18n="results.returnToLobbyButton">RETURN TO LOBBY</button>
                         </div>
                     </div>
                 </div>
@@ -330,7 +330,7 @@
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-title">Notification</h3>
+                <h3 id="modal-title" data-i18n="modal.infoTitle">Notification</h3>
                 <button id="modal-close" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
@@ -338,7 +338,7 @@
                 <p id="modal-message">Message content</p>
             </div>
             <div class="modal-footer">
-                <button id="modal-ok" class="btn btn-primary">OK</button>
+                <button id="modal-ok" class="btn btn-primary" data-i18n="modal.okButton">OK</button>
             </div>
         </div>
     </div>
@@ -348,7 +348,7 @@
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="confirm-title">Confirm Action</h3>
+                <h3 id="confirm-title" data-i18n="modal.confirmTitle">Confirm Action</h3>
                 <button id="confirm-close" class="modal-close">&times;</button>
             </div>
             <div class="modal-body">
@@ -356,8 +356,8 @@
                 <p id="confirm-message">Are you sure?</p>
             </div>
             <div class="modal-footer">
-                <button id="confirm-cancel" class="btn btn-secondary">Cancel</button>
-                <button id="confirm-ok" class="btn btn-primary">Confirm</button>
+                <button id="confirm-cancel" class="btn btn-secondary" data-i18n="modal.cancelButton">Cancel</button>
+                <button id="confirm-ok" class="btn btn-primary" data-i18n="modal.confirmButton">Confirm</button>
             </div>
         </div>
     </div>
@@ -724,12 +724,12 @@
                 
                 this.socket.onclose = (event) => {
                     console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                    this.showError('Connection lost. Please refresh the page.');
+                    this.showError('messages.connectionLost');
                 };
                 
                 this.socket.onerror = (error) => {
                     console.error('WebSocket error:', error);
-                    this.showError('Connection failed. Please try again.');
+                    this.showError('messages.connectionFailed');
                 };
             }
 
@@ -878,7 +878,7 @@
                 const submitBtn = document.getElementById('submit-btn');
                 if (submitBtn) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'SUBMIT ANSWERS';
+                    submitBtn.textContent = window.i18n.t('game.submitAnswersButton');
                     submitBtn.classList.remove('submitted');
                 }
                 
@@ -949,11 +949,11 @@
                 
                 // Reset ready button
                 const readyBtn = document.getElementById('ready-btn');
-                readyBtn.textContent = "SYSTEM READY";
+                readyBtn.textContent = window.i18n.t('lobby.systemReadyButton');
                 readyBtn.className = 'btn btn-outline-success';
                 
                 this.showScreen('lobby');
-                this.showSuccess('Round completed! Ready up for the next round.');
+                this.showSuccess('messages.roundCompleted');
             }
 
             handleCategoriesUpdated(data) {
@@ -1182,7 +1182,7 @@
                 });
                 
                 const btn = document.getElementById('ready-btn');
-                btn.textContent = this.gameState.isReady ? "PLAYER NOT READY" : "PLAYER READY";
+                btn.textContent = this.gameState.isReady ? window.i18n.t('lobby.playerNotReadyButton') : window.i18n.t('lobby.playerReadyButton');
                 btn.className = this.gameState.isReady ? 'btn btn-outline-danger' : 'btn btn-outline-success';
             }
 
@@ -1272,13 +1272,13 @@
                     badges.className = 'player-badges';
                     
                     if (player.name === this.gameState.playerName) {
-                        badges.innerHTML += '<span class="badge badge-you">You</span>';
+                        badges.innerHTML += `<span class="badge badge-you">${window.i18n.t('badges.you')}</span>`;
                     }
                     if (player.isAdmin) {
-                        badges.innerHTML += '<span class="badge badge-admin">Host</span>';
+                        badges.innerHTML += `<span class="badge badge-admin">${window.i18n.t('badges.host')}</span>`;
                     }
                     if (player.isReady) {
-                        badges.innerHTML += '<span class="badge badge-ready">Ready</span>';
+                        badges.innerHTML += `<span class="badge badge-ready">${window.i18n.t('badges.ready')}</span>`;
                     }
                     
                     playerDisplay.appendChild(playerName);
@@ -1425,7 +1425,7 @@
                     div.className = 'category-group';
                     div.innerHTML = `
                         <label>${category}</label>
-                        <input type="text" name="${category}" placeholder="Enter ${category} starting with ${this.gameState.currentLetter}">
+                        <input type="text" name="${category}" placeholder="${window.i18n.t('game.categoryPlaceholder', { category, letter: this.gameState.currentLetter })}">
                     `;
                     container.appendChild(div);
                 });
@@ -1463,9 +1463,9 @@
                     status.className = 'submission-badge';
                     
                     if (player.submitted) {
-                        status.innerHTML = '<span class="badge badge-submitted">SUBMITTED</span>';
+                        status.innerHTML = `<span class="badge badge-submitted">${window.i18n.t('badges.submitted')}</span>`;
                     } else {
-                        status.innerHTML = '<span class="badge badge-waiting">WAITING</span>';
+                        status.innerHTML = `<span class="badge badge-waiting">${window.i18n.t('badges.waiting')}</span>`;
                     }
                     
                     item.appendChild(playerName);
@@ -1550,7 +1550,7 @@
                 
                 // Update UI to show submission
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'SUBMITTED ✓';
+                submitBtn.textContent = window.i18n.t('game.submittedStatus');
                 submitBtn.classList.add('submitted');
                 
                 // Update current player status in local state
@@ -1570,7 +1570,7 @@
                 const scoresList = document.getElementById('scores-list');
                 
                 // Display results table
-                let html = '<table class="results-table"><thead><tr><th>Player</th><th>Category</th><th>Answer</th><th>Points</th><th>Explanation</th></tr></thead><tbody>';
+                let html = `<table class="results-table"><thead><tr><th>${window.i18n.t('results.playerColumn')}</th><th>${window.i18n.t('results.categoryColumn')}</th><th>${window.i18n.t('results.answerColumn')}</th><th>${window.i18n.t('results.pointsColumn')}</th><th>${window.i18n.t('results.explanationColumn')}</th></tr></thead><tbody>`;
                 
                 if (data.scores && data.players && data.categories) {
                     data.categories.forEach((category, categoryIndex) => {
@@ -1630,7 +1630,7 @@
                 if (this.gameState.isAdmin) {
                     this.sendMessage({ type: 'returnToLobby' });
                 } else {
-                    this.showError('Only the host can proceed to the next round');
+                    this.showError('messages.onlyHostCanProceed');
                 }
             }
 

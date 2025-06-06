@@ -12,7 +12,7 @@
     "timeLimitLabel": "Limite di tempo (secondi)",
     "gameLanguageLabel": "Lingua del gioco",
     "gameLanguageHelp": "Lingua per spiegazioni IA e contesto di validazione",
-    "enterVoidButton": "ENTRA NEL VUOTO"
+    "enterVoidButton": "CREA PARTITA"
   },
   "joinRoom": {
     "title": "Unisciti alla stanza di gioco",
@@ -50,7 +50,8 @@
     "submitAnswersButton": "INVIA RISPOSTE",
     "submittedStatus": "INVIATO ✓",
     "submittedCount": "inviato",
-    "playersTitle": "Giocatori"
+    "playersTitle": "Giocatori",
+    "categoryPlaceholder": "Inserire {category} che inizia con {letter}"
   },
   "loading": {
     "processingTitle": "Elaborazione risultati",

@@ -12,7 +12,7 @@
     "timeLimitLabel": "Time Limit (seconds)",
     "gameLanguageLabel": "Game Language",
     "gameLanguageHelp": "Language for AI explanations and validation context",
-    "enterVoidButton": "ENTER VOID"
+    "enterVoidButton": "CREATE GAME"
   },
   "joinRoom": {
     "title": "Join Game Room",
@@ -50,7 +50,8 @@
     "submitAnswersButton": "SUBMIT ANSWERS",
     "submittedStatus": "SUBMITTED ✓",
     "submittedCount": "submitted",
-    "playersTitle": "Players"
+    "playersTitle": "Players",
+    "categoryPlaceholder": "Enter {category} starting with {letter}"
   },
   "loading": {
     "processingTitle": "Processing Results",
