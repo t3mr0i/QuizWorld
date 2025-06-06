@@ -1,0 +1,181 @@
+{
+  "navigation": {
+    "appTitle": "Smart Land Plus"
+  },
+  "welcome": {
+    "title": "Deelnemen of spel starten",
+    "playerNameLabel": "Jouw naam",
+    "playerNamePlaceholder": "Voer je naam in",
+    "roomIdLabel": "Kamer ID",
+    "roomIdPlaceholder": "Leeg laten voor nieuw spel",
+    "roomIdHelp": "Leeg laten om een nieuwe spelkamer te maken",
+    "timeLimitLabel": "Tijdslimiet (seconden)",
+    "gameLanguageLabel": "Speltaal",
+    "gameLanguageHelp": "Taal voor AI-uitleg en validatiecontext",
+    "enterVoidButton": "BETREED DE LEEGTE"
+  },
+  "joinRoom": {
+    "title": "Deelnemen aan spelkamer",
+    "playerNameLabel": "Jouw naam",
+    "playerNamePlaceholder": "Voer je naam in om deel te nemen",
+    "playerNameHelp": "Je neemt deel aan een bestaande spelkamer",
+    "joinGameButton": "DEELNEMEN AAN SPEL",
+    "createNewGameButton": "Wil je in plaats daarvan een nieuw spel maken?"
+  },
+  "lobby": {
+    "title": "Spel lobby",
+    "roomLabel": "Kamer ID:",
+    "copyLinkTitle": "Uitnodigingslink kopiëren",
+    "playersTitle": "Spelers",
+    "waitingMessage": "Je kunt alleen beginnen met spelen of wachten tot anderen meedoen...",
+    "readyStatus": "spelers klaar",
+    "systemReadyButton": "SYSTEEM KLAAR",
+    "playerNotReadyButton": "SPELER NIET KLAAR",
+    "playerReadyButton": "SPELER KLAAR",
+    "readyHint": "Geef bereidheid aan om deel te nemen. Sequentie begint wanneer alle systemen klaarstatus melden.",
+    "gameSettingsTitle": "Spelinstellingen",
+    "languageLabel": "Taal:",
+    "timeLimitDisplayLabel": "Tijdslimiet:",
+    "categoriesTitle": "Categorieën",
+    "addCategoryPlaceholder": "Nieuwe categorie toevoegen",
+    "addCategoryButton": "Categorie toevoegen",
+    "categoryInstructions": "Alle spelers kunnen categorieën toevoegen of verwijderen",
+    "startGameButton": "SPEL STARTEN",
+    "terminateSessionButton": "SESSIE BEËINDIGEN",
+    "closeSessionHint": "Huidige spelsessie beëindigen voor alle spelers"
+  },
+  "game": {
+    "currentLetterLabel": "HUIDIGE LETTER:",
+    "timeLeftLabel": "TIJD OVER:",
+    "submitAnswersButton": "ANTWOORDEN INDIENEN",
+    "submittedStatus": "INGEDIEND ✓",
+    "submittedCount": "ingediend",
+    "playersTitle": "Spelers"
+  },
+  "loading": {
+    "processingTitle": "Resultaten verwerken",
+    "processingMessage": "Alle spelers hebben ingediend! AI analyseert antwoorden...",
+    "progressText": "Dit kan een paar seconden duren"
+  },
+  "results": {
+    "title": "RONDE RESULTATEN",
+    "letterLabel": "Letter:",
+    "leaderboardTitle": "RANGLIJST",
+    "nextRoundButton": "VOLGENDE RONDE",
+    "returnToLobbyButton": "TERUG NAAR LOBBY",
+    "playerColumn": "Speler",
+    "categoryColumn": "Categorie",
+    "answerColumn": "Antwoord",
+    "pointsColumn": "Punten",
+    "explanationColumn": "Uitleg"
+  },
+  "badges": {
+    "you": "Jij",
+    "host": "Host",
+    "ready": "Klaar",
+    "submitted": "INGEDIEND",
+    "waiting": "WACHTEND"
+  },
+  "modal": {
+    "errorTitle": "Fout",
+    "successTitle": "Succes",
+    "infoTitle": "Informatie",
+    "confirmTitle": "Actie bevestigen",
+    "okButton": "OK",
+    "cancelButton": "Annuleren",
+    "confirmButton": "Bevestigen"
+  },
+  "messages": {
+    "enterNameError": "Voer alsjeblieft je naam in",
+    "onlyHostCanStart": "Alleen de host kan het spel starten",
+    "onlyHostCanClose": "Alleen de host kan de sessie sluiten",
+    "onlyHostCanProceed": "Alleen de host kan naar de volgende ronde",
+    "categoryExists": "Categorie bestaat al",
+    "minimumCategories": "Je moet minstens 3 categorieën hebben",
+    "linkCopied": "Uitnodigingslink gekopieerd naar klembord!",
+    "linkCopyFailed": "Kopiëren van link mislukt",
+    "connectionLost": "Verbinding verloren. Ververs de pagina alsjeblieft.",
+    "connectionFailed": "Verbinding mislukt. Probeer het opnieuw.",
+    "roundCompleted": "Ronde voltooid! Maak je klaar voor de volgende ronde.",
+    "closeSessionConfirm": "Weet je zeker dat je deze sessie wilt sluiten? Alle spelers worden losgekoppeld.",
+    "removeCategoryConfirm": "Categorie \"{category}\" verwijderen?"
+  },
+  "languages": {
+    "de": "🇩🇪 Deutsch (Duits)",
+    "en": "🇺🇸 English (Engels)",
+    "fr": "🇫🇷 Français (Frans)",
+    "es": "🇪🇸 Español (Spaans)",
+    "it": "🇮🇹 Italiano (Italiaans)",
+    "nl": "🇳🇱 Nederlands"
+  },
+  "explanation": {
+    "toggleButton": "WAT IS SMART LAND PLUS?",
+    "toggleButtonExpanded": "UITLEG VERBERGEN",
+    "content": {
+      "whatIsTitle": "WAT IS SMART LAND PLUS?",
+      "whatIsText": "Smart Land Plus is een intelligent woordspel dat creativiteit, kennis en snel denken combineert. Spelers moeten woorden vinden voor verschillende categorieën die allemaal met dezelfde letter beginnen.",
+      "howWorksTitle": "HOE WERKT HET SPEL?",
+      "howWorksSteps": [
+        {
+          "title": "KAMER MAKEN OF DEELNEMEN:",
+          "text": "Voer je naam in en maak een nieuwe kamer of neem deel aan een bestaande."
+        },
+        {
+          "title": "CATEGORIEËN INSTELLEN:",
+          "text": "Alle spelers kunnen categorieën toevoegen of verwijderen (bijv: Stad, Land, Rivier, Naam, Beroep, Dier, Plant)."
+        },
+        {
+          "title": "KLAAR MAKEN:",
+          "text": "Alle spelers moeten zichzelf markeren als \"klaar\" voordat het spel begint."
+        },
+        {
+          "title": "LETTER GEKOZEN:",
+          "text": "Een willekeurige letter wordt geselecteerd - alle antwoorden moeten met deze letter beginnen."
+        },
+        {
+          "title": "BEPERKTE TIJD:",
+          "text": "Je hebt beperkte tijd (standaard 90 seconden) om een geschikt woord voor elke categorie te vinden."
+        },
+        {
+          "title": "ANTWOORDEN INDIENEN:",
+          "text": "Zodra je klaar bent of de tijd op is, worden je antwoorden automatisch ingediend."
+        },
+        {
+          "title": "AI EVALUATIE:",
+          "text": "Onze intelligente AI evalueert alle antwoorden op juistheid, creativiteit en uniciteit."
+        },
+        {
+          "title": "PUNTEN ONTVANGEN:",
+          "text": "Je ontvangt punten gebaseerd op de kwaliteit van je antwoorden en of andere spelers dezelfde woorden hebben gebruikt."
+        }
+      ],
+      "scoringTitle": "PUNTENSYSTEEM:",
+      "scoringItems": [
+        {
+          "title": "UNIEK ANTWOORD:",
+          "text": "Volle punten als alleen jij dit antwoord had"
+        },
+        {
+          "title": "GEDEELD ANTWOORD:",
+          "text": "Verminderde punten als andere spelers hetzelfde woord gebruikten"
+        },
+        {
+          "title": "CREATIVITEIT:",
+          "text": "Bonuspunten voor bijzonder creatieve of ongewone antwoorden"
+        },
+        {
+          "title": "FOUT ANTWOORD:",
+          "text": "Geen punten voor woorden die niet bij de categorie passen of met de verkeerde letter beginnen"
+        }
+      ],
+      "tipsTitle": "TIPS VOOR BETERE RESULTATEN:",
+      "tipsItems": [
+        "Denk aan ongewone woorden - ze brengen meer punten",
+        "Zorg ervoor dat je antwoorden echt bij de categorie passen",
+        "Gebruik de volledige tijd, maar vergeet niet op tijd in te dienen",
+        "Voor moeilijke letters zoals X, Y of Q: Vreemde woorden zijn vaak toegestaan"
+      ],
+      "goodLuck": "VEEL SUCCES MET SPELEN."
+    }
+  }
+} 

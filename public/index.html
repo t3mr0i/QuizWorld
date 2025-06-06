@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="css/styles.css">
     <!-- Add favicon -->
     <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
-    
     <!-- PartyKit Configuration -->
     <script>
         // Hard-code the PartyKit host to avoid placeholder issues
@@ -65,7 +64,7 @@
         <div class="navbar fixed-top">
             <div class="container d-flex justify-content-between align-items-center">
                 <a href="#" class="navbar-brand">
-                    <h1 class="mb-0">Smart Land Plus</h1>
+                    <h1 class="mb-0" data-i18n="navigation.appTitle">Smart Land Plus</h1>
                 </a>
             </div>
         </div>
@@ -76,24 +75,24 @@
                 <!-- Normal Welcome Screen -->
                 <div id="normal-welcome" class="card welcome-card">
                     <div class="card-header" data-id="SLF-001">
-                        <h2>Join or start a Game</h2>
+                        <h2 data-i18n="welcome.title">Join or start a Game</h2>
                     </div>
                     <div class="card-body">
                         <form class="join-form">
                             <div class="form-group">
-                                <label for="player-name">Your Name</label>
-                                <input type="text" id="player-name" placeholder="Enter your name" required autocomplete="off">
+                                <label for="player-name" data-i18n="welcome.playerNameLabel">Your Name</label>
+                                <input type="text" id="player-name" data-i18n="welcome.playerNamePlaceholder" placeholder="Enter your name" required autocomplete="off">
                             </div>
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="room-id">Room ID</label>
-                                    <input type="text" id="room-id" placeholder="Leave empty for new game" autocomplete="off">
-                                    <small>Leave empty to create a new game room</small>
+                                    <label for="room-id" data-i18n="welcome.roomIdLabel">Room ID</label>
+                                    <input type="text" id="room-id" data-i18n="welcome.roomIdPlaceholder" placeholder="Leave empty for new game" autocomplete="off">
+                                    <small data-i18n="welcome.roomIdHelp">Leave empty to create a new game room</small>
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="time-limit">Time Limit (seconds)</label>
+                                    <label for="time-limit" data-i18n="welcome.timeLimitLabel">Time Limit (seconds)</label>
                                     <div class="time-selector">
                                         <button type="button" class="time-btn decrease">−</button>
                                         <input type="number" id="time-limit" value="90" min="30" max="300" step="10">
@@ -103,7 +102,7 @@
                             </div>
                             
                             <div class="form-group">
-                                <label for="game-language">Game Language</label>
+                                <label for="game-language" data-i18n="welcome.gameLanguageLabel">Game Language</label>
                                 <select id="game-language" class="language-selector">
                                     <option value="de">🇩🇪 Deutsch (German)</option>
                                     <option value="en">🇺🇸 English</option>
@@ -112,15 +111,15 @@
                                     <option value="it">🇮🇹 Italiano (Italian)</option>
                                     <option value="nl">🇳🇱 Nederlands (Dutch)</option>
                                 </select>
-                                <small>Language for AI explanations and validation context</small>
+                                <small data-i18n="welcome.gameLanguageHelp">Language for AI explanations and validation context</small>
                             </div>
                             
-                            <button type="button" id="join-btn" class="btn btn-primary btn-large">ENTER VOID</button>
+                            <button type="button" id="join-btn" class="btn btn-primary btn-large" data-i18n="welcome.enterVoidButton">ENTER VOID</button>
                         </form>
                     </div>
                     <div class="card-footer">
                         <div class="game-explanation">
-                            <button id="explanation-toggle" class="btn btn-text">WAS IST SMART LAND PLUS?</button>
+                            <button id="explanation-toggle" class="btn btn-text" data-i18n="explanation.toggleButton">WAS IST SMART LAND PLUS?</button>
                             <div id="explanation-content" class="explanation-content hidden">
                                 <div class="explanation-text" id="explanation-text">
                                     <!-- Content will be dynamically updated based on language -->
@@ -133,25 +132,25 @@
                 <!-- Simplified Join Screen for Direct Room Links -->
                 <div id="join-room-welcome" class="card welcome-card hidden">
                     <div class="card-header" data-id="SLF-001">
-                        <h2>Join Game Room</h2>
+                        <h2 data-i18n="joinRoom.title">Join Game Room</h2>
                         <div class="room-info">
-                            <span class="room-label">Room ID:</span>
+                            <span class="room-label" data-i18n="lobby.roomLabel">Room ID:</span>
                             <span id="join-room-id" class="room-id">XXXXXX</span>
                         </div>
                     </div>
                     <div class="card-body">
                         <form class="join-form">
                             <div class="form-group">
-                                <label for="join-player-name">Your Name</label>
-                                <input type="text" id="join-player-name" placeholder="Enter your name to join" required autocomplete="off">
-                                <small>You're joining an existing game room</small>
+                                <label for="join-player-name" data-i18n="joinRoom.playerNameLabel">Your Name</label>
+                                <input type="text" id="join-player-name" data-i18n="joinRoom.playerNamePlaceholder" placeholder="Enter your name to join" required autocomplete="off">
+                                <small data-i18n="joinRoom.playerNameHelp">You're joining an existing game room</small>
                             </div>
                             
-                            <button type="button" id="join-room-btn" class="btn btn-primary btn-large">JOIN GAME</button>
+                            <button type="button" id="join-room-btn" class="btn btn-primary btn-large" data-i18n="joinRoom.joinGameButton">JOIN GAME</button>
                         </form>
                     </div>
                     <div class="card-footer">
-                        <button id="create-new-game-btn" class="btn btn-text">Want to create a new game instead?</button>
+                        <button id="create-new-game-btn" class="btn btn-text" data-i18n="joinRoom.createNewGameButton">Want to create a new game instead?</button>
                     </div>
                 </div>
             </div>
@@ -363,6 +362,9 @@
         </div>
     </div>
 
+    <!-- i18n System -->
+    <script src="js/i18n.js"></script>
+    
     <script>
         // Simplified GameClient following PartyKit best practices
         class GameClient {
@@ -386,13 +388,13 @@
                 this.init();
             }
 
-            init() {
+            async init() {
+                // Initialize i18n system first
+                await window.i18n.init(this.gameState.language);
+                
                 this.setupEventListeners();
                 this.setupModal();
                 this.showScreen('welcome');
-                
-                // Initialize explanation content with default language
-                this.updateExplanationLanguage();
                 
                 // Check for room ID in URL
                 const urlParams = new URLSearchParams(window.location.search);
@@ -508,9 +510,9 @@
                 document.getElementById('explanation-toggle').onclick = () => this.toggleExplanation();
                 
                 // Language selector change
-                document.getElementById('game-language').onchange = (e) => {
+                document.getElementById('game-language').onchange = async (e) => {
                     this.gameState.language = e.target.value;
-                    this.updateExplanationLanguage();
+                    await window.i18n.changeLanguage(e.target.value);
                 };
             }
 
@@ -528,35 +530,15 @@
 
             toggleExplanation() {
                 const content = document.getElementById('explanation-content');
-                const button = document.getElementById('explanation-toggle');
-                const currentLang = this.gameState.language || 'de';
-                const langContent = EXPLANATION_CONTENT[currentLang] || EXPLANATION_CONTENT['de'];
                 
                 if (content.classList.contains('hidden')) {
                     content.classList.remove('hidden');
-                    button.textContent = langContent.toggleButtonExpanded;
                 } else {
                     content.classList.add('hidden');
-                    button.textContent = langContent.toggleButton;
                 }
-            }
-
-            updateExplanationLanguage() {
-                const currentLang = this.gameState.language || 'de';
-                const langContent = EXPLANATION_CONTENT[currentLang] || EXPLANATION_CONTENT['de'];
-                const explanationText = document.getElementById('explanation-text');
-                const button = document.getElementById('explanation-toggle');
-                const content = document.getElementById('explanation-content');
                 
-                // Update content
-                explanationText.innerHTML = langContent.content;
-                
-                // Update button text based on current state
-                if (content.classList.contains('hidden')) {
-                    button.textContent = langContent.toggleButton;
-                } else {
-                    button.textContent = langContent.toggleButtonExpanded;
-                }
+                // Update button text via i18n system
+                window.i18n.updateExplanationContent();
             }
 
             showScreen(screenName) {
@@ -649,26 +631,42 @@
                 modal.classList.remove('hidden');
             }
 
-            showError(message) {
+            showError(messageKey, params = {}) {
+                const message = typeof messageKey === 'string' && messageKey.includes('.') 
+                    ? window.i18n.t(messageKey, params) 
+                    : messageKey;
                 console.error('Error:', message);
-                this.showModal('Error', message, 'error');
+                this.showModal(window.i18n.t('modal.errorTitle'), message, 'error');
             }
 
-            showSuccess(message) {
+            showSuccess(messageKey, params = {}) {
+                const message = typeof messageKey === 'string' && messageKey.includes('.') 
+                    ? window.i18n.t(messageKey, params) 
+                    : messageKey;
                 console.log('Success:', message);
-                this.showModal('Success', message, 'success');
+                this.showModal(window.i18n.t('modal.successTitle'), message, 'success');
             }
 
-            showInfo(message) {
+            showInfo(messageKey, params = {}) {
+                const message = typeof messageKey === 'string' && messageKey.includes('.') 
+                    ? window.i18n.t(messageKey, params) 
+                    : messageKey;
                 console.log('Info:', message);
-                this.showModal('Information', message, 'info');
+                this.showModal(window.i18n.t('modal.infoTitle'), message, 'info');
             }
 
-            showConfirm(title, message) {
+            showConfirm(titleKey, messageKey, params = {}) {
                 return new Promise((resolve, reject) => {
                     const confirmModal = document.getElementById('confirmation-modal');
                     const titleEl = document.getElementById('confirm-title');
                     const messageEl = document.getElementById('confirm-message');
+                    
+                    const title = typeof titleKey === 'string' && titleKey.includes('.') 
+                        ? window.i18n.t(titleKey, params) 
+                        : titleKey;
+                    const message = typeof messageKey === 'string' && messageKey.includes('.') 
+                        ? window.i18n.t(messageKey, params) 
+                        : messageKey;
                     
                     titleEl.textContent = title;
                     messageEl.textContent = message;
@@ -1129,7 +1127,7 @@
                 const language = document.getElementById('game-language').value || 'de';
                 
                 if (!playerName) {
-                    this.showError('Please enter your name');
+                    this.showError('messages.enterNameError');
                     return;
                 }
                 
@@ -1145,7 +1143,7 @@
                 const playerName = document.getElementById('join-player-name').value.trim();
                 
                 if (!playerName) {
-                    this.showError('Please enter your name');
+                    this.showError('messages.enterNameError');
                     return;
                 }
                 
@@ -1190,7 +1188,7 @@
 
             startGame() {
                 if (!this.gameState.isAdmin) {
-                    this.showError('Only the host can start the game');
+                    this.showError('messages.onlyHostCanStart');
                     return;
                 }
                 
@@ -1199,14 +1197,14 @@
 
             async closeSession() {
                 if (!this.gameState.isAdmin) {
-                    this.showError('Only the host can close the session');
+                    this.showError('messages.onlyHostCanClose');
                     return;
                 }
                 
                 try {
                     await this.showConfirm(
-                        'Close Session', 
-                        'Are you sure you want to close this session? All players will be disconnected.'
+                        'modal.confirmTitle', 
+                        'messages.closeSessionConfirm'
                     );
                     this.sendMessage({ 
                         type: 'closeSession',
@@ -1220,9 +1218,9 @@
             copyInviteLink() {
                 const url = `${window.location.origin}${window.location.pathname}?room=${this.gameState.roomId}`;
                 navigator.clipboard.writeText(url).then(() => {
-                    this.showSuccess('Invite link copied to clipboard!');
+                    this.showSuccess('messages.linkCopied');
                 }).catch(() => {
-                    this.showError('Failed to copy link');
+                    this.showError('messages.linkCopyFailed');
                 });
             }
 
@@ -1233,7 +1231,7 @@
                 if (!category) return;
                 
                 if (this.gameState.categories.includes(category)) {
-                    this.showError('Category already exists');
+                    this.showError('messages.categoryExists');
                     return;
                 }
                 
@@ -1641,7 +1639,9 @@
             }
         }
 
-        // Language content for explanations
+
+
+        // Legacy explanation content for backward compatibility
         const EXPLANATION_CONTENT = {
             de: {
                 toggleButton: 'WAS IST SMART LAND PLUS?',

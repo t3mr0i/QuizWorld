@@ -1,0 +1,181 @@
+{
+  "navigation": {
+    "appTitle": "Smart Land Plus"
+  },
+  "welcome": {
+    "title": "Spiel beitreten oder starten",
+    "playerNameLabel": "Dein Name",
+    "playerNamePlaceholder": "Gib deinen Namen ein",
+    "roomIdLabel": "Raum-ID",
+    "roomIdPlaceholder": "Leer lassen für neues Spiel",
+    "roomIdHelp": "Leer lassen, um einen neuen Spielraum zu erstellen",
+    "timeLimitLabel": "Zeitlimit (Sekunden)",
+    "gameLanguageLabel": "Spielsprache",
+    "gameLanguageHelp": "Sprache für KI-Erklärungen und Validierungskontext",
+    "enterVoidButton": "VOID BETRETEN"
+  },
+  "joinRoom": {
+    "title": "Spielraum beitreten",
+    "playerNameLabel": "Dein Name",
+    "playerNamePlaceholder": "Gib deinen Namen ein, um beizutreten",
+    "playerNameHelp": "Du trittst einem bestehenden Spielraum bei",
+    "joinGameButton": "SPIEL BEITRETEN",
+    "createNewGameButton": "Möchtest du stattdessen ein neues Spiel erstellen?"
+  },
+  "lobby": {
+    "title": "Spiel-Lobby",
+    "roomLabel": "Raum-ID:",
+    "copyLinkTitle": "Einladungslink kopieren",
+    "playersTitle": "Spieler",
+    "waitingMessage": "Du kannst alleine spielen oder warten, bis andere beitreten...",
+    "readyStatus": "Spieler bereit",
+    "systemReadyButton": "SYSTEM BEREIT",
+    "playerNotReadyButton": "SPIELER NICHT BEREIT",
+    "playerReadyButton": "SPIELER BEREIT",
+    "readyHint": "Bereitschaft zur Teilnahme signalisieren. Sequenz beginnt, wenn alle Systeme Bereitschaft melden.",
+    "gameSettingsTitle": "Spieleinstellungen",
+    "languageLabel": "Sprache:",
+    "timeLimitDisplayLabel": "Zeitlimit:",
+    "categoriesTitle": "Kategorien",
+    "addCategoryPlaceholder": "Neue Kategorie hinzufügen",
+    "addCategoryButton": "Kategorie hinzufügen",
+    "categoryInstructions": "Alle Spieler können Kategorien hinzufügen oder entfernen",
+    "startGameButton": "SPIEL STARTEN",
+    "terminateSessionButton": "SITZUNG BEENDEN",
+    "closeSessionHint": "Aktuelle Spielsitzung für alle Spieler beenden"
+  },
+  "game": {
+    "currentLetterLabel": "AKTUELLER BUCHSTABE:",
+    "timeLeftLabel": "VERBLEIBENDE ZEIT:",
+    "submitAnswersButton": "ANTWORTEN EINREICHEN",
+    "submittedStatus": "EINGEREICHT ✓",
+    "submittedCount": "eingereicht",
+    "playersTitle": "Spieler"
+  },
+  "loading": {
+    "processingTitle": "Ergebnisse werden verarbeitet",
+    "processingMessage": "Alle Spieler haben eingereicht! KI analysiert Antworten...",
+    "progressText": "Das kann ein paar Sekunden dauern"
+  },
+  "results": {
+    "title": "RUNDENERGEBNISSE",
+    "letterLabel": "Buchstabe:",
+    "leaderboardTitle": "BESTENLISTE",
+    "nextRoundButton": "NÄCHSTE RUNDE",
+    "returnToLobbyButton": "ZURÜCK ZUR LOBBY",
+    "playerColumn": "Spieler",
+    "categoryColumn": "Kategorie",
+    "answerColumn": "Antwort",
+    "pointsColumn": "Punkte",
+    "explanationColumn": "Erklärung"
+  },
+  "badges": {
+    "you": "Du",
+    "host": "Host",
+    "ready": "Bereit",
+    "submitted": "EINGEREICHT",
+    "waiting": "WARTET"
+  },
+  "modal": {
+    "errorTitle": "Fehler",
+    "successTitle": "Erfolg",
+    "infoTitle": "Information",
+    "confirmTitle": "Aktion bestätigen",
+    "okButton": "OK",
+    "cancelButton": "Abbrechen",
+    "confirmButton": "Bestätigen"
+  },
+  "messages": {
+    "enterNameError": "Bitte gib deinen Namen ein",
+    "onlyHostCanStart": "Nur der Host kann das Spiel starten",
+    "onlyHostCanClose": "Nur der Host kann die Sitzung schließen",
+    "onlyHostCanProceed": "Nur der Host kann zur nächsten Runde",
+    "categoryExists": "Kategorie existiert bereits",
+    "minimumCategories": "Du musst mindestens 3 Kategorien haben",
+    "linkCopied": "Einladungslink in Zwischenablage kopiert!",
+    "linkCopyFailed": "Link konnte nicht kopiert werden",
+    "connectionLost": "Verbindung verloren. Bitte lade die Seite neu.",
+    "connectionFailed": "Verbindung fehlgeschlagen. Bitte versuche es erneut.",
+    "roundCompleted": "Runde abgeschlossen! Macht euch bereit für die nächste Runde.",
+    "closeSessionConfirm": "Bist du sicher, dass du diese Sitzung schließen möchtest? Alle Spieler werden getrennt.",
+    "removeCategoryConfirm": "Kategorie \"{category}\" entfernen?"
+  },
+  "languages": {
+    "de": "🇩🇪 Deutsch",
+    "en": "🇺🇸 English",
+    "fr": "🇫🇷 Français",
+    "es": "🇪🇸 Español",
+    "it": "🇮🇹 Italiano",
+    "nl": "🇳🇱 Nederlands"
+  },
+  "explanation": {
+    "toggleButton": "WAS IST SMART LAND PLUS?",
+    "toggleButtonExpanded": "ERKLÄRUNG AUSBLENDEN",
+    "content": {
+      "whatIsTitle": "WAS IST SMART LAND PLUS?",
+      "whatIsText": "Smart Land Plus ist ein intelligentes Wortspiel, das Kreativität, Wissen und schnelles Denken kombiniert. Spieler müssen Wörter zu verschiedenen Kategorien finden, die alle mit demselben Buchstaben beginnen.",
+      "howWorksTitle": "WIE FUNKTIONIERT DAS SPIEL?",
+      "howWorksSteps": [
+        {
+          "title": "RAUM ERSTELLEN ODER BEITRETEN:",
+          "text": "Gib deinen Namen ein und erstelle einen neuen Raum oder tritt einem bestehenden bei."
+        },
+        {
+          "title": "KATEGORIEN FESTLEGEN:",
+          "text": "Alle Spieler können Kategorien hinzufügen oder entfernen (z.B. Stadt, Land, Fluss, Name, Beruf, Tier, Pflanze)."
+        },
+        {
+          "title": "BEREIT MACHEN:",
+          "text": "Alle Spieler müssen sich als \"bereit\" markieren, bevor das Spiel beginnt."
+        },
+        {
+          "title": "BUCHSTABE WIRD GEWÄHLT:",
+          "text": "Ein zufälliger Buchstabe wird ausgewählt - alle Antworten müssen mit diesem Buchstaben beginnen."
+        },
+        {
+          "title": "ZEIT LÄUFT:",
+          "text": "Du hast eine begrenzte Zeit (standardmäßig 90 Sekunden), um für jede Kategorie ein passendes Wort zu finden."
+        },
+        {
+          "title": "ANTWORTEN EINREICHEN:",
+          "text": "Sobald du fertig bist oder die Zeit abläuft, werden deine Antworten automatisch eingereicht."
+        },
+        {
+          "title": "KI-BEWERTUNG:",
+          "text": "Unsere intelligente KI bewertet alle Antworten auf Korrektheit, Kreativität und Einzigartigkeit."
+        },
+        {
+          "title": "PUNKTE ERHALTEN:",
+          "text": "Du erhältst Punkte basierend auf der Qualität deiner Antworten und ob andere Spieler dieselben Wörter verwendet haben."
+        }
+      ],
+      "scoringTitle": "PUNKTESYSTEM:",
+      "scoringItems": [
+        {
+          "title": "EINZIGARTIGE ANTWORT:",
+          "text": "Volle Punkte, wenn nur du diese Antwort hattest"
+        },
+        {
+          "title": "GETEILTE ANTWORT:",
+          "text": "Reduzierte Punkte, wenn andere Spieler dasselbe Wort verwendet haben"
+        },
+        {
+          "title": "KREATIVITÄT:",
+          "text": "Bonus-Punkte für besonders kreative oder ungewöhnliche Antworten"
+        },
+        {
+          "title": "FALSCHE ANTWORT:",
+          "text": "Keine Punkte für Wörter, die nicht zur Kategorie passen oder mit dem falschen Buchstaben beginnen"
+        }
+      ],
+      "tipsTitle": "TIPPS FÜR BESSERE ERGEBNISSE:",
+      "tipsItems": [
+        "Denke an ungewöhnliche Wörter - sie bringen mehr Punkte",
+        "Achte darauf, dass deine Antworten wirklich zur Kategorie passen",
+        "Nutze die volle Zeit, aber vergiss nicht rechtzeitig abzugeben",
+        "Bei schwierigen Buchstaben wie X, Y oder Q: Auch Fremdwörter sind oft erlaubt"
+      ],
+      "goodLuck": "VIEL ERFOLG BEIM SPIELEN."
+    }
+  }
+} 

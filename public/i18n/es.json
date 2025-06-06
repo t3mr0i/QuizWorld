@@ -1,0 +1,181 @@
+{
+  "navigation": {
+    "appTitle": "Smart Land Plus"
+  },
+  "welcome": {
+    "title": "Unirse o crear una partida",
+    "playerNameLabel": "Tu nombre",
+    "playerNamePlaceholder": "Ingresa tu nombre",
+    "roomIdLabel": "ID de sala",
+    "roomIdPlaceholder": "Dejar vacío para nueva partida",
+    "roomIdHelp": "Dejar vacío para crear una nueva sala de juego",
+    "timeLimitLabel": "Límite de tiempo (segundos)",
+    "gameLanguageLabel": "Idioma del juego",
+    "gameLanguageHelp": "Idioma para explicaciones de IA y contexto de validación",
+    "enterVoidButton": "ENTRAR AL VACÍO"
+  },
+  "joinRoom": {
+    "title": "Unirse a la sala de juego",
+    "playerNameLabel": "Tu nombre",
+    "playerNamePlaceholder": "Ingresa tu nombre para unirte",
+    "playerNameHelp": "Te estás uniendo a una sala de juego existente",
+    "joinGameButton": "UNIRSE AL JUEGO",
+    "createNewGameButton": "¿Quieres crear una nueva partida en su lugar?"
+  },
+  "lobby": {
+    "title": "Lobby del juego",
+    "roomLabel": "ID de sala:",
+    "copyLinkTitle": "Copiar enlace de invitación",
+    "playersTitle": "Jugadores",
+    "waitingMessage": "Puedes empezar a jugar solo o esperar a que otros se unan...",
+    "readyStatus": "jugadores listos",
+    "systemReadyButton": "SISTEMA LISTO",
+    "playerNotReadyButton": "JUGADOR NO LISTO",
+    "playerReadyButton": "JUGADOR LISTO",
+    "readyHint": "Señalar disponibilidad para participar. La secuencia comienza cuando todos los sistemas reportan estado listo.",
+    "gameSettingsTitle": "Configuración del juego",
+    "languageLabel": "Idioma:",
+    "timeLimitDisplayLabel": "Límite de tiempo:",
+    "categoriesTitle": "Categorías",
+    "addCategoryPlaceholder": "Agregar nueva categoría",
+    "addCategoryButton": "Agregar categoría",
+    "categoryInstructions": "Todos los jugadores pueden agregar o eliminar categorías",
+    "startGameButton": "INICIAR JUEGO",
+    "terminateSessionButton": "TERMINAR SESIÓN",
+    "closeSessionHint": "Finalizar la sesión de juego actual para todos los jugadores"
+  },
+  "game": {
+    "currentLetterLabel": "LETRA ACTUAL:",
+    "timeLeftLabel": "TIEMPO RESTANTE:",
+    "submitAnswersButton": "ENVIAR RESPUESTAS",
+    "submittedStatus": "ENVIADO ✓",
+    "submittedCount": "enviado",
+    "playersTitle": "Jugadores"
+  },
+  "loading": {
+    "processingTitle": "Procesando resultados",
+    "processingMessage": "¡Todos los jugadores enviaron! La IA está analizando respuestas...",
+    "progressText": "Esto puede tomar unos segundos"
+  },
+  "results": {
+    "title": "RESULTADOS DE LA RONDA",
+    "letterLabel": "Letra:",
+    "leaderboardTitle": "TABLA DE POSICIONES",
+    "nextRoundButton": "SIGUIENTE RONDA",
+    "returnToLobbyButton": "VOLVER AL LOBBY",
+    "playerColumn": "Jugador",
+    "categoryColumn": "Categoría",
+    "answerColumn": "Respuesta",
+    "pointsColumn": "Puntos",
+    "explanationColumn": "Explicación"
+  },
+  "badges": {
+    "you": "Tú",
+    "host": "Anfitrión",
+    "ready": "Listo",
+    "submitted": "ENVIADO",
+    "waiting": "ESPERANDO"
+  },
+  "modal": {
+    "errorTitle": "Error",
+    "successTitle": "Éxito",
+    "infoTitle": "Información",
+    "confirmTitle": "Confirmar acción",
+    "okButton": "OK",
+    "cancelButton": "Cancelar",
+    "confirmButton": "Confirmar"
+  },
+  "messages": {
+    "enterNameError": "Por favor ingresa tu nombre",
+    "onlyHostCanStart": "Solo el anfitrión puede iniciar el juego",
+    "onlyHostCanClose": "Solo el anfitrión puede cerrar la sesión",
+    "onlyHostCanProceed": "Solo el anfitrión puede proceder a la siguiente ronda",
+    "categoryExists": "La categoría ya existe",
+    "minimumCategories": "Debes tener al menos 3 categorías",
+    "linkCopied": "¡Enlace de invitación copiado al portapapeles!",
+    "linkCopyFailed": "Error al copiar enlace",
+    "connectionLost": "Conexión perdida. Por favor actualiza la página.",
+    "connectionFailed": "Conexión fallida. Por favor inténtalo de nuevo.",
+    "roundCompleted": "¡Ronda completada! Prepárense para la siguiente ronda.",
+    "closeSessionConfirm": "¿Estás seguro de que quieres cerrar esta sesión? Todos los jugadores serán desconectados.",
+    "removeCategoryConfirm": "¿Eliminar la categoría \"{category}\"?"
+  },
+  "languages": {
+    "de": "🇩🇪 Deutsch (Alemán)",
+    "en": "🇺🇸 English (Inglés)",
+    "fr": "🇫🇷 Français (Francés)",
+    "es": "🇪🇸 Español",
+    "it": "🇮🇹 Italiano",
+    "nl": "🇳🇱 Nederlands (Holandés)"
+  },
+  "explanation": {
+    "toggleButton": "¿QUÉ ES SMART LAND PLUS?",
+    "toggleButtonExpanded": "OCULTAR EXPLICACIÓN",
+    "content": {
+      "whatIsTitle": "¿QUÉ ES SMART LAND PLUS?",
+      "whatIsText": "Smart Land Plus es un juego de palabras inteligente que combina creatividad, conocimiento y pensamiento rápido. Los jugadores deben encontrar palabras para diferentes categorías que comiencen con la misma letra.",
+      "howWorksTitle": "¿CÓMO FUNCIONA EL JUEGO?",
+      "howWorksSteps": [
+        {
+          "title": "CREAR O UNIRSE A SALA:",
+          "text": "Ingresa tu nombre y crea una nueva sala o únete a una existente."
+        },
+        {
+          "title": "ESTABLECER CATEGORÍAS:",
+          "text": "Todos los jugadores pueden agregar o eliminar categorías (ej: Ciudad, País, Río, Nombre, Profesión, Animal, Planta)."
+        },
+        {
+          "title": "PREPARARSE:",
+          "text": "Todos los jugadores deben marcarse como \"listos\" antes de que comience el juego."
+        },
+        {
+          "title": "LETRA ELEGIDA:",
+          "text": "Se selecciona una letra aleatoria - todas las respuestas deben comenzar con esta letra."
+        },
+        {
+          "title": "TIEMPO LIMITADO:",
+          "text": "Tienes un tiempo limitado (90 segundos por defecto) para encontrar una palabra adecuada para cada categoría."
+        },
+        {
+          "title": "ENVIAR RESPUESTAS:",
+          "text": "Una vez terminado o agotado el tiempo, tus respuestas se envían automáticamente."
+        },
+        {
+          "title": "EVALUACIÓN IA:",
+          "text": "Nuestra IA inteligente evalúa todas las respuestas por exactitud, creatividad y singularidad."
+        },
+        {
+          "title": "RECIBIR PUNTOS:",
+          "text": "Recibes puntos basados en la calidad de tus respuestas y si otros jugadores usaron las mismas palabras."
+        }
+      ],
+      "scoringTitle": "SISTEMA DE PUNTUACIÓN:",
+      "scoringItems": [
+        {
+          "title": "RESPUESTA ÚNICA:",
+          "text": "Puntos completos si solo tú tuviste esta respuesta"
+        },
+        {
+          "title": "RESPUESTA COMPARTIDA:",
+          "text": "Puntos reducidos si otros jugadores usaron la misma palabra"
+        },
+        {
+          "title": "CREATIVIDAD:",
+          "text": "Puntos bonus por respuestas particularmente creativas o inusuales"
+        },
+        {
+          "title": "RESPUESTA INCORRECTA:",
+          "text": "Sin puntos por palabras que no encajan en la categoría o comienzan con la letra incorrecta"
+        }
+      ],
+      "tipsTitle": "CONSEJOS PARA MEJORES RESULTADOS:",
+      "tipsItems": [
+        "Piensa en palabras inusuales - traen más puntos",
+        "Asegúrate de que tus respuestas realmente encajen en la categoría",
+        "Usa todo el tiempo, pero no olvides enviar a tiempo",
+        "Para letras difíciles como X, Y o Q: Las palabras extranjeras a menudo están permitidas"
+      ],
+      "goodLuck": "BUENA SUERTE JUGANDO."
+    }
+  }
+} 

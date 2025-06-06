@@ -1,0 +1,181 @@
+{
+  "navigation": {
+    "appTitle": "Smart Land Plus"
+  },
+  "welcome": {
+    "title": "Join or start a Game",
+    "playerNameLabel": "Your Name",
+    "playerNamePlaceholder": "Enter your name",
+    "roomIdLabel": "Room ID",
+    "roomIdPlaceholder": "Leave empty for new game",
+    "roomIdHelp": "Leave empty to create a new game room",
+    "timeLimitLabel": "Time Limit (seconds)",
+    "gameLanguageLabel": "Game Language",
+    "gameLanguageHelp": "Language for AI explanations and validation context",
+    "enterVoidButton": "ENTER VOID"
+  },
+  "joinRoom": {
+    "title": "Join Game Room",
+    "playerNameLabel": "Your Name",
+    "playerNamePlaceholder": "Enter your name to join",
+    "playerNameHelp": "You're joining an existing game room",
+    "joinGameButton": "JOIN GAME",
+    "createNewGameButton": "Want to create a new game instead?"
+  },
+  "lobby": {
+    "title": "Game Lobby",
+    "roomLabel": "Room ID:",
+    "copyLinkTitle": "Copy invite link",
+    "playersTitle": "Players",
+    "waitingMessage": "You can start playing alone or wait for others to join...",
+    "readyStatus": "players ready",
+    "systemReadyButton": "SYSTEM READY",
+    "playerNotReadyButton": "PLAYER NOT READY",
+    "playerReadyButton": "PLAYER READY",
+    "readyHint": "Signal readiness to participate. Sequence begins when all systems report ready status.",
+    "gameSettingsTitle": "Game Settings",
+    "languageLabel": "Language:",
+    "timeLimitDisplayLabel": "Time Limit:",
+    "categoriesTitle": "Categories",
+    "addCategoryPlaceholder": "Add new category",
+    "addCategoryButton": "Add Category",
+    "categoryInstructions": "All players can add or remove categories",
+    "startGameButton": "START GAME",
+    "terminateSessionButton": "TERMINATE SESSION",
+    "closeSessionHint": "End the current game session for all players"
+  },
+  "game": {
+    "currentLetterLabel": "CURRENT LETTER:",
+    "timeLeftLabel": "TIME LEFT:",
+    "submitAnswersButton": "SUBMIT ANSWERS",
+    "submittedStatus": "SUBMITTED ✓",
+    "submittedCount": "submitted",
+    "playersTitle": "Players"
+  },
+  "loading": {
+    "processingTitle": "Processing Results",
+    "processingMessage": "All players submitted! AI is analyzing answers...",
+    "progressText": "This may take a few seconds"
+  },
+  "results": {
+    "title": "ROUND RESULTS",
+    "letterLabel": "Letter:",
+    "leaderboardTitle": "LEADERBOARD",
+    "nextRoundButton": "NEXT ROUND",
+    "returnToLobbyButton": "RETURN TO LOBBY",
+    "playerColumn": "Player",
+    "categoryColumn": "Category",
+    "answerColumn": "Answer",
+    "pointsColumn": "Points",
+    "explanationColumn": "Explanation"
+  },
+  "badges": {
+    "you": "You",
+    "host": "Host",
+    "ready": "Ready",
+    "submitted": "SUBMITTED",
+    "waiting": "WAITING"
+  },
+  "modal": {
+    "errorTitle": "Error",
+    "successTitle": "Success",
+    "infoTitle": "Information",
+    "confirmTitle": "Confirm Action",
+    "okButton": "OK",
+    "cancelButton": "Cancel",
+    "confirmButton": "Confirm"
+  },
+  "messages": {
+    "enterNameError": "Please enter your name",
+    "onlyHostCanStart": "Only the host can start the game",
+    "onlyHostCanClose": "Only the host can close the session",
+    "onlyHostCanProceed": "Only the host can proceed to the next round",
+    "categoryExists": "Category already exists",
+    "minimumCategories": "You must have at least 3 categories",
+    "linkCopied": "Invite link copied to clipboard!",
+    "linkCopyFailed": "Failed to copy link",
+    "connectionLost": "Connection lost. Please refresh the page.",
+    "connectionFailed": "Connection failed. Please try again.",
+    "roundCompleted": "Round completed! Ready up for the next round.",
+    "closeSessionConfirm": "Are you sure you want to close this session? All players will be disconnected.",
+    "removeCategoryConfirm": "Remove \"{category}\" category?"
+  },
+  "languages": {
+    "de": "🇩🇪 Deutsch (German)",
+    "en": "🇺🇸 English",
+    "fr": "🇫🇷 Français (French)",
+    "es": "🇪🇸 Español (Spanish)",
+    "it": "🇮🇹 Italiano (Italian)",
+    "nl": "🇳🇱 Nederlands (Dutch)"
+  },
+  "explanation": {
+    "toggleButton": "WHAT IS SMART LAND PLUS?",
+    "toggleButtonExpanded": "HIDE EXPLANATION",
+    "content": {
+      "whatIsTitle": "WHAT IS SMART LAND PLUS?",
+      "whatIsText": "Smart Land Plus is an intelligent word game that combines creativity, knowledge and quick thinking. Players must find words for different categories that all start with the same letter.",
+      "howWorksTitle": "HOW DOES THE GAME WORK?",
+      "howWorksSteps": [
+        {
+          "title": "CREATE OR JOIN ROOM:",
+          "text": "Enter your name and create a new room or join an existing one."
+        },
+        {
+          "title": "SET CATEGORIES:",
+          "text": "All players can add or remove categories (e.g. City, Country, River, Name, Profession, Animal, Plant)."
+        },
+        {
+          "title": "GET READY:",
+          "text": "All players must mark themselves as \"ready\" before the game starts."
+        },
+        {
+          "title": "LETTER IS CHOSEN:",
+          "text": "A random letter is selected - all answers must start with this letter."
+        },
+        {
+          "title": "TIME RUNS:",
+          "text": "You have a limited time (default 90 seconds) to find a suitable word for each category."
+        },
+        {
+          "title": "SUBMIT ANSWERS:",
+          "text": "Once you're done or time runs out, your answers are automatically submitted."
+        },
+        {
+          "title": "AI EVALUATION:",
+          "text": "Our intelligent AI evaluates all answers for correctness, creativity and uniqueness."
+        },
+        {
+          "title": "RECEIVE POINTS:",
+          "text": "You receive points based on the quality of your answers and whether other players used the same words."
+        }
+      ],
+      "scoringTitle": "SCORING SYSTEM:",
+      "scoringItems": [
+        {
+          "title": "UNIQUE ANSWER:",
+          "text": "Full points if only you had this answer"
+        },
+        {
+          "title": "SHARED ANSWER:",
+          "text": "Reduced points if other players used the same word"
+        },
+        {
+          "title": "CREATIVITY:",
+          "text": "Bonus points for particularly creative or unusual answers"
+        },
+        {
+          "title": "WRONG ANSWER:",
+          "text": "No points for words that don't fit the category or start with the wrong letter"
+        }
+      ],
+      "tipsTitle": "TIPS FOR BETTER RESULTS:",
+      "tipsItems": [
+        "Think of unusual words - they bring more points",
+        "Make sure your answers really fit the category",
+        "Use the full time, but don't forget to submit on time",
+        "For difficult letters like X, Y or Q: Foreign words are often allowed"
+      ],
+      "goodLuck": "GOOD LUCK PLAYING."
+    }
+  }
+} 
