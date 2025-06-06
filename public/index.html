@@ -422,6 +422,44 @@
                 const roomId = urlParams.get('room');
                 if (roomId) {
                     document.getElementById('room-id').value = roomId;
+                    this.disableRoomSettings();
+                }
+            }
+
+            disableRoomSettings() {
+                // Disable language selector
+                const languageSelector = document.getElementById('game-language');
+                languageSelector.disabled = true;
+                languageSelector.style.opacity = '0.6';
+                languageSelector.style.cursor = 'not-allowed';
+                
+                // Disable time limit controls
+                const timeLimitInput = document.getElementById('time-limit');
+                const decreaseBtn = document.querySelector('.time-btn.decrease');
+                const increaseBtn = document.querySelector('.time-btn.increase');
+                
+                timeLimitInput.disabled = true;
+                timeLimitInput.style.opacity = '0.6';
+                timeLimitInput.style.cursor = 'not-allowed';
+                
+                decreaseBtn.disabled = true;
+                decreaseBtn.style.opacity = '0.6';
+                decreaseBtn.style.cursor = 'not-allowed';
+                
+                increaseBtn.disabled = true;
+                increaseBtn.style.opacity = '0.6';
+                increaseBtn.style.cursor = 'not-allowed';
+                
+                // Update the help text to indicate settings are locked
+                const languageHelp = document.querySelector('#game-language + small');
+                const roomIdHelp = document.querySelector('#room-id + small');
+                
+                if (languageHelp) {
+                    languageHelp.textContent = 'Language is set by the room host';
+                }
+                
+                if (roomIdHelp) {
+                    roomIdHelp.textContent = 'Joining existing room - settings are locked';
                 }
             }
 
@@ -461,6 +499,12 @@
 
             adjustTime(delta) {
                 const input = document.getElementById('time-limit');
+                
+                // Don't allow adjustment if input is disabled
+                if (input.disabled) {
+                    return;
+                }
+                
                 const newValue = Math.max(30, Math.min(300, parseInt(input.value) + delta));
                 input.value = newValue;
             }

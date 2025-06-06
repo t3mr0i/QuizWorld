@@ -953,7 +953,7 @@ export default class StadtLandFlussServer implements Party.Server {
             
             validationResults[playerId][category] = {
               valid: isValid,
-              explanation: isValid ? "Answer provided (AI validation failed)" : "No answer provided"
+              explanation: isValid ? "Answer provided (AI validation failed)" : "-"
             };
           });
         });
@@ -985,7 +985,7 @@ export default class StadtLandFlussServer implements Party.Server {
           structuredScores[category][playerId] = {
             answer: playerAnswer,
             score: 0,
-            explanation: "No answer provided"
+            explanation: "-"
           };
           
           if (playerAnswer) {
