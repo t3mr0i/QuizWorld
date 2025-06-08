@@ -8,6 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="stylesheet" href="css/styles.css">
     <!-- Add favicon -->
     <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
@@ -61,7 +64,7 @@
         <div class="navbar fixed-top">
             <div class="container d-flex justify-content-between align-items-center">
                 <a href="#" class="navbar-brand">
-                    <h1 class="mb-0">🧠 QuizWorld</h1>
+                    <h1 class="mb-0"><i class="ph ph-brain"></i> QuizWorld</h1>
                 </a>
             </div>
         </div>
@@ -77,21 +80,28 @@
                     <div class="card-body">
                         <div class="welcome-options">
                             <div class="option-card" id="create-quiz-option">
-                                <div class="option-icon">🎯</div>
+                                <div class="option-icon"><i class="ph ph-target"></i></div>
                                 <h3>Create New Quiz</h3>
                                 <p>Generate a quiz with AI on any topic</p>
                                 <button class="btn btn-primary">Create Quiz</button>
                             </div>
                             
+                            <div class="option-card" id="create-tournament-option">
+                                <div class="option-icon"><i class="ph ph-trophy"></i></div>
+                                <h3>Create Tournament</h3>
+                                <p>Combine multiple quizzes into one match</p>
+                                <button class="btn btn-primary">Create Tournament</button>
+                            </div>
+                            
                             <div class="option-card" id="browse-quizzes-option">
-                                <div class="option-icon">📚</div>
+                                <div class="option-icon"><i class="ph ph-books"></i></div>
                                 <h3>Browse Quizzes</h3>
                                 <p>Play existing quizzes and view highscores</p>
                                 <button class="btn btn-outline">Browse Quizzes</button>
                             </div>
                             
                             <div class="option-card" id="join-quiz-option">
-                                <div class="option-icon">🎮</div>
+                                <div class="option-icon"><i class="ph ph-game-controller"></i></div>
                                 <h3>Join Quiz Session</h3>
                                 <p>Enter a room code to join an existing quiz</p>
                                 <button class="btn btn-outline">Join Session</button>
@@ -142,7 +152,7 @@
                                 <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
                                 <button type="submit" id="generate-quiz-btn" class="btn btn-orange">
                                     <span class="btn-text">Generate Quiz with AI</span>
-                                    <span class="btn-loading hidden">🤖 Generating...</span>
+                                    <span class="btn-loading hidden"><i class="ph ph-robot"></i> Generating...</span>
                                 </button>
                             </div>
                         </form>
@@ -190,7 +200,7 @@
                             <div class="browser-controls">
                                 <div class="search-bar">
                                     <input type="text" id="quiz-search" placeholder="Search quizzes by topic...">
-                                    <button id="search-btn" class="btn btn-outline">🔍</button>
+                                    <button id="search-btn" class="btn btn-outline"><i class="ph ph-magnifying-glass"></i></button>
                                 </div>
                                 <div class="filter-tabs">
                                     <button class="tab-btn active" data-filter="recent">Recent</button>
@@ -222,7 +232,7 @@
                         <div class="room-info">
                             <span class="room-label">Room Code:</span>
                             <span id="room-code-display" class="room-code">000000</span>
-                            <button id="copy-room-code" class="btn btn-icon" title="Copy room code">📋</button>
+                            <button id="copy-room-code" class="btn btn-icon" title="Copy room code"><i class="ph ph-clipboard"></i></button>
                         </div>
                     </div>
                     
@@ -336,7 +346,7 @@
             <div id="final-results-screen" class="game-screen hidden">
                 <div class="card">
                     <div class="card-header">
-                        <h2>🏆 Quiz Complete!</h2>
+                        <h2><i class="ph ph-trophy"></i> Quiz Complete!</h2>
                     </div>
                     
                     <div class="card-body">
@@ -371,7 +381,7 @@
     <div id="alert-modal" class="modal-overlay alert-modal hidden">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-icon alert">⚠️</div>
+                <div class="modal-icon alert"><i class="ph ph-warning"></i></div>
                 <h3 class="modal-title">Alert</h3>
             </div>
             <div class="modal-body">
@@ -386,7 +396,7 @@
     <div id="confirm-modal" class="modal-overlay confirm-modal hidden">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-icon confirm">❓</div>
+                <div class="modal-icon confirm"><i class="ph ph-question"></i></div>
                 <h3 class="modal-title">Confirm</h3>
             </div>
             <div class="modal-body">
@@ -402,7 +412,7 @@
     <div id="prompt-modal" class="modal-overlay prompt-modal hidden">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-icon prompt">✏️</div>
+                <div class="modal-icon prompt"><i class="ph ph-pencil"></i></div>
                 <h3 class="modal-title">Input Required</h3>
             </div>
             <div class="modal-body">

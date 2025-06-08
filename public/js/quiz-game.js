@@ -110,7 +110,8 @@ class QuizDatabase {
                     if (b.score !== a.score) {
                         return b.score - a.score;
                     }
-                    return a.timeSpent - b.timeSpent;
+                    // If scores are equal, sort by timestamp (most recent first)
+                    return b.timestamp - a.timestamp;
                 }).slice(0, limit);
             } else {
                 return [];
@@ -206,11 +207,9 @@ class QuizGameClient {
             players: {},
             currentQuiz: null,
             currentSession: null,
-            currentQuestionIndex: -1,
-            timeRemaining: 30
+            currentQuestionIndex: -1
         };
         this.currentScreen = 'welcome';
-        this.timer = null;
         this.quizDatabase = new QuizDatabase();
         this.gameStartTime = null;
         this.startQuizTimeout = null;
@@ -241,12 +240,17 @@ class QuizGameClient {
     setupEventListeners() {
         // Welcome screen
         document.getElementById('create-quiz-option').onclick = () => this.showScreen('create-quiz');
+        document.getElementById('create-tournament-option').onclick = () => this.showCreateTournament();
         document.getElementById('browse-quizzes-option').onclick = () => this.showBrowseQuizzes();
         document.getElementById('join-quiz-option').onclick = () => this.showScreen('join-session');
         
         // Create quiz screen
         document.getElementById('create-quiz-form').onsubmit = (e) => this.handleCreateQuiz(e);
         document.getElementById('back-to-welcome').onclick = () => this.showScreen('welcome');
+        
+        // Create tournament screen
+        document.getElementById('create-tournament-form').onsubmit = (e) => this.handleCreateTournament(e);
+        document.getElementById('back-to-welcome-tournament').onclick = () => this.showScreen('welcome');
         
         // Form validation for create quiz
         this.setupCreateQuizValidation();
@@ -285,6 +289,7 @@ class QuizGameClient {
         // Final results screen
         document.getElementById('play-again-btn').onclick = () => this.playAgain();
         document.getElementById('new-quiz-btn').onclick = () => this.showScreen('welcome');
+        document.getElementById('view-all-scores-btn').onclick = () => this.viewAllTimeHighscores();
     }
 
     setupCreateQuizValidation() {
@@ -427,6 +432,273 @@ class QuizGameClient {
         }
     }
 
+    async showCreateTournament() {
+        console.log('🏆 Showing tournament creation screen');
+        this.showScreen('create-tournament');
+        
+        // Load available quizzes for selection
+        await this.loadAvailableQuizzesForTournament();
+    }
+
+    async loadAvailableQuizzesForTournament() {
+        const availableQuizzesContainer = document.getElementById('available-quizzes');
+        
+        try {
+            // Show loading state
+            availableQuizzesContainer.innerHTML = `
+                <div class="loading-quizzes">
+                    <div class="loading-spinner"></div>
+                    <p>Loading available quizzes...</p>
+                </div>
+            `;
+            
+            // Get all quizzes from Firebase
+            const quizzes = await this.quizDatabase.getAllQuizzes();
+            
+            if (quizzes.length === 0) {
+                availableQuizzesContainer.innerHTML = `
+                    <div class="no-quizzes">
+                        <p>No quizzes available. Create some quizzes first!</p>
+                        <button class="btn btn-primary" onclick="window.quizGame.showScreen('create-quiz')">Create Quiz</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Display quizzes
+            availableQuizzesContainer.innerHTML = '<h4>Available Quizzes</h4>';
+            
+            quizzes.forEach(quiz => {
+                const quizElement = document.createElement('div');
+                quizElement.className = 'selectable-quiz';
+                quizElement.dataset.quizId = quiz.id;
+                
+                quizElement.innerHTML = `
+                    <div class="selectable-quiz-title">${quiz.title || quiz.topic}</div>
+                    <div class="selectable-quiz-topic">${quiz.topic}</div>
+                    <div class="selectable-quiz-stats">
+                        <span>${quiz.questions.length} questions</span>
+                        <span>by ${quiz.createdBy}</span>
+                    </div>
+                `;
+                
+                quizElement.onclick = () => this.toggleQuizSelection(quiz, quizElement);
+                availableQuizzesContainer.appendChild(quizElement);
+            });
+            
+        } catch (error) {
+            console.error('❌ Error loading quizzes for tournament:', error);
+            availableQuizzesContainer.innerHTML = `
+                <div class="error-loading">
+                    <p>Failed to load quizzes. Please try again.</p>
+                    <button class="btn btn-outline" onclick="window.quizGame.loadAvailableQuizzesForTournament()">Retry</button>
+                </div>
+            `;
+        }
+    }
+
+    toggleQuizSelection(quiz, element) {
+        const isSelected = element.classList.contains('selected');
+        
+        if (isSelected) {
+            // Remove from selection
+            element.classList.remove('selected');
+            this.removeQuizFromTournament(quiz.id);
+        } else {
+            // Add to selection
+            element.classList.add('selected');
+            this.addQuizToTournament(quiz);
+        }
+    }
+
+    addQuizToTournament(quiz) {
+        // Initialize selected quizzes array if not exists
+        if (!this.selectedTournamentQuizzes) {
+            this.selectedTournamentQuizzes = [];
+        }
+        
+        // Check if already selected
+        if (this.selectedTournamentQuizzes.find(q => q.id === quiz.id)) {
+            return;
+        }
+        
+        this.selectedTournamentQuizzes.push(quiz);
+        this.updateSelectedQuizzesDisplay();
+        this.updateTournamentInfo();
+        this.updateCreateTournamentButton();
+    }
+
+    removeQuizFromTournament(quizId) {
+        if (!this.selectedTournamentQuizzes) return;
+        
+        this.selectedTournamentQuizzes = this.selectedTournamentQuizzes.filter(q => q.id !== quizId);
+        this.updateSelectedQuizzesDisplay();
+        this.updateTournamentInfo();
+        this.updateCreateTournamentButton();
+        
+        // Update the visual state of the quiz in available list
+        const quizElement = document.querySelector(`[data-quiz-id="${quizId}"]`);
+        if (quizElement) {
+            quizElement.classList.remove('selected');
+        }
+    }
+
+    updateSelectedQuizzesDisplay() {
+        const selectedContainer = document.getElementById('selected-quizzes');
+        const selectedCount = document.getElementById('selected-count');
+        
+        if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length === 0) {
+            selectedContainer.innerHTML = '<div class="no-selection">No quizzes selected yet</div>';
+            selectedCount.textContent = '0';
+            return;
+        }
+        
+        selectedCount.textContent = this.selectedTournamentQuizzes.length;
+        selectedContainer.innerHTML = '';
+        
+        this.selectedTournamentQuizzes.forEach(quiz => {
+            const quizItem = document.createElement('div');
+            quizItem.className = 'selected-quiz-item';
+            
+            quizItem.innerHTML = `
+                <div class="selected-quiz-info">
+                    <div class="selected-quiz-title">${quiz.title || quiz.topic}</div>
+                    <div class="selected-quiz-details">${quiz.questions.length} questions • by ${quiz.createdBy}</div>
+                </div>
+                <button class="remove-quiz-btn" onclick="window.quizGame.removeQuizFromTournament('${quiz.id}')" title="Remove quiz">×</button>
+            `;
+            
+            selectedContainer.appendChild(quizItem);
+        });
+    }
+
+    updateTournamentInfo() {
+        const totalQuestionsElement = document.getElementById('total-questions-count');
+        const maxScoreElement = document.getElementById('max-score-count');
+        
+        if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length === 0) {
+            totalQuestionsElement.textContent = '0';
+            maxScoreElement.textContent = '0';
+            return;
+        }
+        
+        const totalQuestions = this.selectedTournamentQuizzes.reduce((sum, quiz) => sum + quiz.questions.length, 0);
+        const maxScore = totalQuestions * 100; // 100 points per question
+        
+        totalQuestionsElement.textContent = totalQuestions;
+        maxScoreElement.textContent = maxScore;
+    }
+
+    updateCreateTournamentButton() {
+        const createBtn = document.getElementById('create-tournament-btn');
+        const hasQuizzes = this.selectedTournamentQuizzes && this.selectedTournamentQuizzes.length >= 2;
+        
+        createBtn.disabled = !hasQuizzes;
+        
+        if (hasQuizzes) {
+            createBtn.querySelector('.btn-text').textContent = `Create Tournament (${this.selectedTournamentQuizzes.length} quizzes)`;
+        } else {
+            createBtn.querySelector('.btn-text').textContent = 'Select at least 2 quizzes';
+        }
+    }
+
+    async handleCreateTournament(event) {
+        event.preventDefault();
+        
+        const tournamentName = document.getElementById('tournament-name').value.trim();
+        const creatorName = document.getElementById('tournament-creator').value.trim();
+        
+        if (!tournamentName || !creatorName) {
+            this.showAlert('Please fill in all required fields');
+            return;
+        }
+        
+        if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length < 2) {
+            this.showAlert('Please select at least 2 quizzes for the tournament');
+            return;
+        }
+        
+        // Show loading state
+        const createBtn = document.getElementById('create-tournament-btn');
+        createBtn.disabled = true;
+        createBtn.querySelector('.btn-text').classList.add('hidden');
+        createBtn.querySelector('.btn-loading').classList.remove('hidden');
+        
+        this.showLoading('Creating Tournament...', 'Combining quizzes and setting up the match');
+        
+        try {
+            // Create combined quiz from selected quizzes
+            const combinedQuiz = this.createCombinedQuiz(tournamentName, creatorName);
+            
+            // Connect to WebSocket and create tournament session
+            await this.connectWebSocket();
+            
+            const message = {
+                type: 'create_tournament',
+                tournament: {
+                    name: tournamentName,
+                    createdBy: creatorName,
+                    quizzes: this.selectedTournamentQuizzes,
+                    combinedQuiz: combinedQuiz
+                },
+                playerName: creatorName
+            };
+            
+            this.sendMessage(message);
+            
+        } catch (error) {
+            console.error('❌ Error creating tournament:', error);
+            this.hideLoading();
+            this.showAlert('Failed to create tournament. Please try again.');
+            
+            // Reset button state
+            createBtn.disabled = false;
+            createBtn.querySelector('.btn-text').classList.remove('hidden');
+            createBtn.querySelector('.btn-loading').classList.add('hidden');
+        }
+    }
+
+    createCombinedQuiz(tournamentName, creatorName) {
+        // Combine all questions from selected quizzes
+        const allQuestions = [];
+        
+        this.selectedTournamentQuizzes.forEach(quiz => {
+            quiz.questions.forEach(question => {
+                allQuestions.push({
+                    ...question,
+                    sourceQuiz: quiz.title || quiz.topic
+                });
+            });
+        });
+        
+        // Shuffle questions for variety
+        const shuffledQuestions = this.shuffleArray([...allQuestions]);
+        
+        return {
+            id: `tournament_${Date.now()}`,
+            title: tournamentName,
+            topic: `Tournament: ${this.selectedTournamentQuizzes.map(q => q.title || q.topic).join(', ')}`,
+            questions: shuffledQuestions,
+            createdBy: creatorName,
+            createdAt: new Date(),
+            isTournament: true,
+            sourceQuizzes: this.selectedTournamentQuizzes.map(q => ({
+                id: q.id,
+                title: q.title || q.topic,
+                questionCount: q.questions.length
+            }))
+        };
+    }
+
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
     connectWebSocket() {
         return new Promise((resolve, reject) => {
             // Use PartyKit host for WebSocket connection
@@ -484,6 +756,9 @@ class QuizGameClient {
             case 'quiz_created':
                 this.handleQuizCreated(data);
                 break;
+            case 'tournament_created':
+                this.handleTournamentCreated(data);
+                break;
             case 'quiz_loaded':
                 this.handleQuizLoaded(data);
                 break;
@@ -495,6 +770,9 @@ class QuizGameClient {
                 break;
             case 'question_results':
                 this.handleQuestionResults(data);
+                break;
+            case 'quiz_finished':
+                this.handleQuizFinished(data);
                 break;
             case 'quiz_started':
                 this.handleQuizStarted(data);
@@ -537,6 +815,41 @@ class QuizGameClient {
         }
         
         this.showToast('Quiz created successfully!', 'success');
+        this.updateLobbyDisplay();
+        this.showScreen('lobby');
+    }
+
+    async handleTournamentCreated(data) {
+        this.hideLoading();
+        this.gameState.currentQuiz = data.quiz;
+        this.gameState.currentSession = {
+            id: data.sessionId,
+            quiz: data.quiz,
+            players: {},
+            gameState: 'waiting',
+            host: this.socket.id || 'host',
+            isTournament: true,
+            tournamentInfo: data.tournamentInfo
+        };
+        
+        // Save tournament quiz to Firebase
+        try {
+            const quizId = await this.quizDatabase.saveQuiz(data.quiz);
+            console.log('💾 Tournament quiz saved to Firebase with ID:', quizId);
+            
+            // Update the quiz ID in our session
+            if (this.gameState.currentQuiz) {
+                this.gameState.currentQuiz.id = quizId;
+            }
+            if (this.gameState.currentSession && this.gameState.currentSession.quiz) {
+                this.gameState.currentSession.quiz.id = quizId;
+            }
+        } catch (error) {
+            console.error('❌ Error saving tournament quiz to Firebase:', error);
+            // Continue without Firebase - tournament will still work in memory
+        }
+        
+        this.showToast('Tournament created successfully!', 'success');
         this.updateLobbyDisplay();
         this.showScreen('lobby');
     }
@@ -634,9 +947,8 @@ class QuizGameClient {
             if (!this.gameStartTime) {
                 this.gameStartTime = Date.now();
             }
-            this.updateQuizDisplay();
-            this.showScreen('quiz');
-            this.startQuestionTimer();
+                    this.updateQuizDisplay();
+        this.showScreen('quiz');
         } else {
             console.log('❓ Unknown session state:', data.session.gameState);
         }
@@ -650,8 +962,6 @@ class QuizGameClient {
             console.log('⚠️ Ignoring question results - not in quiz mode. Current screen:', this.currentScreen);
             return;
         }
-        
-        this.stopTimer();
         
         // Color code the answer options
         this.colorCodeAnswers(data.currentQuestion.correctAnswer);
@@ -732,6 +1042,11 @@ class QuizGameClient {
             
             // Save highscores when quiz is finished
             this.saveHighscores(data.playerAnswers);
+            
+            // Auto-show final results after a short delay for last question
+            setTimeout(() => {
+                this.handleQuizFinished(data);
+            }, 3000);
         } else {
             // More questions - show continue button
             continueBtn.classList.remove('hidden');
@@ -745,6 +1060,133 @@ class QuizGameClient {
         
         // Show the inline results section
         document.getElementById('inline-results').classList.remove('hidden');
+    }
+
+    handleQuizFinished(data) {
+        console.log('🏁 Quiz finished:', data);
+        
+        // Update final leaderboard
+        this.updateFinalLeaderboard(data.playerAnswers);
+        
+        // Load and display all-time leaderboard
+        this.loadAllTimeLeaderboard();
+        
+        // Show final results screen
+        this.showScreen('final-results');
+    }
+
+    updateFinalLeaderboard(playerAnswers) {
+        const leaderboardElement = document.getElementById('final-leaderboard');
+        if (!leaderboardElement) return;
+        
+        // Convert player answers to sorted array
+        const players = Object.entries(playerAnswers).map(([id, data]) => ({
+            id,
+            name: data.name,
+            score: data.score || 0
+        }));
+        
+        // Sort by score (highest first)
+        players.sort((a, b) => b.score - a.score);
+        
+        // Clear existing content
+        leaderboardElement.innerHTML = '';
+        
+        // Create leaderboard items
+        players.forEach((player, index) => {
+            const scoreItem = document.createElement('div');
+            scoreItem.className = 'score-item';
+            
+            // Add special styling for top 3
+            if (index === 0) scoreItem.classList.add('first-place');
+            else if (index === 1) scoreItem.classList.add('second-place');
+            else if (index === 2) scoreItem.classList.add('third-place');
+            
+            // Check if this is the current player
+            const currentPlayer = this.getCurrentPlayer();
+            if (currentPlayer && player.name === currentPlayer.name) {
+                scoreItem.classList.add('current-player');
+            }
+            
+            scoreItem.innerHTML = `
+                <div class="rank">${index + 1}</div>
+                <div class="player-name">${player.name}${currentPlayer && player.name === currentPlayer.name ? ' (You)' : ''}</div>
+                <div class="score">${player.score} pts</div>
+            `;
+            
+            leaderboardElement.appendChild(scoreItem);
+        });
+    }
+
+    async loadAllTimeLeaderboard() {
+        const session = this.gameState.currentSession;
+        if (!session || !session.quiz || !session.quiz.id) {
+            console.log('⚠️ No quiz ID available for all-time leaderboard');
+            return;
+        }
+
+        const allTimeElement = document.getElementById('all-time-leaderboard');
+        if (!allTimeElement) return;
+
+        try {
+            // Show loading state
+            allTimeElement.innerHTML = '<div class="loading-highscores">Loading all-time scores...</div>';
+
+            // Get highscores from Firebase
+            const highscores = await this.quizDatabase.getHighscores(session.quiz.id, 10);
+            
+            if (highscores.length === 0) {
+                allTimeElement.innerHTML = '<div class="loading-highscores">No previous scores for this quiz</div>';
+                return;
+            }
+
+            // Clear loading and display scores
+            allTimeElement.innerHTML = '';
+
+            highscores.forEach((score, index) => {
+                const scoreItem = document.createElement('div');
+                scoreItem.className = 'score-item';
+                
+                // Add special styling for top 3
+                if (index === 0) scoreItem.classList.add('first-place');
+                else if (index === 1) scoreItem.classList.add('second-place');
+                else if (index === 2) scoreItem.classList.add('third-place');
+                
+                // Check if this is the current player
+                const currentPlayer = this.getCurrentPlayer();
+                if (currentPlayer && score.playerName === currentPlayer.name) {
+                    scoreItem.classList.add('current-player');
+                }
+                
+                scoreItem.innerHTML = `
+                    <div class="rank">${index + 1}</div>
+                    <div class="player-name">${score.playerName}${currentPlayer && score.playerName === currentPlayer.name ? ' (You)' : ''}</div>
+                    <div class="score">${score.score}/${score.totalQuestions} (${score.percentage}%)</div>
+                `;
+                
+                allTimeElement.appendChild(scoreItem);
+            });
+
+        } catch (error) {
+            console.error('❌ Error loading all-time leaderboard:', error);
+            allTimeElement.innerHTML = '<div class="loading-highscores">Failed to load all-time scores</div>';
+        }
+    }
+
+    async viewAllTimeHighscores() {
+        const session = this.gameState.currentSession;
+        if (!session || !session.quiz || !session.quiz.id) {
+            this.showAlert('No quiz data available for highscores');
+            return;
+        }
+
+        try {
+            const highscores = await this.quizDatabase.getHighscores(session.quiz.id, 50); // Get more scores for the modal
+            this.showHighscoresModal(session.quiz.topic, highscores);
+        } catch (error) {
+            console.error('❌ Error loading highscores:', error);
+            this.showAlert('Failed to load highscores. Please try again.');
+        }
     }
 
     handleQuizStarted(data) {
@@ -767,7 +1209,6 @@ class QuizGameClient {
         
         this.updateQuizDisplay();
         this.showScreen('quiz');
-        this.startQuestionTimer();
     }
 
     updateLobbyDisplay() {
@@ -775,11 +1216,18 @@ class QuizGameClient {
         if (!session) return;
         
         // Update quiz info
-        document.getElementById('quiz-title-display').textContent = session.quiz.title || session.quiz.topic;
+        if (session.isTournament) {
+            document.getElementById('quiz-title-display').innerHTML = `<i class="ph ph-trophy"></i> ${session.quiz.title || 'Tournament'}`;
+            document.getElementById('quiz-topic-display').textContent = session.quiz.topic || 'Mixed Tournament';
+            document.getElementById('quiz-question-count').textContent = `${session.quiz.questions.length} (from ${session.tournamentInfo?.sourceQuizzes?.length || 0} quizzes)`;
+            document.getElementById('quiz-creator').textContent = session.quiz.createdBy || 'Tournament Host';
+        } else {
+            document.getElementById('quiz-title-display').textContent = session.quiz.title || session.quiz.topic;
+            document.getElementById('quiz-topic-display').textContent = session.quiz.topic;
+            document.getElementById('quiz-question-count').textContent = session.quiz.questions.length;
+            document.getElementById('quiz-creator').textContent = session.quiz.createdBy;
+        }
         document.getElementById('room-code-display').textContent = this.gameState.roomCode;
-        document.getElementById('quiz-topic-display').textContent = session.quiz.topic;
-        document.getElementById('quiz-question-count').textContent = session.quiz.questions.length;
-        document.getElementById('quiz-creator').textContent = session.quiz.createdBy;
         
         // Update players list
         const playersList = document.getElementById('player-list');
@@ -926,61 +1374,7 @@ class QuizGameClient {
         }
     }
 
-    startQuestionTimer() {
-        const session = this.gameState.currentSession;
-        if (!session) {
-            console.log('⚠️ No session for timer');
-            return;
-        }
-        
-        // Default to 30 seconds if not specified
-        const timeLimit = session.questionTimeLimit || 30;
-        this.gameState.timeRemaining = timeLimit;
-        
-        console.log('⏰ Starting timer with', timeLimit, 'seconds');
-        this.updateTimerDisplay();
-        
-        // Clear any existing timer
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
-        
-        this.timer = setInterval(() => {
-            this.gameState.timeRemaining--;
-            this.updateTimerDisplay();
-            
-            if (this.gameState.timeRemaining <= 0) {
-                console.log('⏰ Timer expired');
-                this.stopTimer();
-                // Auto-submit if no answer selected
-                if (!document.querySelector('.answer-option.selected')) {
-                    console.log('📝 Auto-submitting no answer');
-                    this.selectAnswer(-1); // No answer
-                }
-            }
-        }, 1000);
-    }
-
-    updateTimerDisplay() {
-        const timerElement = document.getElementById('time-remaining');
-        if (timerElement) {
-            timerElement.textContent = this.gameState.timeRemaining;
-            
-            // Add warning classes
-            if (this.gameState.timeRemaining <= 5) {
-                timerElement.classList.add('danger');
-            } else if (this.gameState.timeRemaining <= 10) {
-                timerElement.classList.add('warning');
-            }
-        }
-    }
-
-    stopTimer() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
+    // Timer functionality removed - unlimited time per answer
 
     toggleReady() {
         const currentPlayer = this.getCurrentPlayer();
@@ -1269,20 +1663,20 @@ class QuizGameClient {
                 </div>
                 <div class="quiz-item-stats">
                     <div class="quiz-stat">
-                        <span>📝</span>
+                        <span><i class="ph ph-note"></i></span>
                         <span>${quiz.questions.length} questions</span>
                     </div>
                     <div class="quiz-stat">
-                        <span>🎮</span>
+                        <span><i class="ph ph-game-controller"></i></span>
                         <span>${quiz.playCount || 0} plays</span>
                     </div>
                     <div class="quiz-stat">
-                        <span>📅</span>
+                        <span><i class="ph ph-calendar"></i></span>
                         <span>${createdDate}</span>
                     </div>
                     ${quiz.averageScore ? `
                         <div class="quiz-stat">
-                            <span>⭐</span>
+                            <span><i class="ph ph-star"></i></span>
                             <span>${quiz.averageScore}% avg</span>
                         </div>
                     ` : ''}
@@ -1573,6 +1967,7 @@ class QuizGameClient {
 }
 
 // Initialize the game when page loads
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     window.quizGame = new QuizGameClient();
+    await window.quizGame.init();
 }); 

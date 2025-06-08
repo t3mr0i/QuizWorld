@@ -113,12 +113,12 @@ class QuizDatabase {
                 snapshot.forEach((childSnapshot) => {
                     scores.push(childSnapshot.val());
                 });
-                // Sort by score descending, then by time ascending (faster time is better)
+                // Sort by score descending, then by timestamp (most recent first)
                 return scores.sort((a, b) => {
                     if (b.score !== a.score) {
                         return b.score - a.score;
                     }
-                    return a.timeSpent - b.timeSpent;
+                    return b.timestamp - a.timestamp;
                 });
             } else {
                 return [];

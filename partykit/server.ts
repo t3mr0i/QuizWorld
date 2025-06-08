@@ -35,10 +35,17 @@ interface QuizSession {
   players: Record<string, Player>;
   currentQuestionIndex: number;
   gameState: 'waiting' | 'playing' | 'question' | 'results' | 'finished';
-  questionStartTime?: Date;
-  questionTimeLimit: number; // seconds
   host: string;
   answers: Record<string, Record<number, number>>; // playerId -> questionIndex -> answerIndex
+  isTournament?: boolean;
+  tournamentInfo?: {
+    name: string;
+    sourceQuizzes: Array<{
+      id: string;
+      title: string;
+      questionCount: number;
+    }>;
+  };
 }
 
 // Store for quiz sessions by room ID
@@ -238,6 +245,9 @@ export default class QuizWorldServer implements Party.Server {
         case 'create_quiz':
           await this.handleCreateQuiz(data, sender);
           break;
+        case 'create_tournament':
+          await this.handleCreateTournament(data, sender);
+          break;
         case 'join_session':
           this.handleJoinSession(data, sender);
           break;
@@ -342,7 +352,6 @@ export default class QuizWorldServer implements Party.Server {
         },
         currentQuestionIndex: -1,
         gameState: 'waiting',
-        questionTimeLimit: 30,
         host: sender.id,
         answers: {}
       };
@@ -365,6 +374,64 @@ export default class QuizWorldServer implements Party.Server {
       sender.send(JSON.stringify({
         type: 'error',
         message: 'Failed to create quiz. Please try again.'
+      }));
+    }
+  }
+
+  private async handleCreateTournament(data: any, sender: Party.Connection) {
+    try {
+      const { tournament, playerName } = data;
+      const { name, createdBy, combinedQuiz } = tournament;
+      
+      console.log(`🏆 Creating tournament: "${name}" with ${combinedQuiz.questions.length} questions`);
+      
+      // Store tournament quiz in memory
+      quizDatabase[combinedQuiz.id] = combinedQuiz;
+      
+      // Create tournament session
+      const session: QuizSession = {
+        id: this.roomId,
+        quiz: combinedQuiz,
+        players: {
+          [sender.id]: {
+            id: sender.id,
+            name: playerName || 'Tournament Host',
+            score: 0,
+            hasAnswered: false,
+            isReady: false,
+            isHost: true
+          }
+        },
+        currentQuestionIndex: -1,
+        gameState: 'waiting',
+        host: sender.id,
+        answers: {},
+        isTournament: true,
+        tournamentInfo: {
+          name,
+          sourceQuizzes: combinedQuiz.sourceQuizzes || []
+        }
+      };
+      
+      quizSessions[this.roomId] = session;
+      
+      console.log(`✅ Tournament created with ${combinedQuiz.questions.length} questions from ${combinedQuiz.sourceQuizzes?.length || 0} quizzes`);
+      
+      // Send success response
+      sender.send(JSON.stringify({
+        type: 'tournament_created',
+        quiz: combinedQuiz,
+        sessionId: this.roomId,
+        tournamentInfo: session.tournamentInfo
+      }));
+      
+      this.broadcastSessionUpdate();
+      
+    } catch (error) {
+      console.error("❌ Error creating tournament:", error);
+      sender.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to create tournament. Please try again.'
       }));
     }
   }
@@ -430,7 +497,6 @@ export default class QuizWorldServer implements Party.Server {
 
     this.session.gameState = 'playing';
     this.session.currentQuestionIndex = 0;
-    this.session.questionStartTime = new Date();
     
     // Reset all players
     Object.values(this.session.players).forEach(player => {
@@ -441,7 +507,6 @@ export default class QuizWorldServer implements Party.Server {
     console.log(`🚀 Quiz started in room ${this.roomId} with ${playerCount} player(s)`);
     
     this.broadcastSessionUpdate();
-    this.startQuestionTimer();
   }
 
   private handleSubmitAnswer(data: any, sender: Party.Connection) {
@@ -465,14 +530,14 @@ export default class QuizWorldServer implements Party.Server {
     player.hasAnswered = true;
     player.currentAnswer = answerIndex;
 
-    // Calculate score if correct
+    // Calculate score: Fixed 100 points per correct answer (no time bonus)
     const currentQuestion = this.session.quiz.questions[this.session.currentQuestionIndex];
     if (answerIndex === currentQuestion.correctAnswer) {
-      // Score based on time (faster = more points)
-      const timeElapsed = Date.now() - (this.session.questionStartTime?.getTime() || 0);
-      const timeBonus = Math.max(0, this.session.questionTimeLimit * 1000 - timeElapsed);
-      const points = Math.round(100 + (timeBonus / 100));
-      player.score += points;
+      const POINTS_PER_CORRECT_ANSWER = 100;
+      player.score += POINTS_PER_CORRECT_ANSWER;
+      console.log(`✅ ${player.name} earned ${POINTS_PER_CORRECT_ANSWER} points for correct answer`);
+    } else {
+      console.log(`❌ ${player.name} earned 0 points for incorrect answer`);
     }
 
     console.log(`📝 ${player.name} answered question ${this.session.currentQuestionIndex}`);
@@ -497,18 +562,29 @@ export default class QuizWorldServer implements Party.Server {
       // Quiz finished
       this.session.gameState = 'finished';
       console.log(`🏁 Quiz finished in room ${this.roomId}`);
+      
+      // Send final results
+      this.party.broadcast(JSON.stringify({
+        type: 'quiz_finished',
+        playerAnswers: Object.fromEntries(
+          Object.entries(this.session.players).map(([id, player]) => [
+            id, 
+            {
+              name: player.name,
+              score: player.score
+            }
+          ])
+        )
+      }));
     } else {
       // Next question
       this.session.gameState = 'playing';
-      this.session.questionStartTime = new Date();
       
       // Reset player answers
       Object.values(this.session.players).forEach(player => {
         player.hasAnswered = false;
         player.currentAnswer = undefined;
       });
-      
-      this.startQuestionTimer();
     }
     
     this.broadcastSessionUpdate();
@@ -580,7 +656,6 @@ export default class QuizWorldServer implements Party.Server {
         },
         currentQuestionIndex: -1,
         gameState: 'waiting',
-        questionTimeLimit: 30,
         host: sender.id,
         answers: {}
       };
@@ -608,15 +683,7 @@ export default class QuizWorldServer implements Party.Server {
     }
   }
 
-  private startQuestionTimer() {
-    if (!this.session) return;
-    
-    setTimeout(() => {
-      if (this.session && this.session.gameState === 'playing') {
-        this.showQuestionResults();
-      }
-    }, this.session.questionTimeLimit * 1000);
-  }
+  // Timer functionality removed - unlimited time per answer
 
   private showQuestionResults() {
     if (!this.session) return;
