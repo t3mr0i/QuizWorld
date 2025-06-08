@@ -1380,7 +1380,7 @@ small {
 }
 
 .highscores-content {
-  background: var(--bg-color-primary);
+  background: var(--panel-background);
   border: 2px solid var(--kb-black);
   padding: var(--spacing-xl);
   max-width: 500px;

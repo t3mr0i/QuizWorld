@@ -209,7 +209,7 @@ async function generateQuizWithOpenAI(topic: string, questionCount: number = 10)
   }
 }
 
-export default class QuizWorldServer implements Party.Server {
+export default class QuizaruServer implements Party.Server {
   private roomId: string;
 
   constructor(readonly party: Party.Party) {

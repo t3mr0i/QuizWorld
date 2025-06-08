@@ -1,8 +1,8 @@
-# QuizWorld Deployment Guide 🚀
+# Quizaru Deployment Guide 🚀
 
 ## ✅ DEPLOYED SUCCESSFULLY!
 
-Your QuizWorld is now live at: **https://quiz-world.t3mr0i.partykit.dev**
+Your Quizaru is now live at: **https://quiz-world.t3mr0i.partykit.dev**
 
 ## Prerequisites
 - ✅ Firebase project: `quizgame-9916c` (already created)

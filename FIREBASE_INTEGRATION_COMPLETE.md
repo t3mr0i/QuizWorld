@@ -1,6 +1,6 @@
 # 🔥 Firebase Integration Complete! 
 
-## ✅ Successfully Deployed QuizWorld with Firebase
+## ✅ Successfully Deployed Quizaru with Firebase
 
 **Live URL**: https://quiz-world.t3mr0i.partykit.dev
 *(Domain provisioning in progress - may take up to 2 minutes)*
@@ -89,4 +89,4 @@ Firebase Realtime Database:
 ✅ **Scalability**: Firebase handles unlimited quiz storage  
 ✅ **Real-time**: Instant multiplayer synchronization  
 
-Your QuizWorld is now a fully-featured quiz platform with persistent storage, community features, and competitive elements! 🏆📚🎯 
+Your Quizaru is now a fully-featured quiz platform with persistent storage, community features, and competitive elements! 🏆📚🎯 

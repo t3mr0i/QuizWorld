@@ -196,7 +196,7 @@ class QuizDatabase {
     }
 }
 
-// QuizWorld Game Client
+// Quizaru Game Client
 class QuizGameClient {
     constructor() {
         this.socket = null;
@@ -219,7 +219,7 @@ class QuizGameClient {
     }
 
     async init() {
-        console.log('🎮 Initializing QuizWorld...');
+        console.log('🎮 Initializing Quizaru...');
         
         // Wait for Firebase to be ready
         await this.quizDatabase.waitForFirebase();
@@ -234,10 +234,16 @@ class QuizGameClient {
             this.showJoinInterface(roomCode);
         }
         
-        console.log('✅ QuizWorld initialized successfully');
+        console.log('✅ Quizaru initialized successfully');
     }
 
     setupEventListeners() {
+        // Header navigation - Quizaru logo click
+        document.querySelector('.navbar-brand').onclick = (e) => {
+            e.preventDefault();
+            this.goToHomeScreen();
+        };
+        
         // Welcome screen
         document.getElementById('create-quiz-option').onclick = () => this.showScreen('create-quiz');
         document.getElementById('create-tournament-option').onclick = () => this.showCreateTournament();
@@ -345,6 +351,54 @@ class QuizGameClient {
                 }, 0);
             }
         }
+    }
+
+    goToHomeScreen() {
+        console.log('🏠 Navigating to home screen');
+        
+        // Hide loading overlay if it's showing
+        this.hideLoading();
+        
+        // Close any open modals
+        const modals = document.querySelectorAll('.modal-overlay, .highscores-modal');
+        modals.forEach(modal => {
+            if (modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+        });
+        
+        // Clear any timeouts
+        if (this.playQuizTimeout) {
+            clearTimeout(this.playQuizTimeout);
+            this.playQuizTimeout = null;
+        }
+        
+        // Disconnect WebSocket if connected
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            console.log('🔌 Disconnecting WebSocket');
+            this.ws.close();
+            this.ws = null;
+        }
+        
+        // Reset game state
+        this.gameState = {
+            roomCode: null,
+            playerName: null,
+            isHost: false,
+            currentQuiz: null,
+            currentSession: null,
+            currentQuestionIndex: 0,
+            selectedAnswer: null,
+            playerAnswers: [],
+            gameStarted: false
+        };
+        
+        // Clear any form data
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => form.reset());
+        
+        // Show welcome screen
+        this.showScreen('welcome');
     }
 
     showJoinInterface(roomCode) {
@@ -1735,7 +1789,7 @@ class QuizGameClient {
                 </div>
                 <div class="quiz-item-actions">
                     <button class="btn btn-primary" onclick="window.quizGame.playQuiz('${quiz.id}')">Play Quiz</button>
-                    <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.topic}')">View Highscores</button>
+                                            <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.title || quiz.topic}')">View Highscores</button>
                 </div>
             `;
             
@@ -1855,17 +1909,17 @@ class QuizGameClient {
         }
     }
 
-    async viewHighscores(quizId, quizTopic) {
+    async viewHighscores(quizId, quizTitle) {
         try {
             const highscores = await this.quizDatabase.getHighscores(quizId);
-            this.showHighscoresModal(quizTopic, highscores);
+            this.showHighscoresModal(quizTitle, highscores);
         } catch (error) {
             console.error('Error loading highscores:', error);
             this.showToast('Error loading highscores.', 'error');
         }
     }
 
-    showHighscoresModal(quizTopic, highscores) {
+    showHighscoresModal(quizTitle, highscores) {
         // Create modal
         const modal = document.createElement('div');
         modal.className = 'highscores-modal';
@@ -1878,7 +1932,7 @@ class QuizGameClient {
         modal.innerHTML = `
             <div class="highscores-content">
                 <div class="highscores-header">
-                    <h3>Highscores: ${quizTopic}</h3>
+                    <h3>Highscores: ${quizTitle}</h3>
                     <button class="close-btn" onclick="document.body.removeChild(this.closest('.highscores-modal'))">×</button>
                 </div>
                 <ul class="highscore-list">
@@ -1889,7 +1943,6 @@ class QuizGameClient {
                                 <span class="highscore-name">${score.playerName}</span>
                                 <span class="highscore-score">
                                     ${score.score} pts
-                                    <span class="highscore-percentage">(${score.percentage}%)</span>
                                 </span>
                             </li>
                         `).join('')

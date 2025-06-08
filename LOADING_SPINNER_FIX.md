@@ -1,7 +1,7 @@
-# QuizWorld Loading Spinner Fix
+# Quizaru Loading Spinner Fix
 
 ## Issue Description
-The QuizWorld application was showing a loading spinner immediately upon startup, preventing users from accessing the welcome screen and main functionality.
+The Quizaru application was showing a loading spinner immediately upon startup, preventing users from accessing the welcome screen and main functionality.
 
 ## Root Causes Identified
 

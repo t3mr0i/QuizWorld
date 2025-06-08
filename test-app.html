@@ -49,13 +49,13 @@
     </style>
 </head>
 <body>
-    <h1>🎯 QuizWorld Application Test</h1>
+            <h1>🎯 Quizaru Application Test</h1>
     
     <div class="test-section">
         <h2>Application Status</h2>
         <div id="app-status" class="status info">Testing...</div>
         <button onclick="testApp()">Test Application</button>
-        <button onclick="openApp()">Open QuizWorld</button>
+                    <button onclick="openApp()">Open Quizaru</button>
     </div>
 
     <div class="test-section">
@@ -99,13 +99,13 @@
         }
 
         async function testApp() {
-            addLog('🧪 Testing QuizWorld application...');
+            addLog('🧪 Testing Quizaru application...');
             
             try {
                 const response = await fetch('https://quiz-world.t3mr0i.partykit.dev');
                 if (response.ok) {
                     const html = await response.text();
-                    if (html.includes('QuizWorld') && html.includes('loading-overlay')) {
+                    if (html.includes('Quizaru') && html.includes('loading-overlay')) {
                         updateStatus('app-status', '✅ Application is accessible and contains expected elements', 'success');
                         addLog('✅ Application test passed');
                     } else {
@@ -160,13 +160,13 @@
         }
 
         function openApp() {
-            addLog('🚀 Opening QuizWorld application...');
+            addLog('🚀 Opening Quizaru application...');
             window.open('https://quiz-world.t3mr0i.partykit.dev', '_blank');
         }
 
         // Auto-run tests on page load
         window.addEventListener('load', () => {
-            addLog('🎯 QuizWorld Test Page Loaded');
+            addLog('🎯 Quizaru Test Page Loaded');
             setTimeout(() => {
                 testApp();
                 testFirebase();

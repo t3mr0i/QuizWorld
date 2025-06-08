@@ -1,5 +1,5 @@
 {
-  "name": "quizworld",
+  "name": "quizaru",
   "version": "1.0.0",
   "description": "Interactive web-based quiz game with AI-generated questions",
   "main": "server/index.js",
@@ -10,7 +10,15 @@
     "partykit:deploy": "partykit deploy",
     "serve": "partykit dev",
     "kill-ports": "node scripts/kill-ports.js",
-    "test": "vitest"
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:client": "vitest run tests/quiz-game-client.test.js",
+    "test:server": "vitest run tests/server.test.ts tests/validators.test.ts",
+    "test:integration": "vitest run tests/integration.test.js",
+    "test:performance": "vitest run tests/performance.test.js"
   },
   "keywords": [
     "quiz",
@@ -31,6 +39,7 @@
     "socket.io": "^4.7.3"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.1.1",
     "nodemon": "^3.1.9",
     "vitest": "^3.1.1"
   }
