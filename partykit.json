@@ -1,5 +1,5 @@
 {
-  "name": "stadt-land-fluss",
+  "name": "quiz-world",
   "main": "partykit/server.ts",
   "compatibilityDate": "2023-06-21",
   "serve": {
@@ -7,6 +7,6 @@
     "fallback": "index.html"
   },
   "parties": {
-    "game": "partykit/server.ts"
+    "quiz": "partykit/server.ts"
   }
 } 

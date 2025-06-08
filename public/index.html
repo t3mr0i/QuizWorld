@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stadt KI Fluss</title>
-    <meta name="description" content="Play Stadt Land Fluss multiplayer game online">
+    <title>QuizWorld - Interactive Quiz Game</title>
+    <meta name="description" content="Create and play interactive quizzes with AI-generated questions">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
     <!-- PartyKit Configuration -->
     <script>
         // Hard-code the PartyKit host to avoid placeholder issues
-        window.PARTYKIT_HOST = 'stadt-land-fluss.t3mr0i.partykit.dev';
+        window.PARTYKIT_HOST = 'quiz-world.t3mr0i.partykit.dev';
         
         // Enable dev mode to try local server if URL has ?dev parameter
         const urlParams = new URLSearchParams(window.location.search);
@@ -30,9 +30,6 @@
         
         // Log the configuration
         console.log('Game configuration:', window.CONFIG);
-        
-        // Check if in offline mode
-        const isOfflineMode = urlParams.has('offline');
         
         // Add a visible banner when in local development mode
         if (urlParams.has('local') || urlParams.has('dev')) {
@@ -54,8 +51,6 @@
                 document.body.appendChild(debugBanner);
             });
         }
-        
-
     </script>
 </head>
 <body>
@@ -64,7 +59,7 @@
         <div class="navbar fixed-top">
             <div class="container d-flex justify-content-between align-items-center">
                 <a href="#" class="navbar-brand">
-                    <h1 class="mb-0" data-i18n="navigation.appTitle">Smart Land Plus</h1>
+                    <h1 class="mb-0">🧠 QuizWorld</h1>
                 </a>
             </div>
         </div>
@@ -72,252 +67,268 @@
         <main class="game-container">
             <!-- Welcome Screen -->
             <div id="welcome-screen" class="game-screen active">
-                <!-- Normal Welcome Screen -->
-                <div id="normal-welcome" class="card welcome-card">
-                    <div class="card-header" data-id="SLF-001">
-                        <h2 data-i18n="welcome.title">Join or start a Game</h2>
+                <div class="card welcome-card">
+                    <div class="card-header">
+                        <h2>Welcome to QuizWorld</h2>
+                        <p>Create AI-powered quizzes or join existing games</p>
                     </div>
                     <div class="card-body">
-                        <form class="join-form">
-                            <div class="form-group">
-                                <label for="player-name" data-i18n="welcome.playerNameLabel">Your Name</label>
-                                <input type="text" id="player-name" data-i18n="welcome.playerNamePlaceholder" placeholder="Enter your name" required autocomplete="off">
+                        <div class="welcome-options">
+                            <div class="option-card" id="create-quiz-option">
+                                <div class="option-icon">🎯</div>
+                                <h3>Create New Quiz</h3>
+                                <p>Generate a quiz with AI on any topic</p>
+                                <button class="btn btn-primary">Create Quiz</button>
                             </div>
                             
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="room-id" data-i18n="welcome.roomIdLabel">Room ID</label>
-                                    <input type="text" id="room-id" data-i18n="welcome.roomIdPlaceholder" placeholder="Leave empty for new game" autocomplete="off">
-                                    <small data-i18n="welcome.roomIdHelp">Leave empty to create a new game room</small>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="time-limit" data-i18n="welcome.timeLimitLabel">Time Limit (seconds)</label>
-                                    <div class="time-selector">
-                                        <button type="button" class="time-btn decrease">−</button>
-                                        <input type="number" id="time-limit" value="90" min="30" max="300" step="10">
-                                        <button type="button" class="time-btn increase">+</button>
-                                    </div>
-                                </div>
+                            <div class="option-card" id="browse-quizzes-option">
+                                <div class="option-icon">📚</div>
+                                <h3>Browse Quizzes</h3>
+                                <p>Play existing quizzes and view highscores</p>
+                                <button class="btn btn-outline">Browse Quizzes</button>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="game-language" data-i18n="welcome.gameLanguageLabel">Game Language</label>
-                                <select id="game-language" class="language-selector">
-                                    <option value="de">🇩🇪 Deutsch (German)</option>
-                                    <option value="en">🇺🇸 English</option>
-                                    <option value="fr">🇫🇷 Français (French)</option>
-                                    <option value="es">🇪🇸 Español (Spanish)</option>
-                                    <option value="it">🇮🇹 Italiano (Italian)</option>
-                                    <option value="nl">🇳🇱 Nederlands (Dutch)</option>
-                                </select>
-                                <small data-i18n="welcome.gameLanguageHelp">Language for AI explanations and validation context</small>
-                            </div>
-                            
-                            <button type="button" id="join-btn" class="btn btn-primary btn-large" data-i18n="welcome.enterVoidButton">ENTER VOID</button>
-                        </form>
-                    </div>
-                    <div class="card-footer">
-                        <div class="game-explanation">
-                            <button id="explanation-toggle" class="btn btn-text" data-i18n="explanation.toggleButton">WAS IST SMART LAND PLUS?</button>
-                            <div id="explanation-content" class="explanation-content hidden">
-                                <div class="explanation-text" id="explanation-text">
-                                    <!-- Content will be dynamically updated based on language -->
-                                </div>
+                            <div class="option-card" id="join-quiz-option">
+                                <div class="option-icon">🎮</div>
+                                <h3>Join Quiz Session</h3>
+                                <p>Enter a room code to join an existing quiz</p>
+                                <button class="btn btn-outline">Join Session</button>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Simplified Join Screen for Direct Room Links -->
-                <div id="join-room-welcome" class="card welcome-card hidden">
-                    <div class="card-header" data-id="SLF-001">
-                        <h2 data-i18n="joinRoom.title">Join Game Room</h2>
-                        <div class="room-info">
-                            <span class="room-label" data-i18n="lobby.roomLabel">Room ID:</span>
-                            <span id="join-room-id" class="room-id">XXXXXX</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <form class="join-form">
-                            <div class="form-group">
-                                <label for="join-player-name" data-i18n="joinRoom.playerNameLabel">Your Name</label>
-                                <input type="text" id="join-player-name" data-i18n="joinRoom.playerNamePlaceholder" placeholder="Enter your name to join" required autocomplete="off">
-                                <small data-i18n="joinRoom.playerNameHelp">You're joining an existing game room</small>
-                            </div>
-                            
-                            <button type="button" id="join-room-btn" class="btn btn-primary btn-large" data-i18n="joinRoom.joinGameButton">JOIN GAME</button>
-                        </form>
-                    </div>
-                    <div class="card-footer">
-                        <button id="create-new-game-btn" class="btn btn-text" data-i18n="joinRoom.createNewGameButton">Want to create a new game instead?</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Lobby Screen -->
+            <!-- Create Quiz Screen -->
+            <div id="create-quiz-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Create Your Quiz</h2>
+                        <p>AI will generate questions based on your topic</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="create-quiz-form">
+                            <div class="form-group">
+                                <label for="quiz-title">Quiz Title</label>
+                                <input type="text" id="quiz-title" placeholder="e.g., Video Games from 2010" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="quiz-topic">Topic Description</label>
+                                <textarea id="quiz-topic" placeholder="Describe what the quiz should be about..." required rows="3"></textarea>
+                                <small>Be specific! Example: "Popular video games released in 2010, including indie and AAA titles"</small>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="question-count">Number of Questions</label>
+                                    <select id="question-count">
+                                        <option value="5">5 Questions</option>
+                                        <option value="10" selected>10 Questions</option>
+                                        <option value="15">15 Questions</option>
+                                        <option value="20">20 Questions</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="creator-name">Your Name</label>
+                                    <input type="text" id="creator-name" placeholder="Quiz Creator" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
+                                <button type="submit" id="generate-quiz-btn" class="btn btn-primary">
+                                    <span class="btn-text">Generate Quiz with AI</span>
+                                    <span class="btn-loading hidden">🤖 Generating...</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Join Session Screen -->
+            <div id="join-session-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Join Quiz Session</h2>
+                        <p>Enter the room code to join an existing quiz</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="join-session-form">
+                            <div class="form-group">
+                                <label for="room-code">Room Code</label>
+                                <input type="text" id="room-code" placeholder="Enter 6-digit room code" required maxlength="6">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="player-name">Your Name</label>
+                                <input type="text" id="player-name" placeholder="Enter your name" required>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" id="back-to-welcome-2" class="btn btn-text">← Back</button>
+                                <button type="submit" class="btn btn-primary">Join Session</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Browse Quizzes Screen -->
+            <div id="browse-quizzes-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Browse Quizzes</h2>
+                        <p>Discover and play quizzes created by the community</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="quiz-browser">
+                            <div class="browser-controls">
+                                <div class="search-bar">
+                                    <input type="text" id="quiz-search" placeholder="Search quizzes by topic...">
+                                    <button id="search-btn" class="btn btn-outline">🔍</button>
+                                </div>
+                                <div class="filter-tabs">
+                                    <button class="tab-btn active" data-filter="recent">Recent</button>
+                                    <button class="tab-btn" data-filter="popular">Popular</button>
+                                    <button class="tab-btn" data-filter="all">All Quizzes</button>
+                                </div>
+                            </div>
+                            
+                            <div id="quiz-list" class="quiz-list">
+                                <div class="loading-quizzes">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading quizzes...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="browser-actions">
+                                <button type="button" id="back-to-welcome-3" class="btn btn-text">← Back</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Lobby Screen -->
             <div id="lobby-screen" class="game-screen hidden">
-                <div class="card lobby-card">
-                    <div class="card-header" data-id="SLF-002">
-                        <h2 data-i18n="lobby.title">Game Lobby</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h2 id="quiz-title-display">Quiz Lobby</h2>
                         <div class="room-info">
-                            <span class="room-label" data-i18n="lobby.roomLabel">Room ID:</span>
-                            <span id="display-room-id" class="room-id">0000</span>
-                            <button id="copy-link-btn" class="btn btn-icon" data-i18n="lobby.copyLinkTitle" title="Copy invite link">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                            </button>
+                            <span class="room-label">Room Code:</span>
+                            <span id="room-code-display" class="room-code">000000</span>
+                            <button id="copy-room-code" class="btn btn-icon" title="Copy room code">📋</button>
                         </div>
                     </div>
                     
                     <div class="card-body">
                         <div class="lobby-layout">
-                            <div class="player-section">
-                                <h3 data-i18n="lobby.playersTitle">Players</h3>
+                            <div class="quiz-info">
+                                <h3>Quiz Information</h3>
+                                <div class="quiz-details">
+                                    <div class="detail-item">
+                                        <span class="label">Topic:</span>
+                                        <span id="quiz-topic-display">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">Questions:</span>
+                                        <span id="quiz-question-count">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">Created by:</span>
+                                        <span id="quiz-creator">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="players-section">
+                                <h3>Players (<span id="player-count">0</span>)</h3>
                                 <ul id="player-list" class="player-list"></ul>
-                                <div id="waiting-message" class="waiting-message">
-                                    <p data-i18n="lobby.waitingMessage">You can start playing alone or wait for others to join...</p>
-                                </div>
-                                <div class="ready-system">
-                                    <div class="ready-status">
-                                        <span id="ready-count">0</span>/<span id="total-players">0</span> <span data-i18n="lobby.readyStatus">players ready</span>
-                                    </div>
-                                    <button id="ready-btn" class="btn btn-outline-success" data-i18n="lobby.systemReadyButton">SYSTEM READY</button>
-                                    <p class="footer-hint" data-i18n="lobby.readyHint">Signal readiness to participate. Sequence begins when all systems report ready status.</p>
-                                </div>
-                            </div>
-                            
-                            <div class="lobby-info-section">
-                                <div class="lobby-language-display">
-                                    <h3 data-i18n="lobby.gameSettingsTitle">Game Settings</h3>
-                                    <div class="setting-item">
-                                        <span class="setting-label" data-i18n="lobby.languageLabel">Language:</span>
-                                        <span id="lobby-language" class="setting-value">🇩🇪 Deutsch</span>
-                                    </div>
-                                    <div class="setting-item">
-                                        <span class="setting-label" data-i18n="lobby.timeLimitDisplayLabel">Time Limit:</span>
-                                        <span id="lobby-time-limit" class="setting-value">90 seconds</span>
-                                    </div>
-                                </div>
                                 
-                                <div class="category-management">
-                                    <h3 data-i18n="lobby.categoriesTitle">Categories</h3>
-                                    <div id="categories-display" class="category-list"></div>
-                                    <div id="category-controls" class="category-controls">
-                                        <div class="add-category-container">
-                                            <input type="text" id="new-category" class="category-input" data-i18n="lobby.addCategoryPlaceholder" placeholder="Add new category">
-                                            <button id="add-category-btn" class="btn btn-secondary" data-i18n="lobby.addCategoryButton">Add Category</button>
-                                        </div>
-                                        <p class="category-instructions" data-i18n="lobby.categoryInstructions">All players can add or remove categories</p>
+                                <div class="ready-system">
+                                    <button id="ready-btn" class="btn btn-outline-success">Ready to Play</button>
+                                    <div id="host-controls" class="host-controls hidden">
+                                        <button id="start-quiz-btn" class="btn btn-primary" disabled>Start Quiz</button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        
-                        <div id="admin-start-controls" class="admin-controls">
-                            <div class="game-starter-box">
-                                <button id="start-game-btn" class="btn btn-primary btn-large" data-i18n="lobby.startGameButton">START GAME</button>
-                            </div>
-                            <div class="session-controls-box">
-                                <button id="close-session-btn" class="btn btn-danger btn-outline">
-                                    <span class="close-icon">×</span> <span data-i18n="lobby.terminateSessionButton">TERMINATE SESSION</span>
-                                </button>
-                                <p class="close-session-hint" data-i18n="lobby.closeSessionHint">End the current game session for all players</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Game Screen -->
-            <div id="game-screen" class="game-screen hidden">
-                <div class="card wide-card">
-                    <div class="game-header">
-                        <div class="letter-display">
-                            <span class="label" data-i18n="game.currentLetterLabel">CURRENT LETTER:</span>
-                            <span id="current-letter" class="current-letter">A</span>
+            <!-- Quiz Game Screen -->
+            <div id="quiz-screen" class="game-screen hidden">
+                <div class="quiz-container">
+                    <div class="quiz-header">
+                        <div class="question-progress">
+                            <span>Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
                         </div>
-                        <div class="timer-container">
-                            <span class="label" data-i18n="game.timeLeftLabel">TIME LEFT:</span>
-                            <div id="timer" class="timer">60</div>
+                        <div class="timer">
+                            <span id="time-remaining">30</span>s
                         </div>
                     </div>
                     
-                    <div class="card-body">
-                        <div class="game-layout">
-                            <div class="game-main">
-                                <form id="answers-form" class="answers-form">
-                                    <div id="game-categories" class="categories-grid"></div>
-                                    <button type="submit" id="submit-btn" class="btn btn-primary btn-large" data-i18n="game.submitAnswersButton">SUBMIT ANSWERS</button>
-                                </form>
-                            </div>
-                            
-                            <div class="game-sidebar">
-                                <h3 data-i18n="game.playersTitle">Players</h3>
-                                <div id="game-player-list" class="game-player-list"></div>
-                                <div class="submission-status">
-                                    <div class="status-summary">
-                                        <span id="submitted-count">0</span>/<span id="total-game-players">0</span> <span data-i18n="game.submittedCount">submitted</span>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="question-card">
+                        <h2 id="question-text">Loading question...</h2>
+                        
+                        <div id="answer-options" class="answer-options">
+                            <!-- Answer options will be populated dynamically -->
+                        </div>
+                        
+                        <div id="question-status" class="question-status">
+                            <span id="players-answered">0</span> of <span id="total-players-quiz">1</span> players answered
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Loading Screen for AI Processing -->
-            <div id="loading-screen" class="game-screen hidden">
-                <div class="card loading-card">
-                    <div class="card-body">
-                        <div class="loading-container">
-                            <div class="loading-animation">
-                                <div class="loading-spinner"></div>
-                                <div class="loading-dots">
-                                    <span>.</span>
-                                    <span>.</span>
-                                    <span>.</span>
-                                </div>
-                            </div>
-                            <h2 class="loading-title" data-i18n="loading.processingTitle">Processing Results</h2>
-                            <p class="loading-message" id="loading-message" data-i18n="loading.processingMessage">All players submitted! AI is analyzing answers...</p>
-                            <div class="loading-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill"></div>
-                                </div>
-                                <p class="progress-text" data-i18n="loading.progressText">This may take a few seconds</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Results Screen -->
+            <!-- Question Results Screen -->
             <div id="results-screen" class="game-screen hidden">
-                <div class="card wide-card">
+                <div class="card">
                     <div class="card-header">
-                        <div class="results-header">
-                            <h2 class="results-title" data-i18n="results.title">ROUND RESULTS</h2>
-                            <div class="results-subtitle">
-                                <span data-i18n="results.letterLabel">Letter:</span> <span id="result-letter" class="round-letter">A</span>
-                            </div>
-                        </div>
+                        <h2>Question Results</h2>
                     </div>
                     
                     <div class="card-body">
-                        <div class="results-layout">
-                            <div class="results-container">
-                                <div id="results-content"></div>
-                            </div>
-                            
-                            <div class="scores-container">
-                                <h3 data-i18n="results.leaderboardTitle">LEADERBOARD</h3>
-                                <div id="scores-list" class="scores-list"></div>
-                            </div>
+                        <div class="correct-answer">
+                            <h3>Correct Answer:</h3>
+                            <div id="correct-answer-display" class="answer-highlight"></div>
+                            <div id="answer-explanation" class="explanation"></div>
                         </div>
                         
-                        <div class="game-controls">
-                            <button id="next-round-btn" class="btn btn-primary" data-i18n="results.nextRoundButton">NEXT ROUND</button>
-                            <button id="back-to-lobby-btn" class="btn btn-secondary" data-i18n="results.returnToLobbyButton">RETURN TO LOBBY</button>
+                        <div class="player-results">
+                            <h3>Player Scores</h3>
+                            <div id="player-scores" class="score-list"></div>
+                        </div>
+                        
+                        <div class="results-actions">
+                            <button id="next-question-btn" class="btn btn-primary hidden">Next Question</button>
+                            <button id="view-final-results-btn" class="btn btn-success hidden">View Final Results</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Final Results Screen -->
+            <div id="final-results-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏆 Quiz Complete!</h2>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="final-scores">
+                            <h3>Final Leaderboard</h3>
+                            <div id="final-leaderboard" class="leaderboard"></div>
+                        </div>
+                        
+                        <div class="final-actions">
+                            <button id="play-again-btn" class="btn btn-primary">Play Again</button>
+                            <button id="new-quiz-btn" class="btn btn-outline">Create New Quiz</button>
                         </div>
                     </div>
                 </div>
@@ -325,1591 +336,52 @@
         </main>
     </div>
 
-    <!-- Modal for notifications -->
-    <div id="notification-modal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title" data-i18n="modal.infoTitle">Notification</h3>
-                <button id="modal-close" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="modal-icon" class="modal-icon"></div>
-                <p id="modal-message">Message content</p>
-            </div>
-            <div class="modal-footer">
-                <button id="modal-ok" class="btn btn-primary" data-i18n="modal.okButton">OK</button>
-            </div>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3 id="loading-message">Generating your quiz...</h3>
+            <p id="loading-submessage">This may take a few moments</p>
         </div>
     </div>
 
-    <!-- Confirmation Modal -->
-    <div id="confirmation-modal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="confirm-title" data-i18n="modal.confirmTitle">Confirm Action</h3>
-                <button id="confirm-close" class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="confirm-icon" class="modal-icon info"></div>
-                <p id="confirm-message">Are you sure?</p>
-            </div>
-            <div class="modal-footer">
-                <button id="confirm-cancel" class="btn btn-secondary" data-i18n="modal.cancelButton">Cancel</button>
-                <button id="confirm-ok" class="btn btn-primary" data-i18n="modal.confirmButton">Confirm</button>
-            </div>
-        </div>
-    </div>
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
 
-    <!-- i18n System -->
-    <script src="js/i18n.js"></script>
-    
-    <script>
-        // Simplified GameClient following PartyKit best practices
-        class GameClient {
-            constructor() {
-                this.socket = null;
-                this.gameState = {
-                    roomId: '',
-                    playerName: '',
-                    isAdmin: false,
-                    players: [],
-                    categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'],
-                    currentLetter: '',
-                    timeLimit: 60,
-                    language: 'de',
-                    isReady: false
-                };
-                this.currentScreen = 'welcome';
-                this.timer = null;
-                this.timeLeft = 0;
-                
-                this.init();
-            }
-
-            async init() {
-                // Initialize i18n system first
-                await window.i18n.init(this.gameState.language);
-                
-                this.setupEventListeners();
-                this.setupModal();
-                this.showScreen('welcome');
-                
-                // Check for room ID in URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const roomId = urlParams.get('room');
-                if (roomId) {
-                    this.showJoinRoomInterface(roomId);
-                } else {
-                    this.showNormalWelcome();
-                }
-            }
-
-            showJoinRoomInterface(roomId) {
-                // Hide normal welcome and show join room interface
-                document.getElementById('normal-welcome').classList.add('hidden');
-                document.getElementById('join-room-welcome').classList.remove('hidden');
-                
-                // Set the room ID in the display
-                document.getElementById('join-room-id').textContent = roomId;
-                
-                // Store the room ID for later use
-                this.gameState.roomId = roomId;
-                
-                // Focus on the name input
-                setTimeout(() => {
-                    document.getElementById('join-player-name').focus();
-                }, 100);
-            }
-
-            showNormalWelcome() {
-                // Show normal welcome and hide join room interface
-                document.getElementById('normal-welcome').classList.remove('hidden');
-                document.getElementById('join-room-welcome').classList.add('hidden');
-            }
-
-            disableRoomSettings() {
-                // Disable language selector
-                const languageSelector = document.getElementById('game-language');
-                languageSelector.disabled = true;
-                languageSelector.style.opacity = '0.6';
-                languageSelector.style.cursor = 'not-allowed';
-                
-                // Disable time limit controls
-                const timeLimitInput = document.getElementById('time-limit');
-                const decreaseBtn = document.querySelector('.time-btn.decrease');
-                const increaseBtn = document.querySelector('.time-btn.increase');
-                
-                timeLimitInput.disabled = true;
-                timeLimitInput.style.opacity = '0.6';
-                timeLimitInput.style.cursor = 'not-allowed';
-                
-                decreaseBtn.disabled = true;
-                decreaseBtn.style.opacity = '0.6';
-                decreaseBtn.style.cursor = 'not-allowed';
-                
-                increaseBtn.disabled = true;
-                increaseBtn.style.opacity = '0.6';
-                increaseBtn.style.cursor = 'not-allowed';
-                
-                // Update the help text to indicate settings are locked
-                const languageHelp = document.querySelector('#game-language + small');
-                const roomIdHelp = document.querySelector('#room-id + small');
-                
-                if (languageHelp) {
-                    languageHelp.textContent = 'Language is set by the room host';
-                }
-                
-                if (roomIdHelp) {
-                    roomIdHelp.textContent = 'Joining existing room - settings are locked';
-                }
-            }
-
-            setupEventListeners() {
-                // Welcome screen - normal
-                document.getElementById('join-btn').onclick = () => this.joinGame();
-                
-                // Welcome screen - join room
-                document.getElementById('join-room-btn').onclick = () => this.joinRoomDirectly();
-                document.getElementById('create-new-game-btn').onclick = () => this.switchToNormalWelcome();
-                
-                // Lobby screen
-                document.getElementById('ready-btn').onclick = () => this.toggleReady();
-                document.getElementById('start-game-btn').onclick = () => this.startGame();
-                document.getElementById('close-session-btn').onclick = () => this.closeSession();
-                document.getElementById('copy-link-btn').onclick = () => this.copyInviteLink();
-                document.getElementById('add-category-btn').onclick = () => this.addCategory();
-                
-                // Game screen
-                document.getElementById('answers-form').onsubmit = (e) => this.submitAnswers(e);
-                
-                // Results screen
-                document.getElementById('next-round-btn').onclick = () => this.nextRound();
-                document.getElementById('back-to-lobby-btn').onclick = () => this.backToLobby();
-                
-                // Enter key handlers
-                document.getElementById('player-name').onkeypress = (e) => {
-                    if (e.key === 'Enter') this.joinGame();
-                };
-                document.getElementById('join-player-name').onkeypress = (e) => {
-                    if (e.key === 'Enter') this.joinRoomDirectly();
-                };
-                document.getElementById('room-id').onkeypress = (e) => {
-                    if (e.key === 'Enter') this.joinGame();
-                };
-                document.getElementById('new-category').onkeypress = (e) => {
-                    if (e.key === 'Enter') this.addCategory();
-                };
-                
-                // Time selector buttons
-                document.querySelector('.time-btn.decrease').onclick = () => this.adjustTime(-10);
-                document.querySelector('.time-btn.increase').onclick = () => this.adjustTime(10);
-                
-                // Explanation toggle
-                document.getElementById('explanation-toggle').onclick = () => this.toggleExplanation();
-                
-                // Language selector change
-                document.getElementById('game-language').onchange = async (e) => {
-                    this.gameState.language = e.target.value;
-                    await window.i18n.changeLanguage(e.target.value);
-                };
-            }
-
-            adjustTime(delta) {
-                const input = document.getElementById('time-limit');
-                
-                // Don't allow adjustment if input is disabled
-                if (input.disabled) {
-                    return;
-                }
-                
-                const newValue = Math.max(30, Math.min(300, parseInt(input.value) + delta));
-                input.value = newValue;
-            }
-
-            toggleExplanation() {
-                const content = document.getElementById('explanation-content');
-                
-                if (content.classList.contains('hidden')) {
-                    content.classList.remove('hidden');
-                } else {
-                    content.classList.add('hidden');
-                }
-                
-                // Update button text via i18n system
-                window.i18n.updateExplanationContent();
-            }
-
-            showScreen(screenName) {
-                // Hide all screens
-                document.querySelectorAll('.game-screen').forEach(screen => {
-                    screen.classList.remove('active');
-                    screen.classList.add('hidden');
-                });
-                
-                // Show target screen
-                const targetScreen = document.getElementById(screenName + '-screen');
-                targetScreen.classList.add('active');
-                targetScreen.classList.remove('hidden');
-                this.currentScreen = screenName;
-                
-                console.log(`Switched to ${screenName} screen`);
-            }
-
-            setupModal() {
-                // Setup notification modal
-                const modal = document.getElementById('notification-modal');
-                const closeBtn = document.getElementById('modal-close');
-                const okBtn = document.getElementById('modal-ok');
-                const overlay = modal.querySelector('.modal-overlay');
-                
-                // Close modal handlers
-                const closeModal = () => {
-                    modal.classList.add('hidden');
-                };
-                
-                closeBtn.onclick = closeModal;
-                okBtn.onclick = closeModal;
-                overlay.onclick = closeModal;
-                
-                // Setup confirmation modal
-                const confirmModal = document.getElementById('confirmation-modal');
-                const confirmCloseBtn = document.getElementById('confirm-close');
-                const confirmCancelBtn = document.getElementById('confirm-cancel');
-                const confirmOverlay = confirmModal.querySelector('.modal-overlay');
-                
-                // Close confirmation modal handlers
-                const closeConfirmModal = () => {
-                    confirmModal.classList.add('hidden');
-                    if (this.confirmReject) {
-                        this.confirmReject();
-                        this.confirmReject = null;
-                        this.confirmResolve = null;
-                    }
-                };
-                
-                confirmCloseBtn.onclick = closeConfirmModal;
-                confirmCancelBtn.onclick = closeConfirmModal;
-                confirmOverlay.onclick = closeConfirmModal;
-                
-                // Confirm button handler
-                document.getElementById('confirm-ok').onclick = () => {
-                    confirmModal.classList.add('hidden');
-                    if (this.confirmResolve) {
-                        this.confirmResolve();
-                        this.confirmResolve = null;
-                        this.confirmReject = null;
-                    }
-                };
-                
-                // Close on Escape key
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') {
-                        if (!modal.classList.contains('hidden')) {
-                            closeModal();
-                        } else if (!confirmModal.classList.contains('hidden')) {
-                            closeConfirmModal();
-                        }
-                    }
-                });
-            }
-
-            showModal(title, message, type = 'info') {
-                const modal = document.getElementById('notification-modal');
-                const titleEl = document.getElementById('modal-title');
-                const messageEl = document.getElementById('modal-message');
-                const iconEl = document.getElementById('modal-icon');
-                
-                titleEl.textContent = title;
-                messageEl.textContent = message;
-                
-                // Reset icon classes and set the appropriate one
-                iconEl.className = `modal-icon ${type}`;
-                
-                // Show modal
-                modal.classList.remove('hidden');
-            }
-
-            showError(messageKey, params = {}) {
-                const message = typeof messageKey === 'string' && messageKey.includes('.') 
-                    ? window.i18n.t(messageKey, params) 
-                    : messageKey;
-                console.error('Error:', message);
-                this.showModal(window.i18n.t('modal.errorTitle'), message, 'error');
-            }
-
-            showSuccess(messageKey, params = {}) {
-                const message = typeof messageKey === 'string' && messageKey.includes('.') 
-                    ? window.i18n.t(messageKey, params) 
-                    : messageKey;
-                console.log('Success:', message);
-                this.showModal(window.i18n.t('modal.successTitle'), message, 'success');
-            }
-
-            showInfo(messageKey, params = {}) {
-                const message = typeof messageKey === 'string' && messageKey.includes('.') 
-                    ? window.i18n.t(messageKey, params) 
-                    : messageKey;
-                console.log('Info:', message);
-                this.showModal(window.i18n.t('modal.infoTitle'), message, 'info');
-            }
-
-            showConfirm(titleKey, messageKey, params = {}) {
-                return new Promise((resolve, reject) => {
-                    const confirmModal = document.getElementById('confirmation-modal');
-                    const titleEl = document.getElementById('confirm-title');
-                    const messageEl = document.getElementById('confirm-message');
-                    
-                    const title = typeof titleKey === 'string' && titleKey.includes('.') 
-                        ? window.i18n.t(titleKey, params) 
-                        : titleKey;
-                    const message = typeof messageKey === 'string' && messageKey.includes('.') 
-                        ? window.i18n.t(messageKey, params) 
-                        : messageKey;
-                    
-                    titleEl.textContent = title;
-                    messageEl.textContent = message;
-                    
-                    // Store resolve/reject for later use
-                    this.confirmResolve = resolve;
-                    this.confirmReject = reject;
-                    
-                    // Show modal
-                    confirmModal.classList.remove('hidden');
-                });
-            }
-
-            connectWebSocket() {
-                // Generate a unique room ID if none provided (creating new room)
-                if (!this.gameState.roomId || this.gameState.roomId.trim() === '') {
-                    this.gameState.roomId = this.generateRoomId();
-                    console.log('Generated new room ID:', this.gameState.roomId);
-                }
-                
-                // Use PartyKit host for WebSocket connection
-                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
-                const host = window.PARTYKIT_HOST;
-                const url = `${protocol}//${host}/party/${this.gameState.roomId}`;
-                
-                console.log('Connecting to:', url);
-                
-                if (this.socket) {
-                    this.socket.close();
-                }
-                
-                this.socket = new WebSocket(url);
-                
-                this.socket.onopen = () => {
-                    console.log('WebSocket connected to room:', this.gameState.roomId);
-                    
-                    // Send join room message
-                    this.sendMessage({
-                        type: 'joinRoom',
-                        playerName: this.gameState.playerName,
-                        roomId: this.gameState.roomId,
-                        timeLimit: this.gameState.timeLimit,
-                        language: this.gameState.language
-                    });
-                };
-                
-                this.socket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        this.handleMessage(data);
-                    } catch (error) {
-                        console.error('Error parsing message:', error);
-                    }
-                };
-                
-                this.socket.onclose = (event) => {
-                    console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                    this.showError('messages.connectionLost');
-                };
-                
-                this.socket.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    this.showError('messages.connectionFailed');
-                };
-            }
-
-            generateRoomId() {
-                // Generate a short, user-friendly room ID
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                let result = '';
-                for (let i = 0; i < 6; i++) {
-                    result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return result;
-            }
-
-            sendMessage(data) {
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.socket.send(JSON.stringify(data));
-                    console.log('Sent:', data);
-                } else {
-                    console.error('Cannot send message: WebSocket not connected');
-                }
-            }
-
-            handleMessage(data) {
-                console.log('Received:', data);
-                
-                switch (data.type) {
-                    case 'joinedRoom':
-                        this.handleJoinedRoom(data);
-                        break;
-                    case 'playerJoined':
-                    case 'playerLeft':
-                    case 'player-ready-update':
-                        this.handlePlayerUpdate(data);
-                        break;
-                    case 'roundStarted':
-                        this.handleRoundStarted(data);
-                        break;
-                    case 'roundResults':
-                        this.handleRoundResults(data);
-                        break;
-                    case 'returnToLobby':
-                        this.handleReturnToLobby(data);
-                        break;
-                    case 'categoriesUpdated':
-                        this.handleCategoriesUpdated(data);
-                        break;
-                    case 'sessionClosed':
-                        this.handleSessionClosed(data);
-                        break;
-                    case 'playerSubmitted':
-                        this.handlePlayerSubmitted(data);
-                        break;
-                    case 'validationStarted':
-                        this.handleValidationStarted(data);
-                        break;
-                    case 'validationError':
-                        this.handleValidationError(data);
-                        break;
-                    case 'timerReduced':
-                        this.handleTimerReduced(data);
-                        break;
-                    case 'error':
-                        this.showError(data.message || 'Server error');
-                        break;
-                    default:
-                        console.log('Unknown message type:', data.type);
-                }
-            }
-
-            handleJoinedRoom(data) {
-                console.log(`[DEBUG] handleJoinedRoom called with data:`, data);
-                console.log(`[DEBUG] data.isAdmin = ${data.isAdmin}`);
-                
-                this.gameState.roomId = data.roomId;
-                this.gameState.isAdmin = data.isAdmin || false;
-                this.gameState.players = data.players || [];
-                this.gameState.categories = data.categories || this.gameState.categories;
-                this.gameState.timeLimit = data.timeLimit || this.gameState.timeLimit;
-                this.gameState.language = data.language || this.gameState.language;
-                
-                console.log(`[DEBUG] Set gameState.isAdmin to: ${this.gameState.isAdmin}`);
-                
-                document.getElementById('display-room-id').textContent = this.gameState.roomId;
-                
-                this.updatePlayerList();
-                this.updateCategoriesDisplay();
-                this.updateAdminControls();
-                this.updateLobbySettings();
-                this.showScreen('lobby');
-                
-             
-            }
-
-            handlePlayerUpdate(data) {
-                console.log(`[DEBUG] handlePlayerUpdate called with data:`, data);
-                if (data.players) {
-                    this.gameState.players = data.players;
-                }
-                
-                // Check if our admin status has changed
-                if (data.adminId) {
-                    const wasAdmin = this.gameState.isAdmin;
-                    const currentPlayer = this.gameState.players.find(p => p.name === this.gameState.playerName);
-                    this.gameState.isAdmin = currentPlayer ? currentPlayer.isAdmin : false;
-                    
-                    if (wasAdmin !== this.gameState.isAdmin) {
-                        console.log(`[DEBUG] Admin status changed from ${wasAdmin} to ${this.gameState.isAdmin}`);
-                    }
-                }
-                
-                // Update language and time limit if provided
-                if (data.language && data.language !== this.gameState.language) {
-                    this.gameState.language = data.language;
-                    this.updateLobbySettings();
-                }
-                
-                if (data.timeLimit && data.timeLimit !== this.gameState.timeLimit) {
-                    this.gameState.timeLimit = data.timeLimit;
-                    this.updateLobbySettings();
-                }
-                
-                this.updatePlayerList();
-                this.updateAdminControls();
-            }
-
-            handleRoundStarted(data) {
-                this.gameState.currentLetter = data.letter;
-                this.gameState.categories = data.categories || this.gameState.categories;
-                this.timeLeft = data.timeLimit || this.gameState.timeLimit;
-                
-                console.log(`Round started with letter ${data.letter}, timeLimit: ${data.timeLimit}, setting timeLeft to: ${this.timeLeft}`);
-                
-                // Clear any existing timer before starting new one
-                if (this.timer) {
-                    clearInterval(this.timer);
-                    this.timer = null;
-                    console.log('Cleared existing timer before starting new round');
-                }
-                
-                // Reset submission state
-                this.gameState.players.forEach(player => {
-                    player.submitted = false;
-                });
-                
-                // Reset submit button state
-                const submitBtn = document.getElementById('submit-btn');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = window.i18n.t('game.submitAnswersButton');
-                    submitBtn.classList.remove('submitted');
-                }
-                
-                document.getElementById('current-letter').textContent = this.gameState.currentLetter;
-                this.setupGameForm();
-                this.updateGamePlayerList();
-                this.startTimer();
-                this.showScreen('game');
-                
-                // Scroll to top on mobile when game starts
-                if (window.innerWidth <= 768) {
-                    setTimeout(() => {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }, 100);
-                }
-            }
-
-            handleRoundResults(data) {
-                console.log('Received round results:', data);
-                
-                // If we're currently on the loading screen, add a small delay for better UX
-                if (this.currentScreen === 'loading') {
-                    // Update loading message to show completion
-                    const loadingMessage = document.getElementById('loading-message');
-                    if (loadingMessage) {
-                        loadingMessage.textContent = "Results ready! Displaying now...";
-                    }
-                    
-                    // Small delay before showing results for better user experience
-                    setTimeout(() => {
-                        this.displayResults(data);
-                        this.showScreen('results');
-                    }, 1000);
-                } else {
-                    // Direct transition if not coming from loading
-                    this.displayResults(data);
-                    this.showScreen('results');
-                }
-            }
-
-            handleReturnToLobby(data) {
-                console.log('Returning to lobby after round');
-                
-                // Clear any running timer from the previous round
-                if (this.timer) {
-                    clearInterval(this.timer);
-                    this.timer = null;
-                    console.log('Cleared timer when returning to lobby');
-                }
-                
-                // Reset timer display
-                const timerElement = document.getElementById('timer');
-                if (timerElement) {
-                    timerElement.textContent = this.gameState.timeLimit || 60;
-                    timerElement.classList.remove('timer-warning', 'timer-danger');
-                }
-                
-                // Reset timeLeft to default
-                this.timeLeft = this.gameState.timeLimit || 60;
-                
-                // Update player data if provided
-                if (data.players) {
-                    this.gameState.players = data.players;
-                }
-                
-                // Reset ready states for all players
-                this.gameState.players.forEach(player => {
-                    player.isReady = false;
-                });
-                this.gameState.isReady = false;
-                
-                // Update UI and return to lobby
-                this.updatePlayerList();
-                this.updateAdminControls();
-                
-                // Reset ready button
-                const readyBtn = document.getElementById('ready-btn');
-                readyBtn.textContent = window.i18n.t('lobby.systemReadyButton');
-                readyBtn.className = 'btn btn-outline-success';
-                
-                this.showScreen('lobby');
-                this.showSuccess('messages.roundCompleted');
-            }
-
-            handleCategoriesUpdated(data) {
-                this.gameState.categories = data.categories;
-                this.updateCategoriesDisplay();
-            }
-
-            handleSessionClosed(data) {
-                console.log('Session closed by host:', data);
-                
-                // Clear any running timers
-                if (this.timer) {
-                    clearInterval(this.timer);
-                    this.timer = null;
-                    console.log('Cleared timer due to session closure');
-                }
-                
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.socket.close();
-                }
-                
-                // Reset game state
-                this.gameState = {
-                    roomId: '',
-                    playerName: this.gameState.playerName, // Keep the player name
-                    isAdmin: false,
-                    players: [],
-                    categories: ['Stadt', 'Land', 'Fluss', 'Name', 'Beruf', 'Pflanze', 'Tier'],
-                    currentLetter: '',
-                    timeLimit: 60,
-                    isReady: false
-                };
-                
-                // Reset timeLeft
-                this.timeLeft = 60;
-                
-                const reason = data.reason || data.message || 'Session terminated by host';
-                this.showError(`🚫 ${reason}. Returning to main menu...`);
-                
-                setTimeout(() => {
-                    this.showScreen('welcome');
-                    document.getElementById('room-id').value = '';
-                }, 2000);
-            }
-
-            handlePlayerSubmitted(data) {
-                console.log('Player submitted:', data);
-                
-                // Update player submission status
-                if (data.playerId && data.playerName) {
-                    const player = this.gameState.players.find(p => p.name === data.playerName);
-                    if (player) {
-                        player.submitted = true;
-                        console.log(`Updated submission status for ${data.playerName}`);
-                    }
-                }
-                
-                // Update the game player list if we're in game mode
-                if (this.currentScreen === 'game') {
-                    this.updateGamePlayerList();
-                }
-            }
-
-            handleValidationStarted(data) {
-                console.log('Validation started:', data);
-                
-                // Update the loading message if provided
-                const loadingMessage = document.getElementById('loading-message');
-                if (loadingMessage && data.message) {
-                    loadingMessage.textContent = data.message;
-                }
-                
-                // Show loading screen
-                this.showScreen('loading');
-                
-                // Add some encouraging messages that cycle
-                const messages = [
-                    "AI is analyzing answers...",
-                    "Checking for creativity and accuracy...",
-                    "Comparing answers between players...",
-                    "Almost done processing results..."
-                ];
-                
-                let messageIndex = 0;
-                const messageInterval = setInterval(() => {
-                    messageIndex = (messageIndex + 1) % messages.length;
-                    if (loadingMessage) {
-                        loadingMessage.textContent = messages[messageIndex];
-                    }
-                    
-                    // Clear interval if we're no longer on loading screen
-                    if (this.currentScreen !== 'loading') {
-                        clearInterval(messageInterval);
-                    }
-                }, 2000);
-            }
-
-            handleValidationError(data) {
-                console.log('Validation error:', data);
-                
-                // Show error message to user
-                this.showError(data.message || 'Validation failed');
-                
-                // Return to lobby so players can try again
-                this.showScreen('lobby');
-                
-                // Reset game state
-                this.gameState.players.forEach(player => {
-                    player.submitted = false;
-                });
-                
-                this.updatePlayerList();
-            }
-
-            handleTimerReduced(data) {
-                console.log('Timer reduced:', data);
-                
-                const { timeReduction, newTimeRemaining, submittedPlayer } = data;
-                
-                // Update the current time remaining
-                this.timeLeft = newTimeRemaining;
-                
-                // Update the timer display immediately
-                const timerElement = document.getElementById('timer');
-                if (timerElement) {
-                    timerElement.textContent = newTimeRemaining;
-                    
-                    // Add a visual effect to show the time reduction
-                    timerElement.classList.add('timer-reduced');
-                    setTimeout(() => {
-                        timerElement.classList.remove('timer-reduced');
-                    }, 1000);
-                    
-                    // Update warning/danger classes based on new time
-                    if (newTimeRemaining <= 10) {
-                        timerElement.classList.remove('timer-warning');
-                        timerElement.classList.add('timer-danger');
-                    } else if (newTimeRemaining <= 30) {
-                        timerElement.classList.add('timer-warning');
-                        timerElement.classList.remove('timer-danger');
-                    } else {
-                        timerElement.classList.remove('timer-warning', 'timer-danger');
-                    }
-                }
-                
-                // Show a notification to players
-                this.showTimerReductionNotification(timeReduction, submittedPlayer);
-            }
-
-            showTimerReductionNotification(timeReduction, submittedPlayer) {
-                // Create a temporary notification element
-                const notification = document.createElement('div');
-                notification.className = 'timer-reduction-notification';
-                notification.textContent = `⏰ ${submittedPlayer} submitted! Time reduced by ${timeReduction}s`;
-                
-                // Add to the body
-                document.body.appendChild(notification);
-                
-                // Remove after 3 seconds
-                setTimeout(() => {
-                    if (document.body.contains(notification)) {
-                        document.body.removeChild(notification);
-                    }
-                }, 3000);
-            }
-
-            joinGame() {
-                const playerName = document.getElementById('player-name').value.trim();
-                const roomId = document.getElementById('room-id').value.trim();
-                const timeLimit = parseInt(document.getElementById('time-limit').value) || 60;
-                const language = document.getElementById('game-language').value || 'de';
-                
-                if (!playerName) {
-                    this.showError('messages.enterNameError');
-                    return;
-                }
-                
-                this.gameState.playerName = playerName;
-                this.gameState.roomId = roomId;
-                this.gameState.timeLimit = timeLimit;
-                this.gameState.language = language;
-                
-                this.connectWebSocket();
-            }
-
-            joinRoomDirectly() {
-                const playerName = document.getElementById('join-player-name').value.trim();
-                
-                if (!playerName) {
-                    this.showError('messages.enterNameError');
-                    return;
-                }
-                
-                // Room ID is already set in gameState from URL
-                this.gameState.playerName = playerName;
-                // Use default values for time limit and language since we're joining an existing room
-                this.gameState.timeLimit = 90;
-                this.gameState.language = 'de';
-                
-                this.connectWebSocket();
-            }
-
-            switchToNormalWelcome() {
-                // Clear the URL parameter
-                const url = new URL(window.location);
-                url.searchParams.delete('room');
-                window.history.replaceState({}, '', url);
-                
-                // Reset game state
-                this.gameState.roomId = '';
-                
-                // Show normal welcome interface
-                this.showNormalWelcome();
-                
-                // Focus on the player name input
-                setTimeout(() => {
-                    document.getElementById('player-name').focus();
-                }, 100);
-            }
-
-            toggleReady() {
-                this.gameState.isReady = !this.gameState.isReady;
-                this.sendMessage({
-                    type: 'playerReady',
-                    isReady: this.gameState.isReady
-                });
-                
-                const btn = document.getElementById('ready-btn');
-                btn.textContent = this.gameState.isReady ? window.i18n.t('lobby.playerNotReadyButton') : window.i18n.t('lobby.playerReadyButton');
-                btn.className = this.gameState.isReady ? 'btn btn-outline-danger' : 'btn btn-outline-success';
-            }
-
-            startGame() {
-                if (!this.gameState.isAdmin) {
-                    this.showError('messages.onlyHostCanStart');
-                    return;
-                }
-                
-                this.sendMessage({ type: 'startRound' });
-            }
-
-            async closeSession() {
-                if (!this.gameState.isAdmin) {
-                    this.showError('messages.onlyHostCanClose');
-                    return;
-                }
-                
-                try {
-                    await this.showConfirm(
-                        'modal.confirmTitle', 
-                        'messages.closeSessionConfirm'
-                    );
-                    this.sendMessage({ 
-                        type: 'closeSession',
-                        reason: 'Session closed by host'
-                    });
-                } catch {
-                    // User cancelled, do nothing
-                }
-            }
-
-            copyInviteLink() {
-                const url = `${window.location.origin}${window.location.pathname}?room=${this.gameState.roomId}`;
-                navigator.clipboard.writeText(url).then(() => {
-                    this.showSuccess('messages.linkCopied');
-                }).catch(() => {
-                    this.showError('messages.linkCopyFailed');
-                });
-            }
-
-            addCategory() {
-                const input = document.getElementById('new-category');
-                const category = input.value.trim();
-                
-                if (!category) return;
-                
-                if (this.gameState.categories.includes(category)) {
-                    this.showError('messages.categoryExists');
-                    return;
-                }
-                
-                this.gameState.categories.push(category);
-                input.value = '';
-                
-                this.sendMessage({
-                    type: 'updateCategories',
-                    categories: this.gameState.categories
-                });
-                
-                this.updateCategoriesDisplay();
-            }
-
-            updatePlayerList() {
-                const list = document.getElementById('player-list');
-                const readyCount = document.getElementById('ready-count');
-                const totalPlayers = document.getElementById('total-players');
-                
-                list.innerHTML = '';
-                
-                this.gameState.players.forEach(player => {
-                    const li = document.createElement('li');
-                    li.className = 'player-item';
-                    
-                    if (player.name === this.gameState.playerName) li.classList.add('current-player');
-                    if (player.isAdmin) li.classList.add('admin-player');
-                    
-                    const playerDisplay = document.createElement('div');
-                    playerDisplay.className = 'player-display';
-                    if (player.isReady) playerDisplay.classList.add('ready');
-                    
-                    const playerName = document.createElement('div');
-                    playerName.className = 'player-name';
-                    playerName.textContent = player.name;
-                    
-                    const badges = document.createElement('div');
-                    badges.className = 'player-badges';
-                    
-                    if (player.name === this.gameState.playerName) {
-                        badges.innerHTML += `<span class="badge badge-you">${window.i18n.t('badges.you')}</span>`;
-                    }
-                    if (player.isAdmin) {
-                        badges.innerHTML += `<span class="badge badge-admin">${window.i18n.t('badges.host')}</span>`;
-                    }
-                    if (player.isReady) {
-                        badges.innerHTML += `<span class="badge badge-ready">${window.i18n.t('badges.ready')}</span>`;
-                    }
-                    
-                    playerDisplay.appendChild(playerName);
-                    playerDisplay.appendChild(badges);
-                    li.appendChild(playerDisplay);
-                    list.appendChild(li);
-                });
-                
-                const ready = this.gameState.players.filter(p => p.isReady).length;
-                readyCount.textContent = ready;
-                totalPlayers.textContent = this.gameState.players.length;
-            }
-
-            updateCategoriesDisplay() {
-                console.log(`[DEBUG] updateCategoriesDisplay called. Categories: ${this.gameState.categories.length}`);
-                const display = document.getElementById('categories-display');
-                display.innerHTML = '';
-                
-                this.gameState.categories.forEach((category, index) => {
-                    const item = document.createElement('div');
-                    item.className = 'category-item';
-                    
-                    const categoryName = document.createElement('span');
-                    categoryName.className = 'category-name';
-                    categoryName.textContent = category;
-                    
-                    item.appendChild(categoryName);
-                    
-                    // Add remove button for all players (everyone can manage categories)
-                    console.log(`[DEBUG] Adding remove button for category: ${category}`);
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'category-remove';
-                    removeBtn.innerHTML = '×';
-                    removeBtn.title = `Remove ${category}`;
-                    removeBtn.onclick = (e) => {
-                        e.preventDefault();
-                        this.removeCategory(index);
-                    };
-                    item.appendChild(removeBtn);
-                    
-                    display.appendChild(item);
-                });
-                
-                console.log(`[DEBUG] Categories display updated with ${this.gameState.categories.length} categories`);
-            }
-
-            async removeCategory(index) {
-                if (this.gameState.categories.length <= 3) {
-                    this.showError('You must have at least 3 categories');
-                    return;
-                }
-                
-                const categoryName = this.gameState.categories[index];
-                try {
-                    await this.showConfirm(
-                        'Remove Category',
-                        `Remove "${categoryName}" category?`
-                    );
-                    this.gameState.categories.splice(index, 1);
-                    
-                    this.sendMessage({
-                        type: 'updateCategories',
-                        categories: this.gameState.categories
-                    });
-                    
-                    this.updateCategoriesDisplay();
-                } catch {
-                    // User cancelled, do nothing
-                }
-            }
-
-            updateAdminControls() {
-                console.log(`[DEBUG] updateAdminControls called. isAdmin: ${this.gameState.isAdmin}`);
-                const adminControls = document.querySelectorAll('.admin-controls');
-                const adminOnlyElements = document.querySelectorAll('.admin-only');
-                console.log(`[DEBUG] Found ${adminControls.length} admin-controls elements`);
-                console.log(`[DEBUG] Found ${adminOnlyElements.length} admin-only elements`);
-                
-                adminControls.forEach((control, index) => {
-                    console.log(`[DEBUG] Control ${index}: current classes = "${control.className}"`);
-                    if (this.gameState.isAdmin) {
-                        control.classList.add('visible');
-                        console.log(`[DEBUG] Added 'visible' class to control ${index}`);
-                    } else {
-                        control.classList.remove('visible');
-                        console.log(`[DEBUG] Removed 'visible' class from control ${index}`);
-                    }
-                    console.log(`[DEBUG] Control ${index}: final classes = "${control.className}"`);
-                });
-                
-                adminOnlyElements.forEach((element, index) => {
-                    console.log(`[DEBUG] Admin-only element ${index}: current classes = "${element.className}"`);
-                    if (this.gameState.isAdmin) {
-                        element.classList.add('visible');
-                        console.log(`[DEBUG] Added 'visible' class to admin-only element ${index}`);
-                    } else {
-                        element.classList.remove('visible');
-                        console.log(`[DEBUG] Removed 'visible' class from admin-only element ${index}`);
-                    }
-                    console.log(`[DEBUG] Admin-only element ${index}: final classes = "${element.className}"`);
-                });
-                
-                // Ensure category management is always visible for all players
-                const categoryManagement = document.querySelector('.category-management');
-                const categoryControls = document.querySelector('.category-controls');
-                if (categoryManagement) {
-                    categoryManagement.style.display = 'flex';
-                }
-                if (categoryControls) {
-                    categoryControls.style.display = 'block';
-                }
-                
-                // Update categories display (remove buttons are available to all players)
-                this.updateCategoriesDisplay();
-            }
-
-            updateLobbySettings() {
-                const languageElement = document.getElementById('lobby-language');
-                const timeLimitElement = document.getElementById('lobby-time-limit');
-                
-                if (languageElement) {
-                    const languageMap = {
-                        'de': '🇩🇪 Deutsch',
-                        'en': '🇺🇸 English',
-                        'fr': '🇫🇷 Français',
-                        'es': '🇪🇸 Español',
-                        'it': '🇮🇹 Italiano',
-                        'nl': '🇳🇱 Nederlands'
-                    };
-                    languageElement.textContent = languageMap[this.gameState.language] || '🇩🇪 Deutsch';
-                }
-                
-                if (timeLimitElement) {
-                    timeLimitElement.textContent = `${this.gameState.timeLimit} seconds`;
-                }
-            }
-
-            setupGameForm() {
-                const container = document.getElementById('game-categories');
-                container.innerHTML = '';
-                
-                this.gameState.categories.forEach((category, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'category-group';
-                    div.innerHTML = `
-                        <label>${category}</label>
-                        <input type="text" name="${category}" placeholder="${window.i18n.t('game.categoryPlaceholder', { category, letter: this.gameState.currentLetter })}" data-category-index="${index}">
-                    `;
-                    container.appendChild(div);
-                });
-                
-                // Add Enter key navigation for mobile
-                const inputs = container.querySelectorAll('input[type="text"]');
-                inputs.forEach((input, index) => {
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault(); // Prevent form submission
-                            
-                            // Move to next input or submit if last input
-                            const nextIndex = index + 1;
-                            if (nextIndex < inputs.length) {
-                                inputs[nextIndex].focus();
-                            } else {
-                                // If it's the last input, submit the form
-                                this.submitAnswers();
-                            }
-                        }
-                    });
-                });
-                
-                // Focus on first input after a short delay
-                setTimeout(() => {
-                    if (inputs.length > 0) {
-                        inputs[0].focus();
-                    }
-                }, 200);
-            }
-
-            updateGamePlayerList() {
-                const list = document.getElementById('game-player-list');
-                const submittedCount = document.getElementById('submitted-count');
-                const totalGamePlayers = document.getElementById('total-game-players');
-                
-                if (!list) return;
-                
-                list.innerHTML = '';
-                
-                let submittedPlayers = 0;
-                
-                this.gameState.players.forEach(player => {
-                    const item = document.createElement('div');
-                    item.className = 'game-player-item';
-                    
-                    if (player.name === this.gameState.playerName) {
-                        item.classList.add('current-player');
-                    }
-                    
-                    if (player.submitted) {
-                        item.classList.add('submitted');
-                        submittedPlayers++;
-                    }
-                    
-                    const playerName = document.createElement('div');
-                    playerName.className = 'player-name';
-                    playerName.textContent = player.name;
-                    
-                    const status = document.createElement('div');
-                    status.className = 'submission-badge';
-                    
-                    if (player.submitted) {
-                        status.innerHTML = `<span class="badge badge-submitted">${window.i18n.t('badges.submitted')}</span>`;
-                    } else {
-                        status.innerHTML = `<span class="badge badge-waiting">${window.i18n.t('badges.waiting')}</span>`;
-                    }
-                    
-                    item.appendChild(playerName);
-                    item.appendChild(status);
-                    list.appendChild(item);
-                });
-                
-                // Update counters
-                if (submittedCount) submittedCount.textContent = submittedPlayers;
-                if (totalGamePlayers) totalGamePlayers.textContent = this.gameState.players.length;
-            }
-
-            startTimer() {
-                const timerElement = document.getElementById('timer');
-                
-                console.log(`Starting timer with timeLeft: ${this.timeLeft} seconds`);
-                
-                // Clear any existing timer
-                if (this.timer) {
-                    clearInterval(this.timer);
-                    console.log('Cleared existing timer in startTimer');
-                }
-                
-                // Reset timer classes and display initial time
-                timerElement.classList.remove('timer-warning', 'timer-danger');
-                timerElement.textContent = this.timeLeft;
-                
-                console.log(`Timer display set to: ${this.timeLeft}`);
-                
-                this.timer = setInterval(() => {
-                    this.timeLeft--;
-                    timerElement.textContent = this.timeLeft;
-                    
-                    // Update timer styling based on time left
-                    if (this.timeLeft <= 10) {
-                        timerElement.classList.remove('timer-warning');
-                        timerElement.classList.add('timer-danger');
-                    } else if (this.timeLeft <= 30) {
-                        timerElement.classList.add('timer-warning');
-                    }
-                    
-                    if (this.timeLeft <= 0) {
-                        console.log('Timer reached 0, auto-submitting answers');
-                        clearInterval(this.timer);
-                        this.timer = null;
-                        this.submitAnswers();
-                    }
-                }, 1000);
-                
-                console.log('Timer started successfully');
-            }
-
-            submitAnswers(event) {
-                if (event) event.preventDefault();
-                
-                // Prevent double submission
-                const submitBtn = document.getElementById('submit-btn');
-                if (submitBtn.disabled) {
-                    return;
-                }
-                
-                // Stop timer
-                if (this.timer) {
-                    clearInterval(this.timer);
-                    this.timer = null;
-                }
-                
-                const form = document.getElementById('answers-form');
-                const formData = new FormData(form);
-                const answers = {};
-                
-                for (let [key, value] of formData.entries()) {
-                    answers[key] = value.trim();
-                }
-                
-                this.sendMessage({
-                    type: 'submitAnswers',
-                    answers: answers,
-                    letter: this.gameState.currentLetter,
-                    language: this.gameState.language
-                });
-                
-                // Update UI to show submission
-                submitBtn.disabled = true;
-                submitBtn.textContent = window.i18n.t('game.submittedStatus');
-                submitBtn.classList.add('submitted');
-                
-                // Update current player status in local state
-                const currentPlayer = this.gameState.players.find(p => p.name === this.gameState.playerName);
-                if (currentPlayer) {
-                    currentPlayer.submitted = true;
-                }
-                
-                // Update player list display
-                this.updateGamePlayerList();
-                
-                // Show success message
-            }
-
-            displayResults(data) {
-                const container = document.getElementById('results-content');
-                const scoresList = document.getElementById('scores-list');
-                
-                // Display results table
-                let html = `<table class="results-table"><thead><tr><th>${window.i18n.t('results.playerColumn')}</th><th>${window.i18n.t('results.categoryColumn')}</th><th>${window.i18n.t('results.answerColumn')}</th><th>${window.i18n.t('results.pointsColumn')}</th><th>${window.i18n.t('results.explanationColumn')}</th></tr></thead><tbody>`;
-                
-                if (data.scores && data.players && data.categories) {
-                    data.categories.forEach((category, categoryIndex) => {
-                        // Add category header row for visual separation
-                        if (categoryIndex > 0) {
-                            html += '<tr class="category-spacer"><td colspan="5"></td></tr>';
-                        }
-                        html += `<tr class="category-header">
-                            <td colspan="5" class="category-name">${category}</td>
-                        </tr>`;
-                        
-                        // Add player rows for this category
-                        data.players.forEach(player => {
-                            const scoreData = data.scores[category]?.[player.id];
-                            const answer = scoreData?.answer || '-';
-                            const points = scoreData?.score || 0;
-                            const explanation = scoreData?.explanation || 'Keine Erklärung verfügbar';
-                            
-                            html += `<tr>
-                                <td>${player.name}</td>
-                                <td>${category}</td>
-                                <td>${answer}</td>
-                                <td>${points}</td>
-                                <td class="explanation">${explanation}</td>
-                            </tr>`;
-                        });
-                    });
-                }
-                
-                html += '</tbody></table>';
-                container.innerHTML = html;
-                
-                // Update scores list
-                if (data.players) {
-                    scoresList.innerHTML = '';
-                    const sortedPlayers = [...data.players].sort((a, b) => (b.score || 0) - (a.score || 0));
-                    
-                    sortedPlayers.forEach((player, index) => {
-                        const item = document.createElement('div');
-                        item.className = 'score-item';
-                        if (player.name === this.gameState.playerName) {
-                            item.classList.add('current-player');
-                        }
-                        
-                        item.innerHTML = `
-                            <div class="rank">${index + 1}</div>
-                            <div class="player-name">${player.name}</div>
-                            <div class="score">${player.score || 0}</div>
-                        `;
-                        
-                        scoresList.appendChild(item);
-                    });
-                }
-            }
-
-            nextRound() {
-                if (this.gameState.isAdmin) {
-                    this.sendMessage({ type: 'returnToLobby' });
-                } else {
-                    this.showError('messages.onlyHostCanProceed');
-                }
-            }
-
-            backToLobby() {
-                this.showScreen('lobby');
-            }
-        }
-
-
-
-        // Legacy explanation content for backward compatibility
-        const EXPLANATION_CONTENT = {
-            de: {
-                toggleButton: 'WAS IST SMART LAND PLUS?',
-                toggleButtonExpanded: 'ERKLÄRUNG AUSBLENDEN',
-                content: `
-                    <h4>WAS IST SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus ist ein intelligentes Wortspiel, das Kreativität, Wissen und schnelles Denken kombiniert. Spieler müssen Wörter zu verschiedenen Kategorien finden, die alle mit demselben Buchstaben beginnen.</p>
-                    
-                    <h4>WIE FUNKTIONIERT DAS SPIEL?</h4>
-                    <ol>
-                        <li><strong>RAUM ERSTELLEN ODER BEITRETEN:</strong> Gib deinen Namen ein und erstelle einen neuen Raum oder tritt einem bestehenden bei.</li>
-                        <li><strong>KATEGORIEN FESTLEGEN:</strong> Alle Spieler können Kategorien hinzufügen oder entfernen (z.B. Stadt, Land, Fluss, Name, Beruf, Tier, Pflanze).</li>
-                        <li><strong>BEREIT MACHEN:</strong> Alle Spieler müssen sich als "bereit" markieren, bevor das Spiel beginnt.</li>
-                        <li><strong>BUCHSTABE WIRD GEWÄHLT:</strong> Ein zufälliger Buchstabe wird ausgewählt - alle Antworten müssen mit diesem Buchstaben beginnen.</li>
-                        <li><strong>ZEIT LÄUFT:</strong> Du hast eine begrenzte Zeit (standardmäßig 90 Sekunden), um für jede Kategorie ein passendes Wort zu finden.</li>
-                        <li><strong>ANTWORTEN EINREICHEN:</strong> Sobald du fertig bist oder die Zeit abläuft, werden deine Antworten automatisch eingereicht.</li>
-                        <li><strong>KI-BEWERTUNG:</strong> Unsere intelligente KI bewertet alle Antworten auf Korrektheit, Kreativität und Einzigartigkeit.</li>
-                        <li><strong>PUNKTE ERHALTEN:</strong> Du erhältst Punkte basierend auf der Qualität deiner Antworten und ob andere Spieler dieselben Wörter verwendet haben.</li>
-                    </ol>
-                    
-                    <h4>PUNKTESYSTEM:</h4>
-                    <ul>
-                        <li><strong>EINZIGARTIGE ANTWORT:</strong> Volle Punkte, wenn nur du diese Antwort hattest</li>
-                        <li><strong>GETEILTE ANTWORT:</strong> Reduzierte Punkte, wenn andere Spieler dasselbe Wort verwendet haben</li>
-                        <li><strong>KREATIVITÄT:</strong> Bonus-Punkte für besonders kreative oder ungewöhnliche Antworten</li>
-                        <li><strong>FALSCHE ANTWORT:</strong> Keine Punkte für Wörter, die nicht zur Kategorie passen oder mit dem falschen Buchstaben beginnen</li>
-                    </ul>
-                    
-                    <h4>TIPPS FÜR BESSERE ERGEBNISSE:</h4>
-                    <ul>
-                        <li>Denke an ungewöhnliche Wörter - sie bringen mehr Punkte</li>
-                        <li>Achte darauf, dass deine Antworten wirklich zur Kategorie passen</li>
-                        <li>Nutze die volle Zeit, aber vergiss nicht rechtzeitig abzugeben</li>
-                        <li>Bei schwierigen Buchstaben wie X, Y oder Q: Auch Fremdwörter sind oft erlaubt</li>
-                    </ul>
-                    
-                    <p><strong>VIEL ERFOLG BEIM SPIELEN.</strong></p>
-                `
-            },
-            en: {
-                toggleButton: 'WHAT IS SMART LAND PLUS?',
-                toggleButtonExpanded: 'HIDE EXPLANATION',
-                content: `
-                    <h4>WHAT IS SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus is an intelligent word game that combines creativity, knowledge and quick thinking. Players must find words for different categories that all start with the same letter.</p>
-                    
-                    <h4>HOW DOES THE GAME WORK?</h4>
-                    <ol>
-                        <li><strong>CREATE OR JOIN ROOM:</strong> Enter your name and create a new room or join an existing one.</li>
-                        <li><strong>SET CATEGORIES:</strong> All players can add or remove categories (e.g. City, Country, River, Name, Profession, Animal, Plant).</li>
-                        <li><strong>GET READY:</strong> All players must mark themselves as "ready" before the game starts.</li>
-                        <li><strong>LETTER IS CHOSEN:</strong> A random letter is selected - all answers must start with this letter.</li>
-                        <li><strong>TIME RUNS:</strong> You have a limited time (default 90 seconds) to find a suitable word for each category.</li>
-                        <li><strong>SUBMIT ANSWERS:</strong> Once you're done or time runs out, your answers are automatically submitted.</li>
-                        <li><strong>AI EVALUATION:</strong> Our intelligent AI evaluates all answers for correctness, creativity and uniqueness.</li>
-                        <li><strong>RECEIVE POINTS:</strong> You receive points based on the quality of your answers and whether other players used the same words.</li>
-                    </ol>
-                    
-                    <h4>SCORING SYSTEM:</h4>
-                    <ul>
-                        <li><strong>UNIQUE ANSWER:</strong> Full points if only you had this answer</li>
-                        <li><strong>SHARED ANSWER:</strong> Reduced points if other players used the same word</li>
-                        <li><strong>CREATIVITY:</strong> Bonus points for particularly creative or unusual answers</li>
-                        <li><strong>WRONG ANSWER:</strong> No points for words that don't fit the category or start with the wrong letter</li>
-                    </ul>
-                    
-                    <h4>TIPS FOR BETTER RESULTS:</h4>
-                    <ul>
-                        <li>Think of unusual words - they bring more points</li>
-                        <li>Make sure your answers really fit the category</li>
-                        <li>Use the full time, but don't forget to submit on time</li>
-                        <li>For difficult letters like X, Y or Q: Foreign words are often allowed</li>
-                    </ul>
-                    
-                    <p><strong>GOOD LUCK PLAYING.</strong></p>
-                `
-            },
-            fr: {
-                toggleButton: 'QU\'EST-CE QUE SMART LAND PLUS?',
-                toggleButtonExpanded: 'MASQUER L\'EXPLICATION',
-                content: `
-                    <h4>QU'EST-CE QUE SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus est un jeu de mots intelligent qui combine créativité, connaissances et réflexion rapide. Les joueurs doivent trouver des mots pour différentes catégories qui commencent tous par la même lettre.</p>
-                    
-                    <h4>COMMENT FONCTIONNE LE JEU?</h4>
-                    <ol>
-                        <li><strong>CRÉER OU REJOINDRE UNE SALLE:</strong> Entrez votre nom et créez une nouvelle salle ou rejoignez-en une existante.</li>
-                        <li><strong>DÉFINIR LES CATÉGORIES:</strong> Tous les joueurs peuvent ajouter ou supprimer des catégories (ex: Ville, Pays, Rivière, Nom, Profession, Animal, Plante).</li>
-                        <li><strong>SE PRÉPARER:</strong> Tous les joueurs doivent se marquer comme "prêts" avant que le jeu commence.</li>
-                        <li><strong>LETTRE CHOISIE:</strong> Une lettre aléatoire est sélectionnée - toutes les réponses doivent commencer par cette lettre.</li>
-                        <li><strong>TEMPS LIMITÉ:</strong> Vous avez un temps limité (90 secondes par défaut) pour trouver un mot approprié pour chaque catégorie.</li>
-                        <li><strong>SOUMETTRE LES RÉPONSES:</strong> Une fois terminé ou le temps écoulé, vos réponses sont automatiquement soumises.</li>
-                        <li><strong>ÉVALUATION IA:</strong> Notre IA intelligente évalue toutes les réponses pour leur exactitude, créativité et unicité.</li>
-                        <li><strong>RECEVOIR DES POINTS:</strong> Vous recevez des points basés sur la qualité de vos réponses et si d'autres joueurs ont utilisé les mêmes mots.</li>
-                    </ol>
-                    
-                    <h4>SYSTÈME DE POINTS:</h4>
-                    <ul>
-                        <li><strong>RÉPONSE UNIQUE:</strong> Points complets si vous seul avez eu cette réponse</li>
-                        <li><strong>RÉPONSE PARTAGÉE:</strong> Points réduits si d'autres joueurs ont utilisé le même mot</li>
-                        <li><strong>CRÉATIVITÉ:</strong> Points bonus pour des réponses particulièrement créatives ou inhabituelles</li>
-                        <li><strong>MAUVAISE RÉPONSE:</strong> Aucun point pour les mots qui ne correspondent pas à la catégorie ou commencent par la mauvaise lettre</li>
-                    </ul>
-                    
-                    <h4>CONSEILS POUR DE MEILLEURS RÉSULTATS:</h4>
-                    <ul>
-                        <li>Pensez à des mots inhabituels - ils rapportent plus de points</li>
-                        <li>Assurez-vous que vos réponses correspondent vraiment à la catégorie</li>
-                        <li>Utilisez tout le temps, mais n'oubliez pas de soumettre à temps</li>
-                        <li>Pour les lettres difficiles comme X, Y ou Q: Les mots étrangers sont souvent autorisés</li>
-                    </ul>
-                    
-                    <p><strong>BONNE CHANCE POUR JOUER.</strong></p>
-                `
-            },
-            es: {
-                toggleButton: '¿QUÉ ES SMART LAND PLUS?',
-                toggleButtonExpanded: 'OCULTAR EXPLICACIÓN',
-                content: `
-                    <h4>¿QUÉ ES SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus es un juego de palabras inteligente que combina creatividad, conocimiento y pensamiento rápido. Los jugadores deben encontrar palabras para diferentes categorías que comiencen con la misma letra.</p>
-                    
-                    <h4>¿CÓMO FUNCIONA EL JUEGO?</h4>
-                    <ol>
-                        <li><strong>CREAR O UNIRSE A SALA:</strong> Ingresa tu nombre y crea una nueva sala o únete a una existente.</li>
-                        <li><strong>ESTABLECER CATEGORÍAS:</strong> Todos los jugadores pueden agregar o eliminar categorías (ej: Ciudad, País, Río, Nombre, Profesión, Animal, Planta).</li>
-                        <li><strong>PREPARARSE:</strong> Todos los jugadores deben marcarse como "listos" antes de que comience el juego.</li>
-                        <li><strong>LETRA ELEGIDA:</strong> Se selecciona una letra aleatoria - todas las respuestas deben comenzar con esta letra.</li>
-                        <li><strong>TIEMPO LIMITADO:</strong> Tienes un tiempo limitado (90 segundos por defecto) para encontrar una palabra adecuada para cada categoría.</li>
-                        <li><strong>ENVIAR RESPUESTAS:</strong> Una vez terminado o agotado el tiempo, tus respuestas se envían automáticamente.</li>
-                        <li><strong>EVALUACIÓN IA:</strong> Nuestra IA inteligente evalúa todas las respuestas por exactitud, creatividad y singularidad.</li>
-                        <li><strong>RECIBIR PUNTOS:</strong> Recibes puntos basados en la calidad de tus respuestas y si otros jugadores usaron las mismas palabras.</li>
-                    </ol>
-                    
-                    <h4>SISTEMA DE PUNTUACIÓN:</h4>
-                    <ul>
-                        <li><strong>RESPUESTA ÚNICA:</strong> Puntos completos si solo tú tuviste esta respuesta</li>
-                        <li><strong>RESPUESTA COMPARTIDA:</strong> Puntos reducidos si otros jugadores usaron la misma palabra</li>
-                        <li><strong>CREATIVIDAD:</strong> Puntos bonus por respuestas particularmente creativas o inusuales</li>
-                        <li><strong>RESPUESTA INCORRECTA:</strong> Sin puntos por palabras que no encajan en la categoría o comienzan con la letra incorrecta</li>
-                    </ul>
-                    
-                    <h4>CONSEJOS PARA MEJORES RESULTADOS:</h4>
-                    <ul>
-                        <li>Piensa en palabras inusuales - traen más puntos</li>
-                        <li>Asegúrate de que tus respuestas realmente encajen en la categoría</li>
-                        <li>Usa todo el tiempo, pero no olvides enviar a tiempo</li>
-                        <li>Para letras difíciles como X, Y o Q: Las palabras extranjeras a menudo están permitidas</li>
-                    </ul>
-                    
-                    <p><strong>BUENA SUERTE JUGANDO.</strong></p>
-                `
-            },
-            it: {
-                toggleButton: 'COS\'È SMART LAND PLUS?',
-                toggleButtonExpanded: 'NASCONDI SPIEGAZIONE',
-                content: `
-                    <h4>COS'È SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus è un gioco di parole intelligente che combina creatività, conoscenza e pensiero veloce. I giocatori devono trovare parole per diverse categorie che iniziano tutte con la stessa lettera.</p>
-                    
-                    <h4>COME FUNZIONA IL GIOCO?</h4>
-                    <ol>
-                        <li><strong>CREARE O UNIRSI A STANZA:</strong> Inserisci il tuo nome e crea una nuova stanza o unisciti a una esistente.</li>
-                        <li><strong>IMPOSTARE CATEGORIE:</strong> Tutti i giocatori possono aggiungere o rimuovere categorie (es: Città, Paese, Fiume, Nome, Professione, Animale, Pianta).</li>
-                        <li><strong>PREPARARSI:</strong> Tutti i giocatori devono segnarsi come "pronti" prima che inizi il gioco.</li>
-                        <li><strong>LETTERA SCELTA:</strong> Viene selezionata una lettera casuale - tutte le risposte devono iniziare con questa lettera.</li>
-                        <li><strong>TEMPO LIMITATO:</strong> Hai un tempo limitato (90 secondi di default) per trovare una parola adatta per ogni categoria.</li>
-                        <li><strong>INVIARE RISPOSTE:</strong> Una volta finito o scaduto il tempo, le tue risposte vengono inviate automaticamente.</li>
-                        <li><strong>VALUTAZIONE IA:</strong> La nostra IA intelligente valuta tutte le risposte per correttezza, creatività e unicità.</li>
-                        <li><strong>RICEVERE PUNTI:</strong> Ricevi punti basati sulla qualità delle tue risposte e se altri giocatori hanno usato le stesse parole.</li>
-                    </ol>
-                    
-                    <h4>SISTEMA DI PUNTEGGIO:</h4>
-                    <ul>
-                        <li><strong>RISPOSTA UNICA:</strong> Punti pieni se solo tu hai avuto questa risposta</li>
-                        <li><strong>RISPOSTA CONDIVISA:</strong> Punti ridotti se altri giocatori hanno usato la stessa parola</li>
-                        <li><strong>CREATIVITÀ:</strong> Punti bonus per risposte particolarmente creative o inusuali</li>
-                        <li><strong>RISPOSTA SBAGLIATA:</strong> Nessun punto per parole che non si adattano alla categoria o iniziano con la lettera sbagliata</li>
-                    </ul>
-                    
-                    <h4>CONSIGLI PER RISULTATI MIGLIORI:</h4>
-                    <ul>
-                        <li>Pensa a parole inusuali - portano più punti</li>
-                        <li>Assicurati che le tue risposte si adattino davvero alla categoria</li>
-                        <li>Usa tutto il tempo, ma non dimenticare di inviare in tempo</li>
-                        <li>Per lettere difficili come X, Y o Q: Le parole straniere sono spesso permesse</li>
-                    </ul>
-                    
-                    <p><strong>BUONA FORTUNA GIOCANDO.</strong></p>
-                `
-            },
-            nl: {
-                toggleButton: 'WAT IS SMART LAND PLUS?',
-                toggleButtonExpanded: 'UITLEG VERBERGEN',
-                content: `
-                    <h4>WAT IS SMART LAND PLUS?</h4>
-                    <p>Smart Land Plus is een intelligent woordspel dat creativiteit, kennis en snel denken combineert. Spelers moeten woorden vinden voor verschillende categorieën die allemaal met dezelfde letter beginnen.</p>
-                    
-                    <h4>HOE WERKT HET SPEL?</h4>
-                    <ol>
-                        <li><strong>KAMER MAKEN OF DEELNEMEN:</strong> Voer je naam in en maak een nieuwe kamer of neem deel aan een bestaande.</li>
-                        <li><strong>CATEGORIEËN INSTELLEN:</strong> Alle spelers kunnen categorieën toevoegen of verwijderen (bijv: Stad, Land, Rivier, Naam, Beroep, Dier, Plant).</li>
-                        <li><strong>KLAAR MAKEN:</strong> Alle spelers moeten zichzelf markeren als "klaar" voordat het spel begint.</li>
-                        <li><strong>LETTER GEKOZEN:</strong> Een willekeurige letter wordt geselecteerd - alle antwoorden moeten met deze letter beginnen.</li>
-                        <li><strong>BEPERKTE TIJD:</strong> Je hebt beperkte tijd (standaard 90 seconden) om een geschikt woord voor elke categorie te vinden.</li>
-                        <li><strong>ANTWOORDEN INDIENEN:</strong> Zodra je klaar bent of de tijd op is, worden je antwoorden automatisch ingediend.</li>
-                        <li><strong>AI EVALUATIE:</strong> Onze intelligente AI evalueert alle antwoorden op juistheid, creativiteit en uniciteit.</li>
-                        <li><strong>PUNTEN ONTVANGEN:</strong> Je ontvangt punten gebaseerd op de kwaliteit van je antwoorden en of andere spelers dezelfde woorden hebben gebruikt.</li>
-                    </ol>
-                    
-                    <h4>PUNTENSYSTEEM:</h4>
-                    <ul>
-                        <li><strong>UNIEK ANTWOORD:</strong> Volle punten als alleen jij dit antwoord had</li>
-                        <li><strong>GEDEELD ANTWOORD:</strong> Verminderde punten als andere spelers hetzelfde woord gebruikten</li>
-                        <li><strong>CREATIVITEIT:</strong> Bonuspunten voor bijzonder creatieve of ongewone antwoorden</li>
-                        <li><strong>FOUT ANTWOORD:</strong> Geen punten voor woorden die niet bij de categorie passen of met de verkeerde letter beginnen</li>
-                    </ul>
-                    
-                    <h4>TIPS VOOR BETERE RESULTATEN:</h4>
-                    <ul>
-                        <li>Denk aan ongewone woorden - ze brengen meer punten</li>
-                        <li>Zorg ervoor dat je antwoorden echt bij de categorie passen</li>
-                        <li>Gebruik de volledige tijd, maar vergeet niet op tijd in te dienen</li>
-                        <li>Voor moeilijke letters zoals X, Y of Q: Vreemde woorden zijn vaak toegestaan</li>
-                    </ul>
-                    
-                    <p><strong>VEEL SUCCES MET SPELEN.</strong></p>
-                `
-            }
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrIwGLHc4T5XlH3QBID18Lc48xF9dmDi4",
+            authDomain: "quizgame-9916c.firebaseapp.com",
+            databaseURL: "https://quizgame-9916c-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "quizgame-9916c",
+            storageBucket: "quizgame-9916c.firebasestorage.app",
+            messagingSenderId: "918293512223",
+            appId: "1:918293512223:web:bd261da506d1c1a270952a",
+            measurementId: "G-E4883TXD7S"
         };
-
-        // Initialize the game when page loads
-        window.addEventListener('DOMContentLoaded', () => {
-            window.game = new GameClient();
-        });
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const database = getDatabase(app);
+            const analytics = getAnalytics(app);
+            
+            window.firebaseApp = app;
+            window.firebaseDatabase = database;
+            window.firebaseReady = true;
+            
+            console.log('✅ Firebase initialized successfully');
+        } catch (error) {
+            console.error('❌ Firebase initialization error:', error);
+            window.firebaseReady = false;
+        }
     </script>
+
+    <!-- Include the game logic -->
+    <script type="module" src="js/quiz-game.js"></script>
 </body>
 </html>

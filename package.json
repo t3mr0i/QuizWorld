@@ -1,7 +1,7 @@
 {
-  "name": "stadtlandfluss",
+  "name": "quizworld",
   "version": "1.0.0",
-  "description": "Multiplayer Stadt-Land-Fluss word game",
+  "description": "Interactive web-based quiz game with AI-generated questions",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
@@ -13,10 +13,12 @@
     "test": "vitest"
   },
   "keywords": [
+    "quiz",
     "game",
     "multiplayer",
-    "socket.io",
-    "stadt-land-fluss"
+    "ai",
+    "questions",
+    "trivia"
   ],
   "author": "",
   "license": "ISC",
