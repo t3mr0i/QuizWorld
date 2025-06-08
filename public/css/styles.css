@@ -1721,8 +1721,154 @@ small {
   margin-bottom: 0;
 }
 
+/* Tournament Creation Screen Styles */
+.tournament-creator {
+  width: 100%;
+}
+
+.tournament-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  min-height: 600px;
+}
+
+.quiz-selection-panel,
+.tournament-config-panel {
+  border: 2px solid var(--kb-black);
+  background: rgba(255, 255, 255, 0.5);
+  padding: var(--spacing-lg);
+}
+
+.quiz-selection-panel h3,
+.tournament-config-panel h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-color-primary);
+  font-size: 1.2rem;
+}
+
+.quiz-search-bar {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.quiz-search-bar input {
+  flex: 1;
+}
+
+.available-quiz-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color-subtle);
+  background: white;
+}
+
+.available-quiz-item {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.available-quiz-item:hover {
+  background: rgba(255, 70, 0, 0.05);
+}
+
+.available-quiz-item.selected {
+  background: rgba(255, 70, 0, 0.1);
+  border-left: 4px solid var(--primary-accent-color);
+}
+
+.available-quiz-title {
+  font-weight: 600;
+  color: var(--text-color-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.available-quiz-topic {
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-xs);
+}
+
+.available-quiz-stats {
+  display: flex;
+  gap: var(--spacing-md);
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+}
+
+.selected-quiz-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color-subtle);
+  background: white;
+  margin-bottom: var(--spacing-lg);
+}
+
+.empty-selection {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-color-secondary);
+}
+
+.empty-selection i {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-md);
+  color: var(--kb-light-grey);
+}
+
+.tournament-stats {
+  background: rgba(255, 70, 0, 0.05);
+  border: 1px solid rgba(255, 70, 0, 0.2);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-xs);
+}
+
+.stat-item:last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: var(--text-color-primary);
+}
+
+.tournament-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-lg);
+}
+
 /* Mobile responsiveness for tournament creation */
 @media (max-width: 768px) {
+  .tournament-layout {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+  
+  .quiz-selection-panel,
+  .tournament-config-panel {
+    padding: var(--spacing-md);
+  }
+  
+  .tournament-actions {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .tournament-actions .btn {
+    width: 100%;
+  }
+  
   .quiz-selection-container {
     grid-template-columns: 1fr;
     gap: var(--spacing-lg);

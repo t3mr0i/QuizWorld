@@ -249,7 +249,7 @@ class QuizGameClient {
         document.getElementById('back-to-welcome').onclick = () => this.showScreen('welcome');
         
         // Create tournament screen
-        document.getElementById('create-tournament-form').onsubmit = (e) => this.handleCreateTournament(e);
+        document.getElementById('tournament-form').onsubmit = (e) => this.handleCreateTournament(e);
         document.getElementById('back-to-welcome-tournament').onclick = () => this.showScreen('welcome');
         
         // Form validation for create quiz
@@ -289,7 +289,6 @@ class QuizGameClient {
         // Final results screen
         document.getElementById('play-again-btn').onclick = () => this.playAgain();
         document.getElementById('new-quiz-btn').onclick = () => this.showScreen('welcome');
-        document.getElementById('view-all-scores-btn').onclick = () => this.viewAllTimeHighscores();
     }
 
     setupCreateQuizValidation() {
@@ -545,10 +544,15 @@ class QuizGameClient {
 
     updateSelectedQuizzesDisplay() {
         const selectedContainer = document.getElementById('selected-quizzes');
-        const selectedCount = document.getElementById('selected-count');
+        const selectedCount = document.getElementById('selected-quiz-count');
         
         if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length === 0) {
-            selectedContainer.innerHTML = '<div class="no-selection">No quizzes selected yet</div>';
+            selectedContainer.innerHTML = `
+                <div class="empty-selection">
+                    <i class="ph ph-selection-plus"></i>
+                    <p>Select quizzes from the left to add them to your tournament</p>
+                </div>
+            `;
             selectedCount.textContent = '0';
             return;
         }
@@ -573,8 +577,8 @@ class QuizGameClient {
     }
 
     updateTournamentInfo() {
-        const totalQuestionsElement = document.getElementById('total-questions-count');
-        const maxScoreElement = document.getElementById('max-score-count');
+        const totalQuestionsElement = document.getElementById('total-tournament-questions');
+        const maxScoreElement = document.getElementById('max-tournament-score');
         
         if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length === 0) {
             totalQuestionsElement.textContent = '0';
@@ -596,9 +600,9 @@ class QuizGameClient {
         createBtn.disabled = !hasQuizzes;
         
         if (hasQuizzes) {
-            createBtn.querySelector('.btn-text').textContent = `Create Tournament (${this.selectedTournamentQuizzes.length} quizzes)`;
+            createBtn.innerHTML = `<i class="ph ph-trophy"></i> Create Tournament (${this.selectedTournamentQuizzes.length} quizzes)`;
         } else {
-            createBtn.querySelector('.btn-text').textContent = 'Select at least 2 quizzes';
+            createBtn.innerHTML = `<i class="ph ph-trophy"></i> Select at least 2 quizzes`;
         }
     }
 
@@ -621,8 +625,7 @@ class QuizGameClient {
         // Show loading state
         const createBtn = document.getElementById('create-tournament-btn');
         createBtn.disabled = true;
-        createBtn.querySelector('.btn-text').classList.add('hidden');
-        createBtn.querySelector('.btn-loading').classList.remove('hidden');
+        createBtn.innerHTML = '<i class="ph ph-robot"></i> Creating Tournament...';
         
         this.showLoading('Creating Tournament...', 'Combining quizzes and setting up the match');
         
@@ -653,8 +656,7 @@ class QuizGameClient {
             
             // Reset button state
             createBtn.disabled = false;
-            createBtn.querySelector('.btn-text').classList.remove('hidden');
-            createBtn.querySelector('.btn-loading').classList.add('hidden');
+            createBtn.innerHTML = '<i class="ph ph-trophy"></i> Create Tournament';
         }
     }
 
@@ -706,35 +708,51 @@ class QuizGameClient {
             const host = window.PARTYKIT_HOST;
             const url = `${protocol}//${host}/party/${this.gameState.roomCode}`;
             
-            console.log('Connecting to:', url);
+            console.log('🔌 Connecting to WebSocket:', url);
+            console.log('🔌 Using host:', host);
+            console.log('🔌 Using protocol:', protocol);
             
             if (this.socket) {
+                console.log('🔌 Closing existing socket');
                 this.socket.close();
             }
             
             this.socket = new WebSocket(url);
             
+            // Set a connection timeout
+            const connectionTimeout = setTimeout(() => {
+                console.error('❌ WebSocket connection timeout');
+                this.socket.close();
+                reject(new Error('Connection timeout'));
+            }, 5000);
+            
             this.socket.onopen = () => {
-                console.log('WebSocket connected to room:', this.gameState.roomCode);
+                console.log('✅ WebSocket connected to room:', this.gameState.roomCode);
+                clearTimeout(connectionTimeout);
                 resolve();
             };
             
             this.socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('📨 Received WebSocket message:', data);
                     this.handleMessage(data);
                 } catch (error) {
-                    console.error('Error parsing message:', error);
+                    console.error('❌ Error parsing WebSocket message:', error);
                 }
             };
             
             this.socket.onclose = (event) => {
-                console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                this.showToast('Connection lost', 'error');
+                console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                clearTimeout(connectionTimeout);
+                if (event.code !== 1000) { // Not a normal closure
+                    this.showToast('Connection lost', 'error');
+                }
             };
             
             this.socket.onerror = (error) => {
-                console.error('WebSocket error:', error);
+                console.error('❌ WebSocket error:', error);
+                clearTimeout(connectionTimeout);
                 reject(error);
             };
         });
@@ -742,10 +760,15 @@ class QuizGameClient {
 
     sendMessage(data) {
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            this.socket.send(JSON.stringify(data));
-            console.log('Sent:', data);
+            try {
+                this.socket.send(JSON.stringify(data));
+                console.log('📤 Sent message:', data);
+            } catch (error) {
+                console.error('❌ Error sending message:', error);
+            }
         } else {
-            console.error('Cannot send message: WebSocket not connected');
+            console.error('❌ Cannot send message: WebSocket not connected. ReadyState:', this.socket?.readyState);
+            console.error('❌ WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
         }
     }
 
@@ -901,6 +924,13 @@ class QuizGameClient {
             }
         }
         
+        // If session is in playing state and we're not in quiz screen, transition to quiz
+        if (data.session.gameState === 'playing' && this.currentScreen !== 'quiz') {
+            console.log('🎯 Session is playing but we\'re not in quiz screen - transitioning to quiz');
+            this.handleSessionState(data);
+            return;
+        }
+        
         // If this is the first session update after playing a quiz, show lobby
         if (!oldSession && data.session.gameState === 'waiting' && this.currentScreen !== 'lobby') {
             console.log('🏠 First session update - showing lobby');
@@ -947,8 +977,9 @@ class QuizGameClient {
             if (!this.gameStartTime) {
                 this.gameStartTime = Date.now();
             }
-                    this.updateQuizDisplay();
-        this.showScreen('quiz');
+            
+            this.updateQuizDisplay();
+            this.showScreen('quiz');
         } else {
             console.log('❓ Unknown session state:', data.session.gameState);
         }
@@ -1065,19 +1096,36 @@ class QuizGameClient {
     handleQuizFinished(data) {
         console.log('🏁 Quiz finished:', data);
         
-        // Update final leaderboard
-        this.updateFinalLeaderboard(data.playerAnswers);
-        
-        // Load and display all-time leaderboard
-        this.loadAllTimeLeaderboard();
-        
-        // Show final results screen
+        // Show final results screen first
         this.showScreen('final-results');
+        
+        // Show loading state initially
+        const leaderboardElement = document.getElementById('final-leaderboard');
+        if (leaderboardElement) {
+            leaderboardElement.innerHTML = '<div class="loading-highscores">Calculating final scores...</div>';
+        }
+        
+        // Update final leaderboard immediately with current data (small delay for visual effect)
+        setTimeout(() => {
+            this.updateFinalLeaderboard(data.playerAnswers);
+        }, 100);
+        
+        // Note: All-time leaderboard functionality removed as the HTML element doesn't exist
+        // TODO: Add all-time leaderboard section to HTML if needed
     }
 
     updateFinalLeaderboard(playerAnswers) {
         const leaderboardElement = document.getElementById('final-leaderboard');
         if (!leaderboardElement) return;
+        
+        console.log('📊 Updating final leaderboard with data:', playerAnswers);
+        
+        // Validate playerAnswers data
+        if (!playerAnswers || Object.keys(playerAnswers).length === 0) {
+            console.warn('⚠️ No player answers data available for leaderboard');
+            leaderboardElement.innerHTML = '<div class="loading-highscores">No scores available</div>';
+            return;
+        }
         
         // Convert player answers to sorted array
         const players = Object.entries(playerAnswers).map(([id, data]) => ({
@@ -1088,6 +1136,8 @@ class QuizGameClient {
         
         // Sort by score (highest first)
         players.sort((a, b) => b.score - a.score);
+        
+        console.log('📊 Sorted players for leaderboard:', players);
         
         // Clear existing content
         leaderboardElement.innerHTML = '';
@@ -1116,6 +1166,8 @@ class QuizGameClient {
             
             leaderboardElement.appendChild(scoreItem);
         });
+        
+        console.log('✅ Final leaderboard updated successfully');
     }
 
     async loadAllTimeLeaderboard() {
@@ -1701,9 +1753,28 @@ class QuizGameClient {
             const quiz = await this.quizDatabase.getQuiz(quizId);
             console.log('📚 Quiz loaded from database:', quiz);
             
+            if (!quiz) {
+                this.hideLoading();
+                this.showToast('Quiz not found. Please try again.', 'error');
+                return;
+            }
+            
             // Get player name
+            console.log('🎯 Prompting for player name...');
+            
+            // Temporarily hide loading to show prompt
+            this.hideLoading();
+            
             const playerName = await this.showPrompt('Enter your name:', 'Player Name');
+            console.log('🎯 Player name received:', playerName);
+            
+            // Show loading again
+            if (playerName) {
+                this.showLoading('Connecting to quiz...', 'Setting up your game session...');
+            }
+            
             if (!playerName) {
+                console.log('🎯 No player name provided, hiding loading');
                 this.hideLoading();
                 return;
             }
@@ -1713,17 +1784,29 @@ class QuizGameClient {
             this.gameState.playerName = playerName.trim();
             this.gameState.isHost = true;
             
-            console.log('🔌 Connecting to WebSocket...');
-            await this.connectWebSocket();
+            console.log('🔌 Connecting to WebSocket with room code:', this.gameState.roomCode);
+            
+            try {
+                await this.connectWebSocket();
+                console.log('✅ WebSocket connected successfully');
+            } catch (wsError) {
+                console.error('❌ WebSocket connection failed:', wsError);
+                this.hideLoading();
+                this.showToast('Failed to connect to server. Please try again.', 'error');
+                return;
+            }
             
             // Send message to create session with existing quiz
             console.log('📤 Sending play_existing_quiz message...');
-            this.sendMessage({
+            const message = {
                 type: 'play_existing_quiz',
                 quizId: quizId,
                 quiz: quiz, // Send the full quiz data
                 playerName: this.gameState.playerName
-            });
+            };
+            
+            console.log('📤 Message to send:', message);
+            this.sendMessage(message);
             
             // Set timeout for loading
             if (this.playQuizTimeout) {
@@ -1731,10 +1814,39 @@ class QuizGameClient {
             }
             
             this.playQuizTimeout = setTimeout(() => {
-                this.hideLoading();
-                this.showToast('Quiz loading is taking longer than expected. Please try again.', 'error');
-                console.log('⏰ Play quiz timeout');
-            }, 10000); // 10 second timeout
+                console.log('⏰ Play quiz timeout - attempting fallback');
+                
+                // Try fallback: create session locally
+                try {
+                    this.gameState.currentQuiz = quiz;
+                    this.gameState.currentSession = {
+                        id: this.gameState.roomCode,
+                        quiz: quiz,
+                        players: {
+                            [this.gameState.playerName]: {
+                                id: this.gameState.playerName,
+                                name: this.gameState.playerName,
+                                score: 0,
+                                hasAnswered: false,
+                                isReady: false,
+                                isHost: true
+                            }
+                        },
+                        gameState: 'waiting',
+                        host: this.gameState.playerName
+                    };
+                    
+                    console.log('✅ Fallback: Created local session');
+                    this.hideLoading();
+                    this.showToast('Quiz loaded in offline mode', 'info');
+                    this.updateLobbyDisplay();
+                    this.showScreen('lobby');
+                } catch (fallbackError) {
+                    console.error('❌ Fallback failed:', fallbackError);
+                    this.hideLoading();
+                    this.showToast('Quiz loading failed. Please try again.', 'error');
+                }
+            }, 8000); // 8 second timeout before fallback
             
         } catch (error) {
             console.error('❌ Error playing quiz:', error);

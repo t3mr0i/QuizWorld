@@ -188,6 +188,80 @@
                 </div>
             </div>
 
+            <!-- Create Tournament Screen -->
+            <div id="create-tournament-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="ph ph-trophy"></i> Create Tournament</h2>
+                        <p>Combine multiple quizzes into one competitive match</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="tournament-creator">
+                            <div class="tournament-layout">
+                                <div class="quiz-selection-panel">
+                                    <h3>Available Quizzes</h3>
+                                    <div class="quiz-search-bar">
+                                        <input type="text" id="tournament-quiz-search" placeholder="Search quizzes...">
+                                        <button id="tournament-search-btn" class="btn btn-outline"><i class="ph ph-magnifying-glass"></i></button>
+                                    </div>
+                                    <div id="available-quizzes" class="available-quiz-list">
+                                        <div class="loading-quizzes">
+                                            <div class="loading-spinner"></div>
+                                            <p>Loading quizzes...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="tournament-config-panel">
+                                    <div class="selected-quizzes-section">
+                                        <h3>Selected Quizzes (<span id="selected-quiz-count">0</span>)</h3>
+                                        <div id="selected-quizzes" class="selected-quiz-list">
+                                            <div class="empty-selection">
+                                                <i class="ph ph-selection-plus"></i>
+                                                <p>Select quizzes from the left to add them to your tournament</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="tournament-info">
+                                        <h3>Tournament Details</h3>
+                                        <div class="tournament-stats">
+                                            <div class="stat-item">
+                                                <span class="stat-label">Total Questions:</span>
+                                                <span id="total-tournament-questions">0</span>
+                                            </div>
+                                            <div class="stat-item">
+                                                <span class="stat-label">Maximum Score:</span>
+                                                <span id="max-tournament-score">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <form id="tournament-form">
+                                            <div class="form-group">
+                                                <label for="tournament-name">Tournament Name</label>
+                                                <input type="text" id="tournament-name" placeholder="e.g., Ultimate Knowledge Challenge" required>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="tournament-creator">Your Name</label>
+                                                <input type="text" id="tournament-creator" placeholder="Tournament Host" required>
+                                            </div>
+                                            
+                                            <div class="tournament-actions">
+                                                <button type="button" id="back-to-welcome-tournament" class="btn btn-text">← Back</button>
+                                                <button type="submit" id="create-tournament-btn" class="btn btn-primary" disabled>
+                                                    <i class="ph ph-trophy"></i> Create Tournament
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Browse Quizzes Screen -->
             <div id="browse-quizzes-screen" class="game-screen hidden">
                 <div class="card">
@@ -279,8 +353,8 @@
                         <div class="question-progress">
                             <span>Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
                         </div>
-                        <div class="timer">
-                            <span id="time-remaining">30</span>s
+                        <div class="scoring-info">
+                            <span>100 points per correct answer</span>
                         </div>
                     </div>
                     
