@@ -85,6 +85,19 @@ export function showError(message) {
     console.error(`[UI Error] ${message}`);
 
     try {
+        // Try to use the custom alert modal if available
+        if (window.quizGame && typeof window.quizGame.showAlert === 'function') {
+            window.quizGame.showAlert(message, 'Error');
+            return;
+        }
+
+        // Fallback to toast notification if available
+        if (window.quizGame && typeof window.quizGame.showToast === 'function') {
+            window.quizGame.showToast(message, 'error');
+            return;
+        }
+
+        // Legacy modal fallback
         const errorModal = DOM.get('error-modal');
         const errorMessage = DOM.get('error-message');
         const closeBtn = DOM.get('error-close-btn');
@@ -104,7 +117,7 @@ export function showError(message) {
             // window.errorTimeout = setTimeout(closeHandler, 5000);
 
         } else {
-            console.warn("Error modal elements not found, falling back to alert.");
+            console.warn("No custom modal system available, using browser alert as final fallback.");
             alert(message);
         }
     } catch (error) {

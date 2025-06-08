@@ -247,21 +247,33 @@ export function setupGameControls() {
     }
 
     if (closeSessionBtn) {
-        closeSessionBtn.onclick = () => {
+        closeSessionBtn.onclick = async () => {
             if (!gameState.isAdmin) {
                 showError("Only the host can close the session.");
                 return;
             }
             
             // Show confirmation dialog
-            const confirmed = confirm(
-                "Are you sure you want to close this session?\n\n" +
+            const message = "Are you sure you want to close this session?\n\n" +
                 "This will:\n" +
                 "• End the current game\n" +
                 "• Disconnect all players\n" +
                 "• Close the room permanently\n\n" +
-                "This action cannot be undone."
-            );
+                "This action cannot be undone.";
+            
+            let confirmed = false;
+            
+            // Try to use custom confirm modal if available
+            if (window.quizGame && typeof window.quizGame.showConfirm === 'function') {
+                confirmed = await window.quizGame.showConfirm(message, 'Close Session', {
+                    confirmText: 'Close Session',
+                    cancelText: 'Cancel',
+                    danger: true
+                });
+            } else {
+                // Fallback to browser confirm
+                confirmed = confirm(message);
+            }
             
             if (!confirmed) {
                 return;

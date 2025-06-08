@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuizWorld - Interactive Quiz Game</title>
+    <title>Quizaru - Interactive Quiz Game</title>
     <meta name="description" content="Create and play interactive quizzes with AI-generated questions">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,9 +16,11 @@
         // Hard-code the PartyKit host to avoid placeholder issues
         window.PARTYKIT_HOST = 'quiz-world.t3mr0i.partykit.dev';
         
-        // Enable dev mode to try local server if URL has ?dev parameter
+        // Enable dev mode to try local server if URL has ?dev parameter or running on localhost
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('dev') || urlParams.has('local')) {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (urlParams.has('dev') || urlParams.has('local') || isLocalhost) {
             window.PARTYKIT_HOST = 'localhost:1999';
             console.log('Using local development server:', window.PARTYKIT_HOST);
         }
@@ -32,7 +34,7 @@
         console.log('Game configuration:', window.CONFIG);
         
         // Add a visible banner when in local development mode
-        if (urlParams.has('local') || urlParams.has('dev')) {
+        if (urlParams.has('local') || urlParams.has('dev') || isLocalhost) {
             document.addEventListener('DOMContentLoaded', function() {
                 const debugBanner = document.createElement('div');
                 debugBanner.className = 'debug-banner';
@@ -138,7 +140,7 @@
                             
                             <div class="form-actions">
                                 <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
-                                <button type="submit" id="generate-quiz-btn" class="btn btn-primary">
+                                <button type="submit" id="generate-quiz-btn" class="btn btn-orange">
                                     <span class="btn-text">Generate Quiz with AI</span>
                                     <span class="btn-loading hidden">🤖 Generating...</span>
                                 </button>
@@ -282,6 +284,23 @@
                         <div id="question-status" class="question-status">
                             <span id="players-answered">0</span> of <span id="total-players-quiz">1</span> players answered
                         </div>
+                        
+                        <!-- Inline Results Section -->
+                        <div id="inline-results" class="inline-results hidden">
+                            <div class="result-explanation">
+                                <div id="inline-explanation" class="explanation-text"></div>
+                            </div>
+                            
+                            <div class="score-display">
+                                <div id="points-earned" class="points-earned"></div>
+                                <div id="current-score" class="current-score"></div>
+                            </div>
+                            
+                            <div class="next-question-controls">
+                                <button id="continue-btn" class="btn btn-primary hidden">Next Question</button>
+                                <button id="finish-quiz-btn" class="btn btn-success hidden">View Final Results</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -347,6 +366,55 @@
 
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- Custom Modal System -->
+    <div id="alert-modal" class="modal-overlay alert-modal hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-icon alert">⚠️</div>
+                <h3 class="modal-title">Alert</h3>
+            </div>
+            <div class="modal-body">
+                <p id="alert-message" class="modal-message"></p>
+            </div>
+            <div class="modal-actions">
+                <button id="alert-ok-btn" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-modal" class="modal-overlay confirm-modal hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-icon confirm">❓</div>
+                <h3 class="modal-title">Confirm</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" class="modal-message"></p>
+            </div>
+            <div class="modal-actions">
+                <button id="confirm-cancel-btn" class="btn btn-cancel">Cancel</button>
+                <button id="confirm-ok-btn" class="btn btn-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="prompt-modal" class="modal-overlay prompt-modal hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-icon prompt">✏️</div>
+                <h3 class="modal-title">Input Required</h3>
+            </div>
+            <div class="modal-body">
+                <p id="prompt-message" class="modal-message"></p>
+                <input type="text" id="prompt-input" class="modal-input" placeholder="Enter value...">
+            </div>
+            <div class="modal-actions">
+                <button id="prompt-cancel-btn" class="btn btn-cancel">Cancel</button>
+                <button id="prompt-ok-btn" class="btn btn-confirm">OK</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Firebase SDK -->
     <script type="module">

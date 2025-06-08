@@ -256,6 +256,10 @@ export default class QuizWorldServer implements Party.Server {
         case 'get_quiz':
           this.handleGetQuiz(data, sender);
           break;
+        case 'play_existing_quiz':
+          console.log(`🎯 Received play_existing_quiz message from ${sender.id}`);
+          await this.handlePlayExistingQuiz(data, sender);
+          break;
         default:
           console.warn(`❓ Unknown message type: ${data.type}`);
       }
@@ -400,6 +404,30 @@ export default class QuizWorldServer implements Party.Server {
       return;
     }
 
+    const players = Object.values(this.session.players);
+    const playerCount = players.length;
+    
+    // Check if quiz can be started
+    // Allow starting with 1 player (solo mode) or when all players are ready
+    if (playerCount === 0) {
+      sender.send(JSON.stringify({
+        type: 'error',
+        message: 'No players in the session'
+      }));
+      return;
+    }
+    
+    if (playerCount > 1) {
+      const allReady = players.every(p => p.isReady);
+      if (!allReady) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: 'All players must be ready before starting'
+        }));
+        return;
+      }
+    }
+
     this.session.gameState = 'playing';
     this.session.currentQuestionIndex = 0;
     this.session.questionStartTime = new Date();
@@ -410,7 +438,7 @@ export default class QuizWorldServer implements Party.Server {
       player.score = 0;
     });
     
-    console.log(`🚀 Quiz started in room ${this.roomId}`);
+    console.log(`🚀 Quiz started in room ${this.roomId} with ${playerCount} player(s)`);
     
     this.broadcastSessionUpdate();
     this.startQuestionTimer();
@@ -508,6 +536,74 @@ export default class QuizWorldServer implements Party.Server {
       sender.send(JSON.stringify({
         type: 'error',
         message: 'Quiz not found'
+      }));
+    }
+  }
+
+  private async handlePlayExistingQuiz(data: any, sender: Party.Connection) {
+    try {
+      const { quizId, quiz: quizData, playerName } = data;
+      
+      console.log(`🎮 Loading existing quiz: ${quizId} for player: ${playerName}`);
+      console.log(`📊 Quiz data received:`, quizData ? 'YES' : 'NO');
+      console.log(`📊 Quiz data keys:`, quizData ? Object.keys(quizData) : 'N/A');
+      
+      // Use the quiz data sent from client, or fall back to memory
+      let quiz = quizData || quizDatabase[quizId];
+      
+      if (!quiz) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: 'Quiz not found. Please try again.'
+        }));
+        return;
+      }
+      
+      // Store quiz in memory for this session
+      if (quizData) {
+        quizDatabase[quizId] = quizData;
+      }
+      
+      // Create quiz session with the existing quiz
+      const session: QuizSession = {
+        id: this.roomId,
+        quiz,
+        players: {
+          [sender.id]: {
+            id: sender.id,
+            name: playerName || 'Host',
+            score: 0,
+            hasAnswered: false,
+            isReady: false,
+            isHost: true
+          }
+        },
+        currentQuestionIndex: -1,
+        gameState: 'waiting',
+        questionTimeLimit: 30,
+        host: sender.id,
+        answers: {}
+      };
+      
+      quizSessions[this.roomId] = session;
+      
+      console.log(`✅ Existing quiz loaded: "${quiz.title}" with ${quiz.questions.length} questions`);
+      
+      // Send success response
+      sender.send(JSON.stringify({
+        type: 'quiz_loaded',
+        quiz,
+        sessionId: this.roomId,
+        session
+      }));
+      
+      this.broadcastSessionUpdate();
+      
+    } catch (error) {
+      console.error("❌ Error loading existing quiz:", error);
+      sender.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to load quiz. Please try again.'
       }));
     }
   }

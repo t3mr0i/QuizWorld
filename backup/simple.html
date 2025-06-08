@@ -605,13 +605,19 @@
                 this.sendMessage({ type: 'startRound' });
             }
 
-            closeSession() {
+            async closeSession() {
                 if (!this.gameState.isAdmin) {
                     this.showError('Only the host can close the session', 'lobby');
                     return;
                 }
                 
-                if (confirm('Are you sure you want to close this session? All players will be disconnected.')) {
+                const confirmed = await this.showConfirm(
+                    'Are you sure you want to close this session? All players will be disconnected.',
+                    'Close Session',
+                    { confirmText: 'Close Session', cancelText: 'Cancel', danger: true }
+                );
+                
+                if (confirmed) {
                     this.sendMessage({ type: 'closeSession' });
                 }
             }
@@ -789,6 +795,99 @@
 
             backToLobby() {
                 this.showScreen('lobby');
+            }
+
+            // Custom Alert Modal (replaces browser alert)
+            showAlert(message, title = 'Alert') {
+                return new Promise((resolve) => {
+                    // Create modal elements
+                    const overlay = document.createElement('div');
+                    overlay.className = 'modal-overlay';
+                    overlay.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(19, 20, 23, 0.8); display: flex; align-items: center;
+                        justify-content: center; z-index: 2000;
+                    `;
+                    
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        background: white; border: 3px solid #131417; border-radius: 8px;
+                        box-shadow: 12px 12px 0 rgba(19, 20, 23, 0.2); max-width: 500px;
+                        width: 90%; padding: 0;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <div style="padding: 24px 32px; border-bottom: 2px solid #131417; background: rgba(255, 70, 0, 0.1);">
+                            <h3 style="margin: 0; font-family: 'Roboto Mono', monospace; font-weight: 900; text-transform: uppercase;">⚠️ ${title}</h3>
+                        </div>
+                        <div style="padding: 32px;">
+                            <p style="margin: 0; line-height: 1.6; color: #7E8187;">${message}</p>
+                        </div>
+                        <div style="padding: 24px 32px; border-top: 2px solid rgba(19, 20, 23, 0.15); text-align: right;">
+                            <button id="alert-ok" style="background: #FF4600; color: white; border: 2px solid #FF4600; padding: 12px 24px; border-radius: 0; font-family: 'Roboto Mono', monospace; font-weight: 700; text-transform: uppercase; cursor: pointer; min-width: 100px;">OK</button>
+                        </div>
+                    `;
+                    
+                    overlay.appendChild(modal);
+                    document.body.appendChild(overlay);
+                    
+                    const closeModal = () => {
+                        document.body.removeChild(overlay);
+                        resolve();
+                    };
+                    
+                    document.getElementById('alert-ok').onclick = closeModal;
+                    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+                });
+            }
+
+            // Custom Confirm Modal (replaces browser confirm)
+            showConfirm(message, title = 'Confirm', options = {}) {
+                return new Promise((resolve) => {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'modal-overlay';
+                    overlay.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(19, 20, 23, 0.8); display: flex; align-items: center;
+                        justify-content: center; z-index: 2000;
+                    `;
+                    
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        background: white; border: 3px solid #131417; border-radius: 8px;
+                        box-shadow: 12px 12px 0 rgba(19, 20, 23, 0.2); max-width: 500px;
+                        width: 90%; padding: 0;
+                    `;
+                    
+                    const confirmText = options.confirmText || 'Confirm';
+                    const cancelText = options.cancelText || 'Cancel';
+                    const isDanger = options.danger;
+                    
+                    modal.innerHTML = `
+                        <div style="padding: 24px 32px; border-bottom: 2px solid #131417; background: rgba(0, 249, 255, 0.1);">
+                            <h3 style="margin: 0; font-family: 'Roboto Mono', monospace; font-weight: 900; text-transform: uppercase;">❓ ${title}</h3>
+                        </div>
+                        <div style="padding: 32px;">
+                            <p style="margin: 0; line-height: 1.6; color: #7E8187; white-space: pre-line;">${message}</p>
+                        </div>
+                        <div style="padding: 24px 32px; border-top: 2px solid rgba(19, 20, 23, 0.15); display: flex; gap: 16px; justify-content: space-between;">
+                            <button id="confirm-cancel" style="background: #A8ADB4; color: #131417; border: 2px solid #7E8187; padding: 12px 24px; border-radius: 0; font-family: 'Roboto Mono', monospace; font-weight: 700; text-transform: uppercase; cursor: pointer; min-width: 100px;">${cancelText}</button>
+                            <button id="confirm-ok" style="background: ${isDanger ? '#FF4600' : '#FF4600'}; color: white; border: 2px solid ${isDanger ? '#FF4600' : '#FF4600'}; padding: 12px 24px; border-radius: 0; font-family: 'Roboto Mono', monospace; font-weight: 700; text-transform: uppercase; cursor: pointer; min-width: 100px;">${confirmText}</button>
+                        </div>
+                    `;
+                    
+                    overlay.appendChild(modal);
+                    document.body.appendChild(overlay);
+                    
+                    const closeModal = (result) => {
+                        document.body.removeChild(overlay);
+                        resolve(result);
+                    };
+                    
+                    document.getElementById('confirm-cancel').onclick = () => closeModal(false);
+                    document.getElementById('confirm-ok').onclick = () => closeModal(true);
+                    overlay.onclick = (e) => { if (e.target === overlay) closeModal(false); };
+                });
             }
         }
 

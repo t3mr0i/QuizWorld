@@ -94,6 +94,11 @@
             logElement.scrollTop = logElement.scrollHeight;
         }
 
+        function showMessage(message, type = 'error') {
+            log(`${type.toUpperCase()}: ${message}`);
+            updateStatus(message, type);
+        }
+
         function updateStatus(status, className) {
             const statusElement = document.getElementById('status');
             statusElement.textContent = status;
@@ -105,12 +110,12 @@
             const roomId = document.getElementById('roomId').value.trim();
 
             if (!playerName) {
-                alert('Please enter a player name');
+                showMessage('Please enter a player name', 'error');
                 return;
             }
 
             if (!roomId) {
-                alert('Please enter a room ID');
+                showMessage('Please enter a room ID', 'error');
                 return;
             }
 

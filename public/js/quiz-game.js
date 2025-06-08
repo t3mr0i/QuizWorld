@@ -39,6 +39,7 @@ class QuizDatabase {
             
             const quizData = {
                 id: quizId,
+                title: quiz.title,
                 topic: quiz.topic,
                 questions: quiz.questions,
                 createdBy: quiz.createdBy,
@@ -212,6 +213,8 @@ class QuizGameClient {
         this.timer = null;
         this.quizDatabase = new QuizDatabase();
         this.gameStartTime = null;
+        this.startQuizTimeout = null;
+        this.playQuizTimeout = null;
         
         this.init();
     }
@@ -245,6 +248,9 @@ class QuizGameClient {
         document.getElementById('create-quiz-form').onsubmit = (e) => this.handleCreateQuiz(e);
         document.getElementById('back-to-welcome').onclick = () => this.showScreen('welcome');
         
+        // Form validation for create quiz
+        this.setupCreateQuizValidation();
+        
         // Browse quizzes screen
         document.getElementById('back-to-welcome-3').onclick = () => this.showScreen('welcome');
         document.getElementById('search-btn').onclick = () => this.searchQuizzes();
@@ -272,9 +278,42 @@ class QuizGameClient {
         document.getElementById('next-question-btn').onclick = () => this.nextQuestion();
         document.getElementById('view-final-results-btn').onclick = () => this.showScreen('final-results');
         
+        // Inline results (new buttons)
+        document.getElementById('continue-btn').onclick = () => this.nextQuestion();
+        document.getElementById('finish-quiz-btn').onclick = () => this.showScreen('final-results');
+        
         // Final results screen
         document.getElementById('play-again-btn').onclick = () => this.playAgain();
         document.getElementById('new-quiz-btn').onclick = () => this.showScreen('welcome');
+    }
+
+    setupCreateQuizValidation() {
+        const form = document.getElementById('create-quiz-form');
+        const submitBtn = document.getElementById('generate-quiz-btn');
+        const requiredFields = [
+            document.getElementById('quiz-title'),
+            document.getElementById('quiz-topic'),
+            document.getElementById('creator-name')
+        ];
+
+        // Function to check if all required fields are filled
+        const validateForm = () => {
+            const allFieldsFilled = requiredFields.every(field => field.value.trim() !== '');
+            submitBtn.disabled = !allFieldsFilled;
+        };
+
+        // Initially disable the button
+        submitBtn.disabled = true;
+
+        // Add event listeners to all required fields
+        requiredFields.forEach(field => {
+            field.addEventListener('input', validateForm);
+            field.addEventListener('blur', validateForm);
+        });
+
+        // Also listen to the select field (question count) in case it's needed
+        const questionCountSelect = document.getElementById('question-count');
+        questionCountSelect.addEventListener('change', validateForm);
     }
 
     showScreen(screenName) {
@@ -291,6 +330,16 @@ class QuizGameClient {
             targetScreen.classList.remove('hidden');
             this.currentScreen = screenName;
             console.log(`Switched to ${screenName} screen`);
+            
+            // Reset form validation when showing create quiz screen
+            if (screenName === 'create-quiz') {
+                setTimeout(() => {
+                    const submitBtn = document.getElementById('generate-quiz-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                    }
+                }, 0);
+            }
         }
     }
 
@@ -435,6 +484,9 @@ class QuizGameClient {
             case 'quiz_created':
                 this.handleQuizCreated(data);
                 break;
+            case 'quiz_loaded':
+                this.handleQuizLoaded(data);
+                break;
             case 'session_update':
                 this.handleSessionUpdate(data);
                 break;
@@ -444,12 +496,15 @@ class QuizGameClient {
             case 'question_results':
                 this.handleQuestionResults(data);
                 break;
+            case 'quiz_started':
+                this.handleQuizStarted(data);
+                break;
             case 'error':
                 this.hideLoading();
                 this.showToast(data.message || 'Server error', 'error');
                 break;
             default:
-                console.log('Unknown message type:', data.type);
+                console.log('❓ Unknown message type:', data.type);
         }
     }
 
@@ -486,9 +541,70 @@ class QuizGameClient {
         this.showScreen('lobby');
     }
 
+    async handleQuizLoaded(data) {
+        console.log('🎯 Quiz loaded:', data);
+        
+        // Clear play quiz timeout
+        if (this.playQuizTimeout) {
+            clearTimeout(this.playQuizTimeout);
+            this.playQuizTimeout = null;
+        }
+        
+        this.hideLoading();
+        this.gameState.currentQuiz = data.quiz;
+        this.gameState.currentSession = data.session || {
+            id: data.sessionId,
+            quiz: data.quiz,
+            players: {},
+            gameState: 'waiting',
+            host: this.socket.id || 'host'
+        };
+        
+        this.showToast('Quiz loaded successfully!', 'success');
+        this.updateLobbyDisplay();
+        this.showScreen('lobby');
+    }
+
     handleSessionUpdate(data) {
+        console.log('🔄 Session update received:', data.session.gameState);
+        const oldSession = this.gameState.currentSession;
         this.gameState.currentSession = data.session;
         
+        // Check if game state changed
+        if (oldSession && oldSession.gameState !== data.session.gameState) {
+            console.log('🎮 Game state changed from', oldSession.gameState, 'to', data.session.gameState);
+            
+            if (data.session.gameState === 'playing') {
+                // Transition to playing state
+                this.handleSessionState(data);
+                return;
+            } else if (data.session.gameState === 'waiting' && this.currentScreen !== 'lobby') {
+                // If we're not in lobby but should be, go there
+                console.log('🏠 Transitioning to lobby');
+                this.hideLoading();
+                this.updateLobbyDisplay();
+                this.showScreen('lobby');
+                return;
+            }
+        }
+        
+        // If this is the first session update after playing a quiz, show lobby
+        if (!oldSession && data.session.gameState === 'waiting' && this.currentScreen !== 'lobby') {
+            console.log('🏠 First session update - showing lobby');
+            
+            // Clear play quiz timeout
+            if (this.playQuizTimeout) {
+                clearTimeout(this.playQuizTimeout);
+                this.playQuizTimeout = null;
+            }
+            
+            this.hideLoading();
+            this.updateLobbyDisplay();
+            this.showScreen('lobby');
+            return;
+        }
+        
+        // Update current screen
         if (this.currentScreen === 'lobby') {
             this.updateLobbyDisplay();
         } else if (this.currentScreen === 'quiz') {
@@ -497,12 +613,23 @@ class QuizGameClient {
     }
 
     handleSessionState(data) {
+        console.log('🎮 handleSessionState() called with gameState:', data.session.gameState);
         this.gameState.currentSession = data.session;
         
         if (data.session.gameState === 'waiting') {
+            console.log('⏳ Session state: waiting - showing lobby');
+            this.hideLoading(); // Hide loading if we're back to waiting
             this.updateLobbyDisplay();
             this.showScreen('lobby');
         } else if (data.session.gameState === 'playing') {
+            console.log('🎯 Session state: playing - starting quiz!');
+            // Clear timeout and hide loading when quiz starts
+            if (this.startQuizTimeout) {
+                clearTimeout(this.startQuizTimeout);
+                this.startQuizTimeout = null;
+            }
+            this.hideLoading();
+            
             // Set game start time when quiz begins
             if (!this.gameStartTime) {
                 this.gameStartTime = Date.now();
@@ -510,57 +637,137 @@ class QuizGameClient {
             this.updateQuizDisplay();
             this.showScreen('quiz');
             this.startQuestionTimer();
+        } else {
+            console.log('❓ Unknown session state:', data.session.gameState);
         }
     }
 
     handleQuestionResults(data) {
+        console.log('📊 Question results received:', data);
+        
+        // Only show results if we're currently in quiz mode
+        if (this.currentScreen !== 'quiz') {
+            console.log('⚠️ Ignoring question results - not in quiz mode. Current screen:', this.currentScreen);
+            return;
+        }
+        
         this.stopTimer();
         
-        // Update results display
-        document.getElementById('correct-answer-display').textContent = 
-            data.currentQuestion.options[data.currentQuestion.correctAnswer];
-        document.getElementById('answer-explanation').textContent = 
-            data.currentQuestion.explanation || 'No explanation available';
+        // Color code the answer options
+        this.colorCodeAnswers(data.currentQuestion.correctAnswer);
         
-        // Update player scores
-        const scoresContainer = document.getElementById('player-scores');
-        scoresContainer.innerHTML = '';
+        // Show inline results
+        this.showInlineResults(data);
+    }
+
+    colorCodeAnswers(correctAnswerIndex) {
+        const answerOptions = document.querySelectorAll('.answer-option');
+        const selectedOption = document.querySelector('.answer-option.selected');
         
-        Object.entries(data.playerAnswers).forEach(([playerId, playerData]) => {
-            const scoreItem = document.createElement('div');
-            scoreItem.className = 'score-item';
+        answerOptions.forEach((option, index) => {
+            // Remove existing color classes
+            option.classList.remove('correct', 'incorrect', 'neutral');
             
-            const isCorrect = playerData.answer === data.currentQuestion.correctAnswer;
-            scoreItem.innerHTML = `
-                <div class="player-name">${playerData.name}</div>
-                <div class="player-answer ${isCorrect ? 'correct' : 'incorrect'}">
-                    ${playerData.answer !== undefined ? data.currentQuestion.options[playerData.answer] : 'No answer'}
-                </div>
-                <div class="player-score">${playerData.score} pts</div>
-            `;
-            
-            scoresContainer.appendChild(scoreItem);
+            if (index === correctAnswerIndex) {
+                // This is the correct answer
+                option.classList.add('correct');
+            } else if (option.classList.contains('selected')) {
+                // This was the selected wrong answer
+                option.classList.add('incorrect');
+            } else {
+                // This is a neutral (unselected, incorrect) answer
+                option.classList.add('neutral');
+            }
         });
-        
-        // Show appropriate button
+    }
+
+    showInlineResults(data) {
+        const currentPlayer = this.getCurrentPlayer();
         const session = this.gameState.currentSession;
+        
+        // Calculate points earned for this question
+        let pointsEarned = 0;
+        let wasCorrect = false;
+        
+        if (currentPlayer && data.playerAnswers[currentPlayer.id]) {
+            const playerData = data.playerAnswers[currentPlayer.id];
+            const previousScore = this.gameState.previousScore || 0;
+            pointsEarned = playerData.score - previousScore;
+            this.gameState.previousScore = playerData.score;
+            wasCorrect = playerData.answer === data.currentQuestion.correctAnswer;
+        }
+        
+        // Update explanation
+        const explanationElement = document.getElementById('inline-explanation');
+        if (data.currentQuestion.explanation) {
+            explanationElement.textContent = data.currentQuestion.explanation;
+        } else {
+            explanationElement.textContent = `The correct answer is: ${data.currentQuestion.options[data.currentQuestion.correctAnswer]}`;
+        }
+        
+        // Update points display
+        const pointsElement = document.getElementById('points-earned');
+        const scoreElement = document.getElementById('current-score');
+        
+        if (pointsEarned > 0) {
+            pointsElement.textContent = `+${pointsEarned} points!`;
+            pointsElement.style.color = 'var(--secondary-accent-color-2)';
+        } else {
+            pointsElement.textContent = wasCorrect ? '+0 points' : 'No points';
+            pointsElement.style.color = 'var(--text-color-secondary)';
+        }
+        
+        if (currentPlayer) {
+            scoreElement.textContent = `Total Score: ${data.playerAnswers[currentPlayer.id]?.score || 0} points`;
+        }
+        
+        // Show appropriate continue button
+        const continueBtn = document.getElementById('continue-btn');
+        const finishBtn = document.getElementById('finish-quiz-btn');
+        
         if (session.currentQuestionIndex >= session.quiz.questions.length - 1) {
-            document.getElementById('view-final-results-btn').classList.remove('hidden');
-            document.getElementById('next-question-btn').classList.add('hidden');
+            // Last question - show finish button
+            finishBtn.classList.remove('hidden');
+            continueBtn.classList.add('hidden');
             
             // Save highscores when quiz is finished
             this.saveHighscores(data.playerAnswers);
         } else {
-            document.getElementById('next-question-btn').classList.remove('hidden');
-            document.getElementById('view-final-results-btn').classList.add('hidden');
+            // More questions - show continue button
+            continueBtn.classList.remove('hidden');
+            finishBtn.classList.add('hidden');
             
-            // Only show next button for host
+            // Only show continue button for host
             if (!this.isHost()) {
-                document.getElementById('next-question-btn').style.display = 'none';
+                continueBtn.style.display = 'none';
             }
         }
         
-        this.showScreen('results');
+        // Show the inline results section
+        document.getElementById('inline-results').classList.remove('hidden');
+    }
+
+    handleQuizStarted(data) {
+        console.log('🚀 Quiz started:', data);
+        
+        // Clear timeout and hide loading when quiz starts
+        if (this.startQuizTimeout) {
+            clearTimeout(this.startQuizTimeout);
+            this.startQuizTimeout = null;
+        }
+        this.hideLoading();
+        
+        // Update session with the started quiz data
+        this.gameState.currentSession = data.session;
+        
+        // Set game start time when quiz begins
+        if (!this.gameStartTime) {
+            this.gameStartTime = Date.now();
+        }
+        
+        this.updateQuizDisplay();
+        this.showScreen('quiz');
+        this.startQuestionTimer();
     }
 
     updateLobbyDisplay() {
@@ -568,7 +775,7 @@ class QuizGameClient {
         if (!session) return;
         
         // Update quiz info
-        document.getElementById('quiz-title-display').textContent = session.quiz.title;
+        document.getElementById('quiz-title-display').textContent = session.quiz.title || session.quiz.topic;
         document.getElementById('room-code-display').textContent = this.gameState.roomCode;
         document.getElementById('quiz-topic-display').textContent = session.quiz.topic;
         document.getElementById('quiz-question-count').textContent = session.quiz.questions.length;
@@ -600,6 +807,16 @@ class QuizGameClient {
             playersList.appendChild(li);
         });
         
+        // Update ready button visibility
+        const readyBtn = document.getElementById('ready-btn');
+        if (players.length === 1) {
+            // Hide ready button when playing solo
+            readyBtn.style.display = 'none';
+        } else {
+            // Show ready button for multiplayer
+            readyBtn.style.display = 'block';
+        }
+        
         // Update host controls
         const hostControls = document.getElementById('host-controls');
         const startBtn = document.getElementById('start-quiz-btn');
@@ -607,9 +824,24 @@ class QuizGameClient {
         if (this.isHost()) {
             hostControls.classList.remove('hidden');
             
-            // Enable start button if all players are ready
-            const allReady = players.length > 0 && players.every(p => p.isReady);
-            startBtn.disabled = !allReady;
+            // Enable start button if:
+            // 1. Only one player (host can start solo), OR
+            // 2. All players are ready
+            const canStart = players.length === 1 || (players.length > 0 && players.every(p => p.isReady));
+            
+            // Only enable if we can start and we're not currently starting
+            const isCurrentlyStarting = startBtn.textContent === 'Starting...';
+            startBtn.disabled = !canStart || isCurrentlyStarting;
+            
+            // Update button text based on player count (only if not currently starting)
+            if (!isCurrentlyStarting) {
+                if (players.length === 1) {
+                    startBtn.textContent = 'Start Quiz';
+                } else {
+                    const readyCount = players.filter(p => p.isReady).length;
+                    startBtn.textContent = `Start Quiz (${readyCount}/${players.length} ready)`;
+                }
+            }
         } else {
             hostControls.classList.add('hidden');
         }
@@ -617,13 +849,31 @@ class QuizGameClient {
 
     updateQuizDisplay() {
         const session = this.gameState.currentSession;
-        if (!session || session.gameState !== 'playing') return;
+        if (!session) {
+            console.log('⚠️ No session available for quiz display');
+            return;
+        }
         
-        const currentQuestion = session.quiz.questions[session.currentQuestionIndex];
-        if (!currentQuestion) return;
+        if (session.gameState !== 'playing') {
+            console.log('⚠️ Session not in playing state:', session.gameState);
+            return;
+        }
+        
+        const currentQuestionIndex = session.currentQuestionIndex || 0;
+        const currentQuestion = session.quiz.questions[currentQuestionIndex];
+        
+        if (!currentQuestion) {
+            console.log('⚠️ No current question available at index:', currentQuestionIndex);
+            return;
+        }
+        
+        console.log('📝 Displaying question:', currentQuestionIndex + 1, 'of', session.quiz.questions.length);
+        
+        // Hide inline results from previous question
+        document.getElementById('inline-results').classList.add('hidden');
         
         // Update question info
-        document.getElementById('current-question-num').textContent = session.currentQuestionIndex + 1;
+        document.getElementById('current-question-num').textContent = currentQuestionIndex + 1;
         document.getElementById('total-questions').textContent = session.quiz.questions.length;
         document.getElementById('question-text').textContent = currentQuestion.question;
         
@@ -640,21 +890,28 @@ class QuizGameClient {
         });
         
         // Update player status
-        const players = Object.values(session.players);
+        const players = Object.values(session.players || {});
         const answeredCount = players.filter(p => p.hasAnswered).length;
         document.getElementById('players-answered').textContent = answeredCount;
         document.getElementById('total-players-quiz').textContent = players.length;
     }
 
     selectAnswer(answerIndex) {
+        console.log('📝 Selecting answer:', answerIndex);
+        
         // Disable all options
         document.querySelectorAll('.answer-option').forEach(btn => {
             btn.disabled = true;
             btn.classList.remove('selected');
         });
         
-        // Mark selected option
-        document.querySelectorAll('.answer-option')[answerIndex].classList.add('selected');
+        // Mark selected option (only if valid index)
+        if (answerIndex >= 0) {
+            const selectedOption = document.querySelectorAll('.answer-option')[answerIndex];
+            if (selectedOption) {
+                selectedOption.classList.add('selected');
+            }
+        }
         
         // Send answer to server
         this.sendMessage({
@@ -662,24 +919,42 @@ class QuizGameClient {
             answerIndex
         });
         
-        this.showToast('Answer submitted!', 'success');
+        if (answerIndex >= 0) {
+            this.showToast('Answer submitted!', 'success');
+        } else {
+            this.showToast('Time expired - no answer submitted', 'info');
+        }
     }
 
     startQuestionTimer() {
         const session = this.gameState.currentSession;
-        if (!session) return;
+        if (!session) {
+            console.log('⚠️ No session for timer');
+            return;
+        }
         
-        this.gameState.timeRemaining = session.questionTimeLimit;
+        // Default to 30 seconds if not specified
+        const timeLimit = session.questionTimeLimit || 30;
+        this.gameState.timeRemaining = timeLimit;
+        
+        console.log('⏰ Starting timer with', timeLimit, 'seconds');
         this.updateTimerDisplay();
+        
+        // Clear any existing timer
+        if (this.timer) {
+            clearInterval(this.timer);
+        }
         
         this.timer = setInterval(() => {
             this.gameState.timeRemaining--;
             this.updateTimerDisplay();
             
             if (this.gameState.timeRemaining <= 0) {
+                console.log('⏰ Timer expired');
                 this.stopTimer();
                 // Auto-submit if no answer selected
                 if (!document.querySelector('.answer-option.selected')) {
+                    console.log('📝 Auto-submitting no answer');
                     this.selectAnswer(-1); // No answer
                 }
             }
@@ -725,10 +1000,28 @@ class QuizGameClient {
     }
 
     startQuiz() {
+        console.log('🚀 startQuiz() called');
+        
         if (!this.isHost()) {
             this.showToast('Only the host can start the quiz', 'error');
             return;
         }
+        
+        // Prevent multiple clicks
+        const startBtn = document.getElementById('start-quiz-btn');
+        if (startBtn.disabled) {
+            console.log('⚠️ Start button already disabled, ignoring click');
+            return;
+        }
+        
+        console.log('✅ Starting quiz...');
+        
+        // Disable button and show loading
+        startBtn.disabled = true;
+        startBtn.textContent = 'Starting...';
+        
+        // Show loading with funny Sims-style messages
+        this.showQuizStartLoading();
         
         this.sendMessage({ type: 'start_quiz' });
     }
@@ -816,13 +1109,80 @@ class QuizGameClient {
     }
 
     showLoading(message, submessage = '') {
-        document.getElementById('loading-message').textContent = message;
-        document.getElementById('loading-submessage').textContent = submessage;
-        document.getElementById('loading-overlay').classList.remove('hidden');
+        console.log('🔄 showLoading() called with:', message, submessage);
+        
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        const loadingSubmessage = document.getElementById('loading-submessage');
+        
+        if (!loadingOverlay || !loadingMessage || !loadingSubmessage) {
+            console.error('❌ Loading elements not found in DOM');
+            return;
+        }
+        
+        loadingMessage.textContent = message;
+        loadingSubmessage.textContent = submessage;
+        loadingOverlay.classList.remove('hidden');
+        
+        console.log('✅ Loading overlay should now be visible');
     }
 
     hideLoading() {
-        document.getElementById('loading-overlay').classList.add('hidden');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+            console.log('🔄 Loading overlay hidden');
+        } else {
+            console.error('❌ Loading overlay not found in DOM');
+        }
+    }
+
+    showQuizStartLoading() {
+        console.log('🎭 showQuizStartLoading() called');
+        
+        const funnyMessages = [
+            "Reticulating splines...",
+            "Calibrating fun levels...",
+            "Warming up brain cells...",
+            "Shuffling question deck...",
+            "Consulting the quiz oracle...",
+            "Polishing trivia gems...",
+            "Awakening sleeping neurons...",
+            "Charging knowledge batteries...",
+            "Summoning quiz spirits...",
+            "Preparing mental gymnastics...",
+            "Loading smarty-pants mode...",
+            "Activating think-o-matic...",
+            "Brewing intelligence potion...",
+            "Downloading wisdom packets...",
+            "Initializing brain.exe...",
+            "Defragmenting memory banks...",
+            "Tuning quiz frequencies...",
+            "Assembling question particles...",
+            "Synchronizing synapses...",
+            "Optimizing neural pathways..."
+        ];
+
+        const randomMessage = funnyMessages[Math.floor(Math.random() * funnyMessages.length)];
+        console.log('🎲 Random message:', randomMessage);
+        this.showLoading('Starting Quiz...', randomMessage);
+        
+        // Safety timeout in case something goes wrong
+        if (this.startQuizTimeout) {
+            clearTimeout(this.startQuizTimeout);
+        }
+        
+        this.startQuizTimeout = setTimeout(() => {
+            this.hideLoading();
+            this.showToast('Quiz start is taking longer than expected. Please try again.', 'error');
+            
+            // Re-enable the start button
+            const startBtn = document.getElementById('start-quiz-btn');
+            if (startBtn) {
+                startBtn.disabled = false;
+                this.updateLobbyDisplay(); // This will restore the proper button text
+            }
+        }, 15000); // 15 second timeout
     }
 
     async showBrowseQuizzes() {
@@ -902,8 +1262,9 @@ class QuizGameClient {
             quizItem.innerHTML = `
                 <div class="quiz-item-header">
                     <div>
-                        <h4 class="quiz-item-title">${quiz.topic}</h4>
-                        <p class="quiz-item-topic">Created by ${quiz.createdBy}</p>
+                        <h4 class="quiz-item-title">${quiz.title || quiz.topic}</h4>
+                        <p class="quiz-item-topic">${quiz.topic}</p>
+                        <p class="quiz-item-creator">Created by ${quiz.createdBy}</p>
                     </div>
                 </div>
                 <div class="quiz-item-stats">
@@ -938,24 +1299,52 @@ class QuizGameClient {
 
     async playQuiz(quizId) {
         try {
+            console.log('🎮 Playing quiz:', quizId);
+            
+            // Show loading
+            this.showLoading('Loading quiz...', 'Preparing your quiz experience...');
+            
             const quiz = await this.quizDatabase.getQuiz(quizId);
+            console.log('📚 Quiz loaded from database:', quiz);
+            
+            // Get player name
+            const playerName = await this.showPrompt('Enter your name:', 'Player Name');
+            if (!playerName) {
+                this.hideLoading();
+                return;
+            }
             
             // Generate room code and connect
             this.gameState.roomCode = this.generateRoomCode();
-            this.gameState.playerName = prompt('Enter your name:') || 'Anonymous';
+            this.gameState.playerName = playerName.trim();
             this.gameState.isHost = true;
             
+            console.log('🔌 Connecting to WebSocket...');
             await this.connectWebSocket();
             
             // Send message to create session with existing quiz
+            console.log('📤 Sending play_existing_quiz message...');
             this.sendMessage({
                 type: 'play_existing_quiz',
                 quizId: quizId,
+                quiz: quiz, // Send the full quiz data
                 playerName: this.gameState.playerName
             });
             
+            // Set timeout for loading
+            if (this.playQuizTimeout) {
+                clearTimeout(this.playQuizTimeout);
+            }
+            
+            this.playQuizTimeout = setTimeout(() => {
+                this.hideLoading();
+                this.showToast('Quiz loading is taking longer than expected. Please try again.', 'error');
+                console.log('⏰ Play quiz timeout');
+            }, 10000); // 10 second timeout
+            
         } catch (error) {
-            console.error('Error playing quiz:', error);
+            console.error('❌ Error playing quiz:', error);
+            this.hideLoading();
             this.showToast('Error loading quiz. Please try again.', 'error');
         }
     }
@@ -1022,6 +1411,164 @@ class QuizGameClient {
             toast.classList.remove('show');
             setTimeout(() => container.removeChild(toast), 300);
         }, 3000);
+    }
+
+    // Custom Alert Modal (replaces browser alert)
+    showAlert(message, title = 'Alert') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('alert-modal');
+            const messageEl = document.getElementById('alert-message');
+            const titleEl = modal.querySelector('.modal-title');
+            const okBtn = document.getElementById('alert-ok-btn');
+            
+            // Set content
+            messageEl.textContent = message;
+            titleEl.textContent = title;
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('show'), 10);
+            
+            // Handle close
+            const closeModal = () => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    resolve();
+                }, 250);
+            };
+            
+            // Event listeners
+            okBtn.onclick = closeModal;
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal();
+            };
+            
+            // ESC key support
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            };
+            document.addEventListener('keydown', handleEsc);
+        });
+    }
+
+    // Custom Confirm Modal (replaces browser confirm)
+    showConfirm(message, title = 'Confirm', options = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirm-modal');
+            const messageEl = document.getElementById('confirm-message');
+            const titleEl = modal.querySelector('.modal-title');
+            const cancelBtn = document.getElementById('confirm-cancel-btn');
+            const confirmBtn = document.getElementById('confirm-ok-btn');
+            
+            // Set content
+            messageEl.textContent = message;
+            titleEl.textContent = title;
+            
+            // Configure buttons
+            cancelBtn.textContent = options.cancelText || 'Cancel';
+            confirmBtn.textContent = options.confirmText || 'Confirm';
+            
+            // Add danger styling if specified
+            if (options.danger) {
+                confirmBtn.classList.add('danger');
+            } else {
+                confirmBtn.classList.remove('danger');
+            }
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('show'), 10);
+            
+            // Handle close
+            const closeModal = (result) => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    resolve(result);
+                }, 250);
+            };
+            
+            // Event listeners
+            cancelBtn.onclick = () => closeModal(false);
+            confirmBtn.onclick = () => closeModal(true);
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal(false);
+            };
+            
+            // ESC key support
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(false);
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            };
+            document.addEventListener('keydown', handleEsc);
+        });
+    }
+
+    // Custom Prompt Modal (replaces browser prompt)
+    showPrompt(message, title = 'Input Required', placeholder = 'Enter value...') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('prompt-modal');
+            const messageEl = document.getElementById('prompt-message');
+            const titleEl = modal.querySelector('.modal-title');
+            const inputEl = document.getElementById('prompt-input');
+            const cancelBtn = document.getElementById('prompt-cancel-btn');
+            const okBtn = document.getElementById('prompt-ok-btn');
+            
+            // Set content
+            messageEl.textContent = message;
+            titleEl.textContent = title;
+            inputEl.placeholder = placeholder;
+            inputEl.value = '';
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('show');
+                inputEl.focus();
+            }, 10);
+            
+            // Handle close
+            const closeModal = (result) => {
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    resolve(result);
+                }, 250);
+            };
+            
+            // Event listeners
+            cancelBtn.onclick = () => closeModal(null);
+            okBtn.onclick = () => {
+                const value = inputEl.value.trim();
+                closeModal(value || null);
+            };
+            modal.onclick = (e) => {
+                if (e.target === modal) closeModal(null);
+            };
+            
+            // Enter key support
+            inputEl.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    const value = inputEl.value.trim();
+                    closeModal(value || null);
+                }
+            };
+            
+            // ESC key support
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal(null);
+                    document.removeEventListener('keydown', handleEsc);
+                }
+            };
+            document.addEventListener('keydown', handleEsc);
+        });
     }
 }
 
