@@ -75,11 +75,16 @@ class QuizDatabase {
             const highscoresRef = ref(this.db, `highscores/${quizId}`);
             const newScoreRef = push(highscoresRef);
             
+            // Calculate correct answers from points (100 points per correct answer)
+            const correctAnswers = Math.floor(score / 100);
+            const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            
             const scoreData = {
                 playerName: playerName,
-                score: score,
+                score: score, // Keep the actual points scored
+                correctAnswers: correctAnswers, // Number of correct answers
                 totalQuestions: totalQuestions,
-                percentage: Math.round((score / totalQuestions) * 100),
+                percentage: percentage, // Percentage based on correct answers
                 timeSpent: timeSpent,
                 timestamp: Date.now()
             };
@@ -87,7 +92,7 @@ class QuizDatabase {
             await set(newScoreRef, scoreData);
             
             // Update quiz statistics
-            await this.updateQuizStats(quizId, score, totalQuestions);
+            await this.updateQuizStats(quizId, correctAnswers, totalQuestions);
             
             return newScoreRef.key;
         } catch (error) {
@@ -130,7 +135,7 @@ class QuizDatabase {
     }
 
     // Update quiz statistics
-    async updateQuizStats(quizId, score, totalQuestions) {
+    async updateQuizStats(quizId, correctAnswers, totalQuestions) {
         try {
             const quizRef = ref(this.db, `quizzes/${quizId}`);
             const snapshot = await get(quizRef);
@@ -141,13 +146,15 @@ class QuizDatabase {
                 const currentAverage = quiz.averageScore || 0;
                 
                 const newPlayCount = currentPlayCount + 1;
-                const percentage = (score / totalQuestions) * 100;
+                const percentage = (correctAnswers / totalQuestions) * 100;
                 const newAverage = ((currentAverage * currentPlayCount) + percentage) / newPlayCount;
                 
                 await update(quizRef, {
                     playCount: newPlayCount,
                     averageScore: Math.round(newAverage * 100) / 100
                 });
+                
+                console.log(`📊 Quiz stats updated: ${quizId} - Play count: ${newPlayCount}, Average: ${Math.round(newAverage * 100) / 100}%`);
             }
         } catch (error) {
             console.error('Error updating quiz stats:', error);
@@ -187,6 +194,43 @@ class QuizDatabase {
             return quizzes.slice(0, limit);
         } catch (error) {
             console.error('Error getting recent quizzes:', error);
+            throw error;
+        }
+    }
+
+    // Get session statistics for a quiz
+    async getSessionStats(quizId) {
+        try {
+            const sessionStatsRef = ref(this.db, `sessionStats/${quizId}`);
+            const snapshot = await get(sessionStatsRef);
+            
+            if (snapshot.exists()) {
+                const sessions = [];
+                snapshot.forEach((childSnapshot) => {
+                    sessions.push(childSnapshot.val());
+                });
+                
+                // Calculate total unique players and sessions
+                const totalSessions = sessions.length;
+                const totalPlayers = sessions.reduce((sum, session) => sum + session.playerCount, 0);
+                const averagePlayersPerSession = totalSessions > 0 ? Math.round((totalPlayers / totalSessions) * 100) / 100 : 0;
+                
+                return {
+                    totalSessions,
+                    totalPlayers,
+                    averagePlayersPerSession,
+                    sessions: sessions.sort((a, b) => b.timestamp - a.timestamp)
+                };
+            } else {
+                return {
+                    totalSessions: 0,
+                    totalPlayers: 0,
+                    averagePlayersPerSession: 0,
+                    sessions: []
+                };
+            }
+        } catch (error) {
+            console.error('Error getting session stats:', error);
             throw error;
         }
     }

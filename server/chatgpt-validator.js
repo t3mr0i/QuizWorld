@@ -224,6 +224,27 @@ async function getMessages(threadId) {
 }
 
 /**
+ * Deletes a thread to free up resources
+ * @param {string} threadId The thread ID
+ * @returns {Promise<void>}
+ */
+async function deleteThread(threadId) {
+  try {
+    console.log(`🗑️ Deleting thread: ${threadId}`);
+    await axios.delete(
+      `https://api.openai.com/v1/threads/${threadId}`,
+      {
+        headers: getApiHeaders()
+      }
+    );
+    console.log(`✅ Thread ${threadId} deleted successfully`);
+  } catch (error) {
+    console.error(`❌ Error deleting thread ${threadId}:`, error.response?.data || error.message);
+    // Don't throw error for cleanup operations
+  }
+}
+
+/**
  * Waits for a run to complete
  * @param {string} threadId The thread ID
  * @param {string} runId The run ID
@@ -348,7 +369,9 @@ async function validateAnswers(letter, answers, categories) {
       throw new Error('Error validating answers: Failed to create thread');
     }
 
-    // Send a message to the thread
+    // Ensure thread cleanup happens regardless of success or failure
+    try {
+      // Send a message to the thread
     console.log('🔄 Sending message to thread...');
     try {
       await sendMessage(threadId, validationPrompt);
@@ -479,6 +502,12 @@ async function validateAnswers(letter, answers, categories) {
       console.error('Parse error:', e);
       
       throw new Error(`Failed to parse AI response: ${e.message}`);
+    }
+    } finally {
+      // Clean up the thread to prevent memory leaks
+      if (threadId) {
+        await deleteThread(threadId);
+      }
     }
   } catch (error) {
     console.error('Error in validateAnswers:', error);

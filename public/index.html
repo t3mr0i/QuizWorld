@@ -64,7 +64,7 @@
         <div class="navbar fixed-top">
             <div class="container d-flex justify-content-between align-items-center">
                 <a href="#" class="navbar-brand">
-                    <h1 class="mb-0"><i class="ph ph-brain"></i> QuizWorld</h1>
+                    <h1 class="mb-0"><i class="ph ph-brain"></i> Quizaru</h1>
                 </a>
             </div>
         </div>
@@ -74,8 +74,8 @@
             <div id="welcome-screen" class="game-screen active">
                 <div class="card welcome-card">
                     <div class="card-header">
-                        <h2>Welcome to QuizWorld</h2>
-                        <p>Create AI-powered quizzes or join existing games</p>
+                        <h2>Welcome to Quizaru</h2>
+                       
                     </div>
                     <div class="card-body">
                         <div class="welcome-options">
@@ -150,7 +150,7 @@
                             
                             <div class="form-actions">
                                 <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
-                                <button type="submit" id="generate-quiz-btn" class="btn btn-orange">
+                                <button type="submit" id="generate-quiz-btn" class="btn btn-primary">
                                     <span class="btn-text">Generate Quiz with AI</span>
                                     <span class="btn-loading hidden"><i class="ph ph-robot"></i> Generating...</span>
                                 </button>
@@ -194,6 +194,9 @@
                     <div class="card-header">
                         <h2><i class="ph ph-trophy"></i> Create Tournament</h2>
                         <p>Combine multiple quizzes into one competitive match</p>
+                        <div class="disclaimer">
+                            <p><strong>Note:</strong> Tournament content is based on user-created quizzes. Quizaru is not responsible for quiz content accuracy or appropriateness.</p>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="tournament-creator">
@@ -268,6 +271,9 @@
                     <div class="card-header">
                         <h2>Browse Quizzes</h2>
                         <p>Discover and play quizzes created by the community</p>
+                        <div class="disclaimer">
+                            <p><strong>Content Notice:</strong> These quizzes are user-generated content. Quizaru does not endorse or verify the accuracy of quiz content.</p>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="quiz-browser">
@@ -358,7 +364,9 @@
                         </div>
                     </div>
                     
-                    <div class="question-card">
+                    <div class="quiz-layout">
+                        <div class="question-section">
+                            <div class="question-card">
                         <h2 id="question-text">Loading question...</h2>
                         
                         <div id="answer-options" class="answer-options">
@@ -383,6 +391,17 @@
                             <div class="next-question-controls">
                                 <button id="continue-btn" class="btn btn-primary hidden">Next Question</button>
                                 <button id="finish-quiz-btn" class="btn btn-success hidden">View Final Results</button>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                        
+                        <div class="live-leaderboard-section">
+                            <div class="live-leaderboard">
+                                <h3><i class="ph ph-trophy"></i> Live Leaderboard</h3>
+                                <div id="live-leaderboard-list" class="live-leaderboard-list">
+                                    <!-- Live scores will be populated here -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -437,6 +456,13 @@
                 </div>
             </div>
         </main>
+        
+        <!-- Footer Disclaimer -->
+        <footer class="app-footer">
+            <div class="footer-disclaimer">
+                <p><strong>Legal Disclaimer:</strong> Quizaru provides a platform for user-generated quiz content. We do not review, endorse, or guarantee the accuracy, completeness, or appropriateness of user-created quizzes. Users are responsible for the content they create and share. By using this platform, you acknowledge that quiz content reflects the views of individual users, not Quizaru.</p>
+            </div>
+        </footer>
     </div>
 
     <!-- Loading Overlay -->

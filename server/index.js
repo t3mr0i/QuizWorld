@@ -701,22 +701,60 @@ async function validateAndScoreRound(roomId) { // Removed playerIdToValidate par
 }
 
 const startServer = (port) => {
-  server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      console.warn(`Port ${port} is busy, trying port ${port + 1}...`);
-      setTimeout(() => {
-        server.close();
-        startServer(port + 1);
-      }, 1000);
-    } else {
-      console.error('Server error:', error);
-    }
-  });
+  const tryPort = (currentPort) => {
+    server.removeAllListeners('error');
+    
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.warn(`Port ${currentPort} is busy, trying port ${currentPort + 1}...`);
+        server.close(() => {
+          tryPort(currentPort + 1);
+        });
+      } else {
+        console.error('Server error:', error);
+        process.exit(1);
+      }
+    });
 
-  server.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  });
+    server.listen(currentPort, () => {
+      console.log(`Server running on port ${currentPort}`);
+    });
+  };
+  
+  tryPort(port);
 };
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+// Handle uncaught exceptions to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  server.close(() => {
+    process.exit(1);
+  });
+});
 
 const PORT = process.env.PORT || 5678;
 startServer(PORT);
