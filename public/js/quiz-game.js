@@ -601,12 +601,17 @@ class QuizGameClient {
                 contentValid = moderation.isValid;
                 contentMessage = moderation.message;
                 
-                this.updateContentValidationFeedback(moderation);
-                
+                // Only show feedback if content is invalid
                 if (!contentValid) {
+                    this.updateContentValidationFeedback(moderation);
                     this.showContentSuggestions();
                 } else {
-                    // Remove suggestions if content is now valid
+                    // Hide feedback and suggestions when content is valid
+                    const feedbackDiv = document.getElementById('content-validation-feedback');
+                    if (feedbackDiv) {
+                        feedbackDiv.style.display = 'none';
+                    }
+                    
                     const suggestionsDiv = document.getElementById('topic-suggestions');
                     if (suggestionsDiv) {
                         suggestionsDiv.remove();
@@ -645,8 +650,7 @@ class QuizGameClient {
             questionCountSelect.addEventListener('change', validateForm);
         }
 
-        // Show content guidelines initially
-        this.showContentGuidelines();
+        // Content guidelines removed - validation handled directly
     }
 
     createContentValidationElements() {
@@ -743,30 +747,8 @@ class QuizGameClient {
         }
     }
 
-    showContentGuidelines() {
-        const form = document.getElementById('create-quiz-form');
-        if (!form || document.getElementById('content-guidelines')) return;
-        
-        const guidelinesDiv = document.createElement('div');
-        guidelinesDiv.id = 'content-guidelines';
-        guidelinesDiv.innerHTML = `
-            <div style="margin: 20px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
-                <h4 style="margin: 0 0 12px 0; color: #155724; font-size: 16px;">
-                    📋 Content Guidelines
-                </h4>
-                <div style="font-size: 14px; line-height: 1.5;">
-                    ${ClientContentModerator.getContentGuidelines().map(guideline => 
-                        `<div style="margin: 4px 0;">${guideline}</div>`
-                    ).join('')}
-                </div>
-            </div>
-        `;
-        
-        const submitBtn = document.getElementById('generate-quiz-btn');
-        if (submitBtn && submitBtn.parentNode) {
-            submitBtn.parentNode.insertBefore(guidelinesDiv, submitBtn);
-        }
-    }
+    // Content guidelines removed - validation is now handled directly through button state
+    // showContentGuidelines() method no longer needed
 
     showScreen(screenName, addToHistory = true) {
         // Hide all screens

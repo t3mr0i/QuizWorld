@@ -481,14 +481,33 @@ small {
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 1 !important;
   cursor: not-allowed;
   transform: none;
+  color: white !important;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      #A8ADB4,
+      #A8ADB4 10px,
+      #7E8187 10px,
+      #7E8187 20px
+    ) !important;
+  border-color: #7E8187 !important;
 }
 
 .btn:disabled:hover {
   transform: none;
   box-shadow: none;
+  color: white !important;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      #A8ADB4,
+      #A8ADB4 10px,
+      #7E8187 10px,
+      #7E8187 20px
+    ) !important;
 }
 
 /* Form Actions */
