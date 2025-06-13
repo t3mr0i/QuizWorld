@@ -624,6 +624,23 @@ class QuizGameClient {
             if (submitBtn) {
                 submitBtn.disabled = !isFormValid;
                 
+                // Force white text color when disabled
+                if (submitBtn.disabled) {
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (btnText) {
+                        btnText.style.color = 'white';
+                        btnText.style.setProperty('color', 'white', 'important');
+                    }
+                    submitBtn.style.color = 'white';
+                    submitBtn.style.setProperty('color', 'white', 'important');
+                } else {
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (btnText) {
+                        btnText.style.color = '';
+                    }
+                    submitBtn.style.color = '';
+                }
+                
                 if (!contentValid && topicField && topicField.value.trim()) {
                     submitBtn.title = contentMessage;
                 } else {
@@ -635,6 +652,15 @@ class QuizGameClient {
         // Initially disable the button
         if (submitBtn) {
             submitBtn.disabled = true;
+            
+            // Force white text color on disabled button
+            const btnText = submitBtn.querySelector('.btn-text');
+            if (btnText) {
+                btnText.style.color = 'white';
+                btnText.style.setProperty('color', 'white', 'important');
+            }
+            submitBtn.style.color = 'white';
+            submitBtn.style.setProperty('color', 'white', 'important');
         }
 
         // Add event listeners to all required fields

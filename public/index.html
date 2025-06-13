@@ -9,7 +9,7 @@
     <!-- Preload critical resources -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" as="style">
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" as="style">
-    <link rel="preload" href="js/quiz-game-optimized.js" as="script">
+    <link rel="preload" href="js/quiz-game.js?v=1.0.1" as="script">
     
     <!-- Critical CSS inlined for immediate rendering -->
     <style>
@@ -143,7 +143,27 @@
         .btn:disabled,
         .btn:disabled *,
         .btn:disabled .btn-text,
-        .btn:disabled span {
+        .btn:disabled span,
+        .btn[disabled],
+        .btn[disabled] *,
+        .btn[disabled] .btn-text,
+        .btn[disabled] span,
+        button:disabled,
+        button:disabled *,
+        button:disabled .btn-text,
+        button:disabled span,
+        button[disabled],
+        button[disabled] *,
+        button[disabled] .btn-text,
+        button[disabled] span,
+        #generate-quiz-btn:disabled,
+        #generate-quiz-btn:disabled *,
+        #generate-quiz-btn:disabled .btn-text,
+        #generate-quiz-btn:disabled span,
+        #generate-quiz-btn[disabled],
+        #generate-quiz-btn[disabled] *,
+        #generate-quiz-btn[disabled] .btn-text,
+        #generate-quiz-btn[disabled] span {
           opacity: 1 !important;
           cursor: not-allowed !important;
           transform: none !important;
@@ -162,7 +182,27 @@
         .btn:disabled:hover,
         .btn:disabled:hover *,
         .btn:disabled:hover .btn-text,
-        .btn:disabled:hover span {
+        .btn:disabled:hover span,
+        .btn[disabled]:hover,
+        .btn[disabled]:hover *,
+        .btn[disabled]:hover .btn-text,
+        .btn[disabled]:hover span,
+        button:disabled:hover,
+        button:disabled:hover *,
+        button:disabled:hover .btn-text,
+        button:disabled:hover span,
+        button[disabled]:hover,
+        button[disabled]:hover *,
+        button[disabled]:hover .btn-text,
+        button[disabled]:hover span,
+        #generate-quiz-btn:disabled:hover,
+        #generate-quiz-btn:disabled:hover *,
+        #generate-quiz-btn:disabled:hover .btn-text,
+        #generate-quiz-btn:disabled:hover span,
+        #generate-quiz-btn[disabled]:hover,
+        #generate-quiz-btn[disabled]:hover *,
+        #generate-quiz-btn[disabled]:hover .btn-text,
+        #generate-quiz-btn[disabled]:hover span {
           transform: none !important;
           box-shadow: none !important;
           color: white !important;
@@ -180,6 +220,36 @@
 
         .hidden {
           display: none !important;
+        }
+
+        /* Ensure form inputs have black text */
+        input,
+        textarea,
+        select,
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        textarea,
+        select {
+          color: var(--kb-black) !important;
+          background-color: white !important;
+        }
+
+        /* Fix for striped disabled button background */
+        .btn:disabled,
+        .btn[disabled],
+        button:disabled,
+        button[disabled],
+        #generate-quiz-btn:disabled,
+        #generate-quiz-btn[disabled] {
+          background: repeating-linear-gradient(
+            45deg,
+            #A8ADB4,
+            #A8ADB4 10px,
+            #7E8187 10px,
+            #7E8187 20px
+          ) !important;
         }
 
         .game-screen {
@@ -451,7 +521,7 @@
     <script src="js/firebase-config.js" defer></script>
     
     <!-- Load optimized main application -->
-    <script type="module" src="js/quiz-game-optimized.js" defer></script>
+    <script type="module" src="js/quiz-game.js?v=1.0.1" defer></script>
     
     <!-- Fallback for older browsers -->
     <script nomodule>
