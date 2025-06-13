@@ -470,15 +470,17 @@ small {
 .btn-text {
   background: none;
   border: none;
-  color: var(--text-color-secondary);
+  color: var(--primary-accent-color);
   text-decoration: underline;
   padding: var(--spacing-sm);
+  font-weight: 500;
 }
 
 .btn-text:hover {
-  color: var(--primary-accent-color);
+  color: var(--secondary-accent-color-1);
   transform: none;
   box-shadow: none;
+  text-decoration: none;
 }
 
 .btn-icon {

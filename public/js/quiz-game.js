@@ -1695,8 +1695,10 @@ class QuizGameClient {
         const selectedOption = document.querySelector('.answer-option.selected');
         
         answerOptions.forEach((option, index) => {
-            // Remove existing color classes
+            // Remove existing color classes and inline styles
             option.classList.remove('correct', 'incorrect', 'neutral');
+            option.style.backgroundColor = '';
+            option.style.color = '';
             
             if (index === correctAnswerIndex) {
                 // This is the correct answer
@@ -1834,12 +1836,22 @@ class QuizGameClient {
             return;
         }
         
+        // Get the total number of questions to calculate percentage
+        const session = this.gameState.currentSession;
+        const totalQuestions = session?.quiz?.questions?.length || 1;
+        
         // Convert player answers to sorted array
-        const players = Object.entries(playerAnswers).map(([id, data]) => ({
-            id,
-            name: data.name,
-            score: data.score || 0
-        }));
+        const players = Object.entries(playerAnswers).map(([id, data]) => {
+            const correctAnswers = data.correctAnswers || 0;
+            const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            
+            return {
+                id,
+                name: data.name,
+                score: data.score || 0,
+                percentage: percentage
+            };
+        });
         
         // Sort by score (highest first)
         players.sort((a, b) => b.score - a.score);
@@ -1936,7 +1948,7 @@ class QuizGameClient {
                 scoreItem.innerHTML = `
                     <div class="rank">${index + 1}</div>
                     <div class="player-name">${score.playerName}${currentPlayer && score.playerName === currentPlayer.name ? ' (You)' : ''}</div>
-                    <div class="score">${score.score} pts (${score.percentage}%)</div>
+                    <div class="score">${score.score} pts${score.percentage !== undefined ? ` (${score.percentage}%)` : ''}</div>
                 `;
                 
                 allTimeElement.appendChild(scoreItem);
@@ -2182,6 +2194,9 @@ class QuizGameClient {
             const selectedOption = document.querySelectorAll('.answer-option')[answerIndex];
             if (selectedOption) {
                 selectedOption.classList.add('selected');
+                // Immediately show visual feedback for selection
+                selectedOption.style.backgroundColor = 'var(--accent-color)';
+                selectedOption.style.color = 'white';
             }
         }
         
@@ -2663,6 +2678,14 @@ class QuizGameClient {
             console.log('📤 Message to send:', message);
             this.sendMessage(message);
             
+            // Update play count for this quiz
+            try {
+                await this.quizDatabase.updateQuizStats(quizId, 0, quiz.questions.length);
+                console.log('📊 Play count updated for quiz:', quizId);
+            } catch (error) {
+                console.error('❌ Error updating play count:', error);
+            }
+            
             // Set timeout for loading
             if (this.playQuizTimeout) {
                 clearTimeout(this.playQuizTimeout);
@@ -2726,7 +2749,7 @@ class QuizGameClient {
         modal.className = 'highscores-modal';
         modal.onclick = (e) => {
             if (e.target === modal) {
-                document.body.removeChild(modal);
+                this.closeHighscoresModal(modal);
             }
         };
         
@@ -2734,7 +2757,7 @@ class QuizGameClient {
             <div class="highscores-content">
                 <div class="highscores-header">
                     <h3>Highscores: ${quizTitle}</h3>
-                    <button class="close-btn" onclick="document.body.removeChild(this.closest('.highscores-modal'))">×</button>
+                    <button class="close-btn" onclick="window.quizGame.closeHighscoresModal(this.closest('.highscores-modal'))">×</button>
                 </div>
                 <ul class="highscore-list">
                     ${highscores.length === 0 ? '<li class="highscore-item">No scores yet. Be the first to play!</li>' : 
@@ -2743,7 +2766,7 @@ class QuizGameClient {
                                 <span class="highscore-rank">#${index + 1}</span>
                                 <span class="highscore-name">${score.playerName}</span>
                                 <span class="highscore-score">
-                                    ${score.score} pts (${score.percentage}%)
+                                    ${score.score} pts${score.percentage !== undefined ? ` (${score.percentage}%)` : ''}
                                 </span>
                             </li>
                         `).join('')
@@ -2752,7 +2775,34 @@ class QuizGameClient {
             </div>
         `;
         
+        // Add keyboard escape support
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                this.closeHighscoresModal(modal);
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Store the escape handler for cleanup
+        modal._escapeHandler = handleEscape;
+        
         document.body.appendChild(modal);
+        
+        // Focus the modal for better accessibility
+        setTimeout(() => {
+            modal.focus();
+        }, 100);
+    }
+
+    closeHighscoresModal(modal) {
+        if (modal && modal.parentNode) {
+            // Clean up escape handler
+            if (modal._escapeHandler) {
+                document.removeEventListener('keydown', modal._escapeHandler);
+            }
+            document.body.removeChild(modal);
+        }
     }
 
     showToast(message, type = 'info') {

@@ -13,7 +13,7 @@
     
     <!-- Critical CSS inlined for immediate rendering -->
     <style>
-        /* Critical CSS - Above the fold styles only */
+        /* CSS Variables */
         :root {
           --digital-void-bg: #DEE4EC;
           --kb-black: #131417;
@@ -24,6 +24,10 @@
           --neon-lime: #D2FF00;
           --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           --font-display: 'Roboto Mono', monospace;
+          --primary-accent-color: var(--teen-orange);
+          --secondary-accent-color: var(--electric-cyan);
+          --secondary-accent-color-2: var(--neon-lime);
+          --text-color-secondary: var(--kb-grey);
         }
 
         * {
@@ -59,6 +63,7 @@
           width: 100%;
         }
 
+        /* Card styles */
         .card {
           background-color: rgba(255, 255, 255, 0.9);
           border: 3px solid var(--kb-black);
@@ -77,7 +82,8 @@
           padding: 24px 32px;
         }
 
-        h1, h2 {
+        /* Typography */
+        h1, h2, h3 {
           font-family: var(--font-display);
           font-weight: 900;
           text-transform: uppercase;
@@ -87,7 +93,9 @@
 
         h1 { font-size: 2.5rem; }
         h2 { font-size: 2rem; }
+        h3 { font-size: 1.5rem; }
 
+        /* Welcome screen styles */
         .welcome-options {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -101,6 +109,7 @@
           padding: 24px;
           text-align: center;
           transition: all 0.25s ease-in-out;
+          cursor: pointer;
         }
 
         .option-card:hover {
@@ -114,6 +123,7 @@
           color: var(--teen-orange);
         }
 
+        /* Button styles */
         .btn {
           display: inline-block;
           padding: 12px 24px;
@@ -127,6 +137,7 @@
           cursor: pointer;
           transition: all 0.15s ease-in-out;
           text-decoration: none;
+          font-size: 14px;
         }
 
         .btn:hover {
@@ -136,34 +147,32 @@
 
         .btn-primary {
           background: var(--teen-orange);
-          color: white;
+          color: white !important;
           border-color: var(--teen-orange);
         }
 
+        .btn-primary *,
+        .btn-primary .btn-text,
+        .btn-primary span {
+          color: white !important;
+        }
+
+        .btn-outline {
+          background: transparent;
+          color: var(--kb-black);
+        }
+
+        .btn-text {
+          background: transparent;
+          border: none;
+          color: var(--kb-grey);
+          text-transform: none;
+          font-weight: 500;
+        }
+
+        /* Disabled button styles */
         .btn:disabled,
-        .btn:disabled *,
-        .btn:disabled .btn-text,
-        .btn:disabled span,
-        .btn[disabled],
-        .btn[disabled] *,
-        .btn[disabled] .btn-text,
-        .btn[disabled] span,
-        button:disabled,
-        button:disabled *,
-        button:disabled .btn-text,
-        button:disabled span,
-        button[disabled],
-        button[disabled] *,
-        button[disabled] .btn-text,
-        button[disabled] span,
-        #generate-quiz-btn:disabled,
-        #generate-quiz-btn:disabled *,
-        #generate-quiz-btn:disabled .btn-text,
-        #generate-quiz-btn:disabled span,
-        #generate-quiz-btn[disabled],
-        #generate-quiz-btn[disabled] *,
-        #generate-quiz-btn[disabled] .btn-text,
-        #generate-quiz-btn[disabled] span {
+        .btn[disabled] {
           opacity: 1 !important;
           cursor: not-allowed !important;
           transform: none !important;
@@ -179,77 +188,100 @@
           pointer-events: none !important;
         }
 
-        .btn:disabled:hover,
-        .btn:disabled:hover *,
-        .btn:disabled:hover .btn-text,
-        .btn:disabled:hover span,
-        .btn[disabled]:hover,
-        .btn[disabled]:hover *,
-        .btn[disabled]:hover .btn-text,
-        .btn[disabled]:hover span,
-        button:disabled:hover,
-        button:disabled:hover *,
-        button:disabled:hover .btn-text,
-        button:disabled:hover span,
-        button[disabled]:hover,
-        button[disabled]:hover *,
-        button[disabled]:hover .btn-text,
-        button[disabled]:hover span,
-        #generate-quiz-btn:disabled:hover,
-        #generate-quiz-btn:disabled:hover *,
-        #generate-quiz-btn:disabled:hover .btn-text,
-        #generate-quiz-btn:disabled:hover span,
-        #generate-quiz-btn[disabled]:hover,
-        #generate-quiz-btn[disabled]:hover *,
-        #generate-quiz-btn[disabled]:hover .btn-text,
-        #generate-quiz-btn[disabled]:hover span {
-          transform: none !important;
-          box-shadow: none !important;
+        .btn:disabled *,
+        .btn:disabled .btn-text,
+        .btn:disabled span,
+        #generate-quiz-btn:disabled,
+        #generate-quiz-btn:disabled *,
+        #generate-quiz-btn:disabled .btn-text,
+        #generate-quiz-btn:disabled span,
+        #generate-quiz-btn[disabled],
+        #generate-quiz-btn[disabled] *,
+        #generate-quiz-btn[disabled] .btn-text,
+        #generate-quiz-btn[disabled] span {
           color: white !important;
-          background: repeating-linear-gradient(
-            45deg,
-            var(--kb-light-grey),
-            var(--kb-light-grey) 10px,
-            var(--kb-grey) 10px,
-            var(--kb-grey) 20px
-          ) !important;
-          border-color: var(--kb-grey) !important;
-          cursor: not-allowed !important;
-          pointer-events: none !important;
         }
 
+        /* Force Generate Quiz button text to always be white */
+        #generate-quiz-btn,
+        #generate-quiz-btn *,
+        #generate-quiz-btn .btn-text,
+        #generate-quiz-btn span,
+        #generate-quiz-btn:hover,
+        #generate-quiz-btn:hover *,
+        #generate-quiz-btn:hover .btn-text,
+        #generate-quiz-btn:hover span,
+        #generate-quiz-btn:focus,
+        #generate-quiz-btn:focus *,
+        #generate-quiz-btn:focus .btn-text,
+        #generate-quiz-btn:focus span,
+        #generate-quiz-btn:active,
+        #generate-quiz-btn:active *,
+        #generate-quiz-btn:active .btn-text,
+        #generate-quiz-btn:active span {
+          color: white !important;
+        }
+
+        /* Form styles */
+        .form-group {
+          margin-bottom: 20px;
+        }
+
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+        }
+
+        .form-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 24px;
+        }
+
+        label {
+          display: block;
+          font-weight: 600;
+          margin-bottom: 8px;
+          color: var(--kb-black);
+        }
+
+        input[type="text"], 
+        input[type="number"], 
+        textarea, 
+        select {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid var(--kb-black);
+          font-family: var(--font-primary);
+          font-size: 16px;
+          color: var(--kb-black) !important;
+          background-color: rgba(255, 255, 255, 0.9) !important;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+        }
+
+        input:focus, textarea:focus, select:focus {
+          outline: none;
+          border-color: var(--teen-orange);
+          background-color: rgba(255, 255, 255, 1) !important;
+        }
+
+        select {
+          background-image: none !important;
+          cursor: pointer;
+        }
+
+        small {
+          color: var(--kb-grey);
+          font-size: 14px;
+        }
+
+        /* Utility classes */
         .hidden {
           display: none !important;
-        }
-
-        /* Ensure form inputs have black text */
-        input,
-        textarea,
-        select,
-        input[type="text"],
-        input[type="email"],
-        input[type="password"],
-        input[type="number"],
-        textarea,
-        select {
-          color: var(--kb-black) !important;
-          background-color: white !important;
-        }
-
-        /* Fix for striped disabled button background */
-        .btn:disabled,
-        .btn[disabled],
-        button:disabled,
-        button[disabled],
-        #generate-quiz-btn:disabled,
-        #generate-quiz-btn[disabled] {
-          background: repeating-linear-gradient(
-            45deg,
-            #A8ADB4,
-            #A8ADB4 10px,
-            #7E8187 10px,
-            #7E8187 20px
-          ) !important;
         }
 
         .game-screen {
@@ -267,6 +299,7 @@
           to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Loading overlay */
         .loading-overlay {
           position: fixed;
           top: 0;
@@ -278,6 +311,11 @@
           align-items: center;
           justify-content: center;
           z-index: 9999;
+          color: white;
+        }
+
+        .loading-content {
+          text-align: center;
         }
 
         .loading-spinner {
@@ -287,6 +325,7 @@
           border-top: 4px solid white;
           border-radius: 50%;
           animation: spin 1s linear infinite;
+          margin: 0 auto 20px;
         }
 
         @keyframes spin {
@@ -294,50 +333,362 @@
           100% { transform: rotate(360deg); }
         }
 
-        /* Form styling fixes */
-        input[type="text"], input[type="number"], textarea, select {
-          color: var(--kb-black) !important;
-          background-color: rgba(255, 255, 255, 0.9) !important;
-          -webkit-appearance: none;
-          -moz-appearance: none;
-          appearance: none;
+        /* Navbar styles */
+        .navbar {
+          background: var(--kb-black);
+          border-bottom: 2px solid var(--primary-accent-color);
+          padding: 12px 0;
+          position: sticky;
+          top: 0;
+          z-index: 1000;
+        }
+
+        .navbar-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .navbar-brand {
+          color: white;
+          text-decoration: none;
+          font-weight: 900;
+          font-size: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .navbar-brand:hover {
+          color: var(--primary-accent-color);
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+          opacity: 1;
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 12px;
+          max-width: 500px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+          padding: 20px 24px 0;
+          border-bottom: 1px solid #eee;
+        }
+
+        .modal-title {
+          margin: 0 0 16px 0;
+          font-size: 1.2rem;
+          font-weight: 700;
+        }
+
+        .modal-body {
+          padding: 20px 24px;
+        }
+
+        .modal-footer {
+          padding: 0 24px 20px;
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+        }
+
+        .form-control {
+          width: 100%;
+          padding: 10px 12px;
+          border: 2px solid #ddd;
+          border-radius: 6px;
+          font-size: 16px;
+          margin-top: 8px;
+        }
+
+        /* Toast styles */
+        .toast-container {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 10001;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .toast {
+          padding: 12px 20px;
+          border-radius: 8px;
+          color: white;
+          font-weight: 500;
+          transform: translateX(100%);
+          transition: transform 0.3s ease;
+          min-width: 250px;
+        }
+
+        .toast.show {
+          transform: translateX(0);
+        }
+
+        .toast-success {
+          background: #28a745;
+        }
+
+        .toast-error {
+          background: #dc3545;
+        }
+
+        .toast-info {
+          background: #17a2b8;
+        }
+
+        /* Additional styles for elements referenced in JavaScript */
+        .player-list {
+          list-style: none;
+          padding: 0;
+        }
+
+        .player-item {
+          padding: 8px 12px;
+          margin-bottom: 4px;
+          background: rgba(255, 255, 255, 0.5);
+          border-radius: 4px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .player-item.host {
+          background: rgba(255, 70, 0, 0.1);
+        }
+
+        .player-item.ready {
+          background: rgba(40, 167, 69, 0.1);
+        }
+
+        .badge {
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .badge.host {
+          background: var(--teen-orange);
+          color: white;
+        }
+
+        .badge.ready {
+          background: #28a745;
+          color: white;
+        }
+
+        .answer-options {
+          display: grid;
+          gap: 12px;
+          margin: 20px 0;
+        }
+
+        .answer-option {
+          padding: 16px;
           border: 2px solid var(--kb-black);
-          padding: 12px;
-          font-family: var(--font-primary);
-        }
-
-        input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
-          color: var(--kb-black) !important;
-          background-color: rgba(255, 255, 255, 1) !important;
-        }
-
-        select {
-          background-image: none !important;
+          background: white;
           cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 16px;
+          text-align: left;
         }
 
-        /* Ultra-specific disabled button text override */
-        #generate-quiz-btn[disabled] .btn-text,
-        #generate-quiz-btn[disabled] span,
-        .btn-primary[disabled] .btn-text,
-        .btn-primary[disabled] span,
-        .btn[disabled] .btn-text,
-        .btn[disabled] span,
-        #generate-quiz-btn:disabled .btn-text,
-        #generate-quiz-btn:disabled span,
-        .btn-primary:disabled .btn-text,
-        .btn-primary:disabled span,
-        .btn:disabled .btn-text,
-        .btn:disabled span {
-          color: white !important;
+        .answer-option:hover {
+          background: rgba(255, 70, 0, 0.1);
+          transform: translateY(-1px);
+        }
+
+        .answer-option.selected {
+          background: var(--teen-orange);
+          color: white;
+        }
+
+        .answer-option.correct {
+          background: #28a745;
+          color: white;
+          border-color: #28a745;
+        }
+
+        .answer-option.incorrect {
+          background: #dc3545;
+          color: white;
+          border-color: #dc3545;
+        }
+
+        .answer-option.neutral {
+          background: rgba(126, 129, 135, 0.1);
+          color: var(--kb-grey);
+        }
+
+        .leaderboard {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .score-item, .live-score-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 6px;
+          border: 1px solid #ddd;
+        }
+
+        .score-item.first-place {
+          background: linear-gradient(135deg, #ffd700, #ffed4e);
+          border-color: #ffd700;
+        }
+
+        .score-item.second-place {
+          background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+          border-color: #c0c0c0;
+        }
+
+        .score-item.third-place {
+          background: linear-gradient(135deg, #cd7f32, #daa520);
+          border-color: #cd7f32;
+        }
+
+        .score-item.current-player {
+          border: 2px solid var(--teen-orange);
+          background: rgba(255, 70, 0, 0.1);
+        }
+
+        .inline-results {
+          margin-top: 24px;
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 8px;
+          border: 2px solid var(--electric-cyan);
+        }
+
+        .search-section {
+          margin-bottom: 24px;
+        }
+
+        .search-bar {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .search-bar input {
+          flex: 1;
+        }
+
+        .filter-tabs {
+          display: flex;
+          gap: 8px;
+        }
+
+        .tab-btn {
+          padding: 8px 16px;
+          border: 2px solid var(--kb-black);
+          background: white;
+          cursor: pointer;
+          font-family: var(--font-display);
+          font-weight: 600;
+          text-transform: uppercase;
+          font-size: 12px;
+        }
+
+        .tab-btn.active {
+          background: var(--teen-orange);
+          color: white;
+        }
+
+        .quiz-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .quiz-item {
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.8);
+          border: 2px solid var(--kb-black);
+          border-radius: 8px;
+        }
+
+        .quiz-item-header {
+          margin-bottom: 12px;
+        }
+
+        .quiz-item-title {
+          font-size: 1.2rem;
+          font-weight: 700;
+          margin-bottom: 4px;
+        }
+
+        .quiz-item-topic {
+          color: var(--kb-grey);
+          margin-bottom: 4px;
+        }
+
+        .quiz-item-creator {
+          font-size: 14px;
+          color: var(--kb-grey);
+        }
+
+        .quiz-item-stats {
+          display: flex;
+          gap: 16px;
+          margin-bottom: 16px;
+          font-size: 14px;
+        }
+
+        .quiz-stat {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: var(--kb-grey);
+        }
+
+        .quiz-item-actions {
+          display: flex;
+          gap: 12px;
         }
 
         @media (max-width: 768px) {
           .app-container { padding: 16px; }
           .welcome-options { grid-template-columns: 1fr; }
           .card-header, .card-body { padding: 16px; }
+          .form-row { grid-template-columns: 1fr; }
           h1 { font-size: 1.8rem; }
           h2 { font-size: 1.5rem; }
+          .modal-content { width: 95%; }
+          .modal-header, .modal-body, .modal-footer { padding: 16px; }
         }
     </style>
     
@@ -345,11 +696,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" media="print" onload="this.media='all'">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" media="print" onload="this.media='all'">
-    
-    <!-- Load extended styles after critical path -->
-    <link rel="preload" href="css/styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
     
     <link rel="icon" type="image/svg+xml" href="img/icons/favicon.svg">
     
@@ -395,15 +741,21 @@
     </script>
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="#" class="navbar-brand">
+                <i class="ph ph-brain"></i>
+                <span>Quizaru</span>
+            </a>
+        </div>
+    </nav>
+
     <div class="app-container">
         <main class="game-container">
             <!-- Welcome Screen -->
             <div id="welcome-screen" class="game-screen active">
                 <div class="card welcome-card">
-                    <div class="card-header">
-                        <h1><i class="ph ph-brain"></i> Quizaru</h1>
-                        <p>Create and play interactive quizzes with AI</p>
-                    </div>
                     <div class="card-body">
                         <div class="welcome-options">
                             <div class="option-card" id="create-quiz-option">
@@ -477,9 +829,95 @@
                             
                             <div class="form-actions">
                                 <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
-                                <button type="submit" id="generate-quiz-btn" class="btn btn-primary" style="--disabled-text-color: white;">
-                                    <span class="btn-text" style="color: inherit;">Generate Quiz with AI</span>
-                                    <span class="btn-loading hidden"><i class="ph ph-robot"></i> Generating...</span>
+                                                            <button type="submit" id="generate-quiz-btn" class="btn btn-primary" style="color: white !important;">
+                                <span class="btn-text" style="color: white !important;">Generate Quiz with AI</span>
+                            </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Browse Quizzes Screen -->
+            <div id="browse-quizzes-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Browse Quizzes</h2>
+                        <p>Play existing quizzes and view highscores</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="search-section">
+                            <div class="search-bar">
+                                <input type="text" id="quiz-search" placeholder="Search quizzes...">
+                                <button id="search-btn" class="btn btn-primary">Search</button>
+                            </div>
+                            <div class="filter-tabs">
+                                <button class="tab-btn active" data-filter="recent">Recent</button>
+                                <button class="tab-btn" data-filter="popular">Popular</button>
+                                <button class="tab-btn" data-filter="all">All</button>
+                            </div>
+                        </div>
+                        <div id="quiz-list" class="quiz-list">
+                            <!-- Quiz items will be populated here -->
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" id="back-to-welcome-3" class="btn btn-text">← Back</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Tournament Screen -->
+            <div id="create-tournament-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Create Tournament</h2>
+                        <p>Combine multiple quizzes into one epic match</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="tournament-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="tournament-name">Tournament Name</label>
+                                    <input type="text" id="tournament-name" placeholder="Epic Quiz Battle" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tournament-creator">Your Name</label>
+                                    <input type="text" id="tournament-creator" placeholder="Tournament Host" required>
+                                </div>
+                            </div>
+                            
+                            <div class="tournament-selection">
+                                <div class="available-section">
+                                    <h3>Available Quizzes</h3>
+                                    <div id="available-quizzes">
+                                        <!-- Available quizzes will be loaded here -->
+                                    </div>
+                                </div>
+                                
+                                <div class="selected-section">
+                                    <h3>Selected Quizzes (<span id="selected-quiz-count">0</span>)</h3>
+                                    <div id="selected-quizzes">
+                                        <!-- Selected quizzes will appear here -->
+                                    </div>
+                                    
+                                    <div class="tournament-info">
+                                        <div class="info-item">
+                                            <span>Total Questions:</span>
+                                            <span id="total-tournament-questions">0</span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span>Max Score:</span>
+                                            <span id="max-tournament-score">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" id="back-to-welcome-tournament" class="btn btn-text">← Back</button>
+                                <button type="submit" id="create-tournament-btn" class="btn btn-primary" disabled>
+                                    <i class="ph ph-trophy"></i> Create Tournament
                                 </button>
                             </div>
                         </form>
@@ -514,13 +952,202 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Lobby Screen -->
+            <div id="lobby-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Quiz Lobby</h2>
+                        <div class="room-info">
+                            <span>Room Code: <strong id="room-code-display">XXXXXX</strong></span>
+                            <button id="copy-room-code" class="btn btn-text">Copy Link</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="quiz-info">
+                            <h3 id="quiz-title-display">Quiz Title</h3>
+                            <p id="quiz-topic-display">Quiz topic description</p>
+                            <div class="quiz-meta">
+                                <span><strong id="quiz-question-count">10</strong> questions</span>
+                                <span>Created by <strong id="quiz-creator">Creator</strong></span>
+                            </div>
+                        </div>
+                        
+                        <div class="players-section">
+                            <h3>Players (<span id="player-count">0</span>)</h3>
+                            <ul id="player-list" class="player-list">
+                                <!-- Players will be listed here -->
+                            </ul>
+                        </div>
+                        
+                        <div class="lobby-actions">
+                            <button id="ready-btn" class="btn btn-outline">Ready to Play</button>
+                            <div id="host-controls" class="host-controls hidden">
+                                <button id="start-quiz-btn" class="btn btn-primary">Start Quiz</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="question-info">
+                            <span>Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
+                            <span><span id="players-answered">0</span>/<span id="total-players-quiz">1</span> answered</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="question-section">
+                            <h2 id="question-text">Question text will appear here</h2>
+                            <div id="answer-options" class="answer-options">
+                                <!-- Answer options will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Inline Results (shown after answering) -->
+                        <div id="inline-results" class="inline-results hidden">
+                            <div class="result-info">
+                                <h3 id="points-earned">+100 points!</h3>
+                                <p id="current-score">Total Score: 100 points</p>
+                                <p id="inline-explanation">Explanation text will appear here</p>
+                            </div>
+                            <div class="continue-actions">
+                                <button id="continue-btn" class="btn btn-primary hidden">Next Question</button>
+                                <button id="finish-quiz-btn" class="btn btn-primary hidden">View Final Results</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Live Leaderboard -->
+                        <div class="live-leaderboard">
+                            <h3>Live Scores</h3>
+                            <div id="live-leaderboard-list" class="leaderboard">
+                                <!-- Live scores will be updated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div id="results-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Question Results</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="result-summary">
+                            <h3 id="result-points">Points Earned</h3>
+                            <p id="result-explanation">Explanation</p>
+                        </div>
+                        
+                        <div class="current-standings">
+                            <h3>Current Standings</h3>
+                            <div id="current-leaderboard" class="leaderboard">
+                                <!-- Current standings will be shown here -->
+                            </div>
+                        </div>
+                        
+                        <div class="result-actions">
+                            <button id="next-question-btn" class="btn btn-primary">Next Question</button>
+                            <button id="view-final-results-btn" class="btn btn-outline hidden">View Final Results</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Final Results Screen -->
+            <div id="final-results-screen" class="game-screen hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏁 Quiz Complete!</h2>
+                        <p>Here are the final results</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="final-standings">
+                            <h3>Final Leaderboard</h3>
+                            <div id="final-leaderboard" class="leaderboard">
+                                <!-- Final results will be shown here -->
+                            </div>
+                        </div>
+                        
+                        <div class="final-actions">
+                            <button id="play-again-btn" class="btn btn-outline">Play Again</button>
+                            <button id="new-quiz-btn" class="btn btn-primary">Create New Quiz</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
+
+    <!-- Modal Dialogs -->
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Alert</h3>
+            </div>
+            <div class="modal-body">
+                <p id="alert-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="alert-ok-btn" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Confirm</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-cancel-btn" class="btn btn-outline">Cancel</button>
+                <button id="confirm-ok-btn" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="prompt-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Input Required</h3>
+            </div>
+            <div class="modal-body">
+                <p id="prompt-message"></p>
+                <input type="text" id="prompt-input" class="form-control">
+            </div>
+            <div class="modal-footer">
+                <button id="prompt-cancel-btn" class="btn btn-outline">Cancel</button>
+                <button id="prompt-ok-btn" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3 id="loading-message">Loading...</h3>
+            <p id="loading-submessage">Please wait...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <!-- Load Firebase config first -->
     <script src="js/firebase-config.js" defer></script>
     
-    <!-- Load optimized main application -->
+    <!-- Load main application -->
     <script type="module" src="js/quiz-game.js?v=1.0.1" defer></script>
     
     <!-- Fallback for older browsers -->

@@ -410,10 +410,9 @@ Return ONLY valid JSON in this exact format:
                  // Step 6: Parse and validate response
          const questions = await this.retryableRequest(async () => {
            try {
-             // Check if AI refused to generate content due to moderation
+             // Check if AI explicitly refused to generate content due to moderation
              if (content.includes('"error": "inappropriate_content"') || 
-                 content.includes('inappropriate') || 
-                 content.includes('violates content guidelines')) {
+                 (content.includes('violates content guidelines') && content.includes('error'))) {
                
                // Create a more specific error for content moderation
                const moderationError = new Error('CONTENT_MODERATION_FAILED');
@@ -607,23 +606,31 @@ CONTENT MODERATION: Before generating quiz questions, verify this topic is appro
 Topic: "${topic}"
 Title: "${title || 'N/A'}"
 
-STRICT GUIDELINES - DO NOT generate questions if the topic involves:
+STRICT GUIDELINES - ONLY reject if the topic involves:
 1. Hate speech, discrimination, or offensive content targeting any group
-2. Explicit sexual content or inappropriate material
+2. Explicit sexual content or inappropriate material  
 3. Violence, illegal activities, or harmful instructions
 4. Personal attacks, doxxing, or harassment
 5. Misinformation that could cause harm
 
-APPROVED EDUCATIONAL TOPICS include:
-- Science, technology, nature, animals
-- History, geography, cultures (presented respectfully)
-- Literature, arts, entertainment, movies, music
-- Sports, games, food, travel
-- General knowledge and trivia
+EXPLICITLY APPROVED TOPICS (always generate quizzes for these):
+- Music artists, bands, musicians, singers (Twenty One Pilots, Taylor Swift, etc.)
+- Movies, TV shows, entertainment, celebrities, actors
+- Sports teams, athletes, games, competitions
+- Science, technology, nature, animals, space
+- History, geography, cultures, countries
+- Literature, books, authors, poetry
+- Art, artists, paintings, sculptures
+- Food, cooking, restaurants, cuisine
+- Travel, destinations, landmarks
+- Video games, gaming, board games
+- Educational topics and general knowledge
 
-If the topic is inappropriate, respond with: {"error": "inappropriate_content", "message": "This topic violates content guidelines"}
+IMPORTANT: Music artists and bands are ENTERTAINMENT content and should ALWAYS be approved.
+Examples of acceptable music topics: "Twenty One Pilots", "Taylor Swift", "Beatles", "Mozart", etc.
 
-If appropriate, proceed with quiz generation focusing on educational and entertaining aspects.
+ONLY respond with error format if topic involves explicit harm, hate, or illegal content.
+For all entertainment, educational, and general knowledge topics, proceed with quiz generation.
 `;
   }
 
