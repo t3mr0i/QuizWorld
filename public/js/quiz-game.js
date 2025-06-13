@@ -575,30 +575,197 @@ class QuizGameClient {
     setupCreateQuizValidation() {
         const form = document.getElementById('create-quiz-form');
         const submitBtn = document.getElementById('generate-quiz-btn');
-        const requiredFields = [
-            document.getElementById('quiz-title'),
-            document.getElementById('quiz-topic'),
-            document.getElementById('creator-name')
-        ];
+        const titleField = document.getElementById('quiz-title');
+        const topicField = document.getElementById('quiz-topic');
+        const creatorField = document.getElementById('creator-name');
+        const questionCountSelect = document.getElementById('question-count');
+        
+        const requiredFields = [titleField, topicField, creatorField];
 
-        // Function to check if all required fields are filled
+        // Create content validation elements
+        this.createContentValidationElements();
+
+        // Function to check if all required fields are filled and content is appropriate
         const validateForm = () => {
-            const allFieldsFilled = requiredFields.every(field => field.value.trim() !== '');
-            submitBtn.disabled = !allFieldsFilled;
+            const allFieldsFilled = requiredFields.every(field => field && field.value.trim() !== '');
+            
+            // Content moderation validation
+            let contentValid = true;
+            let contentMessage = '';
+            
+            if (topicField && topicField.value.trim()) {
+                const moderation = ClientContentModerator.validateTopic(
+                    topicField.value.trim(), 
+                    titleField ? titleField.value.trim() : ''
+                );
+                contentValid = moderation.isValid;
+                contentMessage = moderation.message;
+                
+                this.updateContentValidationFeedback(moderation);
+                
+                if (!contentValid) {
+                    this.showContentSuggestions();
+                } else {
+                    // Remove suggestions if content is now valid
+                    const suggestionsDiv = document.getElementById('topic-suggestions');
+                    if (suggestionsDiv) {
+                        suggestionsDiv.remove();
+                    }
+                }
+            }
+            
+            const isFormValid = allFieldsFilled && contentValid;
+            
+            if (submitBtn) {
+                submitBtn.disabled = !isFormValid;
+                
+                if (!contentValid && topicField && topicField.value.trim()) {
+                    submitBtn.title = contentMessage;
+                } else {
+                    submitBtn.title = '';
+                }
+            }
         };
 
         // Initially disable the button
-        submitBtn.disabled = true;
+        if (submitBtn) {
+            submitBtn.disabled = true;
+        }
 
         // Add event listeners to all required fields
         requiredFields.forEach(field => {
-            field.addEventListener('input', validateForm);
-            field.addEventListener('blur', validateForm);
+            if (field) {
+                field.addEventListener('input', validateForm);
+                field.addEventListener('blur', validateForm);
+            }
         });
 
-        // Also listen to the select field (question count) in case it's needed
-        const questionCountSelect = document.getElementById('question-count');
-        questionCountSelect.addEventListener('change', validateForm);
+        // Also listen to the select field (question count)
+        if (questionCountSelect) {
+            questionCountSelect.addEventListener('change', validateForm);
+        }
+
+        // Show content guidelines initially
+        this.showContentGuidelines();
+    }
+
+    createContentValidationElements() {
+        const topicField = document.getElementById('quiz-topic');
+        if (!topicField) return;
+        
+        // Add content validation feedback after topic input
+        if (!document.getElementById('content-validation-feedback')) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.id = 'content-validation-feedback';
+            feedbackDiv.style.cssText = `
+                margin-top: 8px;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 14px;
+                display: none;
+                transition: all 0.3s ease;
+            `;
+            topicField.parentNode.insertBefore(feedbackDiv, topicField.nextSibling);
+        }
+    }
+
+    updateContentValidationFeedback(moderation) {
+        const feedbackDiv = document.getElementById('content-validation-feedback');
+        if (!feedbackDiv) return;
+        
+        if (moderation.isValid) {
+            feedbackDiv.style.display = 'block';
+            feedbackDiv.style.background = '#d4edda';
+            feedbackDiv.style.border = '1px solid #c3e6cb';
+            feedbackDiv.style.color = '#155724';
+            feedbackDiv.innerHTML = `✅ ${moderation.message}`;
+        } else {
+            feedbackDiv.style.display = 'block';
+            feedbackDiv.style.background = moderation.severity === 'high' ? '#f8d7da' : '#fff3cd';
+            feedbackDiv.style.border = moderation.severity === 'high' ? '1px solid #f5c6cb' : '1px solid #ffeaa7';
+            feedbackDiv.style.color = moderation.severity === 'high' ? '#721c24' : '#856404';
+            feedbackDiv.innerHTML = `
+                ${moderation.severity === 'high' ? '❌' : '⚠️'} ${moderation.message}
+                ${moderation.suggestion ? `<br><strong>Suggestion:</strong> ${moderation.suggestion}` : ''}
+            `;
+        }
+    }
+
+    showContentSuggestions() {
+        if (document.getElementById('topic-suggestions')) return;
+        
+        const topicField = document.getElementById('quiz-topic');
+        if (!topicField) return;
+        
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.id = 'topic-suggestions';
+        suggestionsDiv.innerHTML = `
+            <div style="margin-top: 16px; padding: 16px; background: #e8f4fd; border-radius: 8px; border-left: 4px solid #007bff;">
+                <h4 style="margin: 0 0 12px 0; color: #004085; font-size: 16px;">
+                    💡 Suggested Topics
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 14px;">
+                    ${ClientContentModerator.getSuggestedTopics().map(topic => 
+                        `<button type="button" class="topic-suggestion-btn" style="
+                            padding: 8px 12px;
+                            background: white;
+                            border: 1px solid #007bff;
+                            border-radius: 6px;
+                            color: #007bff;
+                            cursor: pointer;
+                            text-align: left;
+                            transition: all 0.2s ease;
+                        " onmouseover="this.style.background='#007bff'; this.style.color='white';" 
+                           onmouseout="this.style.background='white'; this.style.color='#007bff';"
+                           onclick="window.quizGame.selectSuggestedTopic('${topic}')">${topic}</button>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+        
+        const feedbackDiv = document.getElementById('content-validation-feedback');
+        if (feedbackDiv && feedbackDiv.parentNode) {
+            feedbackDiv.parentNode.insertBefore(suggestionsDiv, feedbackDiv.nextSibling);
+        }
+    }
+
+    selectSuggestedTopic(topic) {
+        const topicField = document.getElementById('quiz-topic');
+        if (topicField) {
+            topicField.value = topic;
+            topicField.dispatchEvent(new Event('input'));
+        }
+        
+        // Remove suggestions after selection
+        const suggestionsDiv = document.getElementById('topic-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.remove();
+        }
+    }
+
+    showContentGuidelines() {
+        const form = document.getElementById('create-quiz-form');
+        if (!form || document.getElementById('content-guidelines')) return;
+        
+        const guidelinesDiv = document.createElement('div');
+        guidelinesDiv.id = 'content-guidelines';
+        guidelinesDiv.innerHTML = `
+            <div style="margin: 20px 0; padding: 16px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                <h4 style="margin: 0 0 12px 0; color: #155724; font-size: 16px;">
+                    📋 Content Guidelines
+                </h4>
+                <div style="font-size: 14px; line-height: 1.5;">
+                    ${ClientContentModerator.getContentGuidelines().map(guideline => 
+                        `<div style="margin: 4px 0;">${guideline}</div>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+        
+        const submitBtn = document.getElementById('generate-quiz-btn');
+        if (submitBtn && submitBtn.parentNode) {
+            submitBtn.parentNode.insertBefore(guidelinesDiv, submitBtn);
+        }
     }
 
     showScreen(screenName, addToHistory = true) {
@@ -837,6 +1004,16 @@ class QuizGameClient {
             return;
         }
         
+        // Final content validation before submission
+        const moderation = ClientContentModerator.validateTopic(topic, title);
+        if (!moderation.isValid) {
+            this.showAlert(
+                `${moderation.message}\n\n${moderation.suggestion || 'Please choose a different topic.'}`,
+                'Content Policy Violation'
+            );
+            return;
+        }
+        
         // Show loading
         this.showLoading('Generating your quiz...', 'AI is creating questions based on your topic');
         
@@ -860,7 +1037,22 @@ class QuizGameClient {
             }, 'Create Quiz');
         } catch (error) {
             this.hideLoading();
-            ErrorHandler.showUserError(error, 'Failed to create quiz. Please try again.');
+            
+            // Handle content moderation errors specifically
+            if (error.message && (
+                error.message.includes('inappropriate content') ||
+                error.message.includes('violates content guidelines') ||
+                error.message.includes('Content moderation failed') ||
+                error.message.includes('rejected by AI moderation')
+            )) {
+                this.showAlert(
+                    'The quiz topic or generated content was flagged as inappropriate. Please try a different topic that follows our content guidelines.',
+                    'Content Moderation'
+                );
+            } else {
+                ErrorHandler.showUserError(error, 'Failed to create quiz. Please try again.');
+            }
+            
             console.error('Error creating quiz:', error);
         }
     }
@@ -2785,3 +2977,108 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.quizGame = new QuizGameClient();
     await window.quizGame.init();
 }); 
+
+// Content Moderation for Client-side
+class ClientContentModerator {
+    static BLOCKED_KEYWORDS = [
+        // Hate speech and discrimination
+        'racist', 'racism', 'nazi', 'hitler', 'supremacist', 'genocide',
+        'sexist', 'misogyn', 'homophob', 'transphob', 'terrorist',
+        
+        // Sexual content
+        'porn', 'xxx', 'sex', 'nude', 'naked', 'erotic', 'fetish',
+        
+        // Violence and illegal
+        'murder', 'kill', 'death', 'suicide', 'drug deal', 'weapon', 'gun',
+        
+        // Personal attacks
+        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully'
+    ];
+
+    static FLAGGED_KEYWORDS = [
+        'war', 'conflict', 'politics', 'religion', 'alcohol', 'medical'
+    ];
+
+    static POSITIVE_KEYWORDS = [
+        'history', 'historical', 'educational', 'science', 'biology',
+        'geography', 'literature', 'movies', 'entertainment', 'sports',
+        'food', 'travel', 'technology', 'nature', 'animals'
+    ];
+
+    static validateTopic(topic, title = '') {
+        const fullText = `${topic} ${title}`.toLowerCase().trim();
+        
+        // Check for blocked content
+        for (const keyword of this.BLOCKED_KEYWORDS) {
+            if (fullText.includes(keyword.toLowerCase())) {
+                return {
+                    isValid: false,
+                    severity: 'high',
+                    message: 'This topic contains inappropriate content that violates our community guidelines.',
+                    suggestion: 'Try topics like science, history, entertainment, sports, or general knowledge.'
+                };
+            }
+        }
+        
+        // Check for flagged content
+        const flaggedCount = this.FLAGGED_KEYWORDS.filter(keyword => 
+            fullText.includes(keyword.toLowerCase())
+        ).length;
+        
+        if (flaggedCount > 0) {
+            const positiveCount = this.POSITIVE_KEYWORDS.filter(keyword => 
+                fullText.includes(keyword.toLowerCase())
+            ).length;
+            
+            if (positiveCount === 0) {
+                return {
+                    isValid: false,
+                    severity: 'medium',
+                    message: 'This topic may be sensitive or controversial.',
+                    suggestion: 'Consider focusing on educational, historical, or entertainment aspects.'
+                };
+            }
+        }
+        
+        return {
+            isValid: true,
+            severity: 'low',
+            message: 'Topic looks good!'
+        };
+    }
+
+    static getSuggestedTopics() {
+        return [
+            'Ancient Civilizations History',
+            'Space and Astronomy',
+            'World Geography and Landmarks',
+            'Classic Literature and Authors',
+            'Movie Trivia and Entertainment',
+            'Scientific Discoveries',
+            'Animal Kingdom and Nature',
+            'World Cuisine and Food Culture',
+            'Sports and Olympics',
+            'Technology and Innovation',
+            'Art and Famous Artists',
+            'Music History and Genres',
+            'Travel Destinations',
+            'Video Games and Gaming',
+            'Famous Inventions'
+        ];
+    }
+
+    static getContentGuidelines() {
+        return [
+            "✅ Educational topics (science, history, literature)",
+            "✅ Entertainment (movies, music, sports, games)",
+            "✅ General knowledge and trivia",
+            "✅ Nature, animals, and geography",
+            "✅ Food, travel, and culture (respectful)",
+            "❌ Hate speech or discrimination",
+            "❌ Explicit or inappropriate content",
+            "❌ Violence or illegal activities",
+            "❌ Personal attacks or harassment",
+            "❌ Controversial political topics"
+        ];
+    }
+} 

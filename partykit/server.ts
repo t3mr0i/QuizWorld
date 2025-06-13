@@ -291,22 +291,44 @@ class AIService {
         
         console.log(`✅ Thread created: ${threadId}`);
         
-        // Step 2: Add message with retry logic
-        await this.retryableRequest(async () => {
-          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-            method: 'POST',
-            body: JSON.stringify({
-              role: 'user',
-              content: `Generate a quiz about "${topic}" with ${questionCount} questions. Each question should have 4 multiple choice options. Return ONLY valid JSON in the specified format.`
-            })
-          });
-          
-          if (!response.ok) {
-            throw { response };
-          }
-          
-          return response.json();
-        }, 'Add Message');
+                 // Step 2: Add message with content moderation and generation prompt
+         await this.retryableRequest(async () => {
+           const moderationPrompt = ContentModerator.generateAIModerationPrompt(topic);
+           const generationPrompt = `${moderationPrompt}
+
+Generate a ${questionCount}-question quiz about "${topic}". Each question should:
+1. Have exactly 4 multiple choice options (A, B, C, D)
+2. Be educational and appropriate for all audiences
+3. Focus on factual, verifiable information
+4. Avoid controversial or sensitive topics
+5. Be engaging and fun to answer
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "question": "What is the capital of France?",
+      "options": ["London", "Berlin", "Paris", "Madrid"],
+      "correct_answer_index": 2,
+      "explanation": "Paris has been the capital of France since 987 AD."
+    }
+  ]
+}`;
+
+           const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+             method: 'POST',
+             body: JSON.stringify({
+               role: 'user',
+               content: generationPrompt
+             })
+           });
+           
+           if (!response.ok) {
+             throw { response };
+           }
+           
+           return response.json();
+         }, 'Add Message');
         
         console.log(`✅ Message added to thread`);
         
@@ -385,48 +407,68 @@ class AIService {
         
         console.log(`✅ Retrieved assistant response`);
         
-        // Step 6: Parse and validate response
-        const questions = await this.retryableRequest(async () => {
-          try {
-            const quizData = JSON.parse(content);
-            
-            if (!quizData.questions || !Array.isArray(quizData.questions)) {
-              throw new Error('Invalid quiz data structure');
-            }
-            
-            const questions: Question[] = quizData.questions.map((q: any, index: number) => {
-              if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4) {
-                throw new Error(`Invalid question structure at index ${index}`);
-              }
-              
-              const correctAnswer = typeof q.correct_answer_index === 'number' 
-                ? q.correct_answer_index 
-                : parseInt(q.correct_answer_index);
-              
-              if (isNaN(correctAnswer) || correctAnswer < 0 || correctAnswer >= q.options.length) {
-                throw new Error(`Invalid correct answer index at question ${index}`);
-              }
-              
-              return {
-                id: `q_${Date.now()}_${index}`,
-                question: String(q.question).trim(),
-                options: q.options.map((opt: any) => String(opt).trim()),
-                correctAnswer,
-                explanation: q.explanation ? String(q.explanation).trim() : undefined
-              };
-            });
-            
-            if (questions.length === 0) {
-              throw new Error('No valid questions generated');
-            }
-            
-            return questions;
-          } catch (parseError) {
-            console.error('❌ Failed to parse AI response:', parseError);
-            console.error('Raw response:', content.substring(0, 500) + '...');
-            throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
-          }
-        }, 'Parse Response');
+                 // Step 6: Parse and validate response
+         const questions = await this.retryableRequest(async () => {
+           try {
+             // Check if AI refused to generate content due to moderation
+             if (content.includes('"error": "inappropriate_content"') || 
+                 content.includes('inappropriate') || 
+                 content.includes('violates content guidelines')) {
+               throw new Error('Content was rejected by AI moderation');
+             }
+             
+             const quizData = JSON.parse(content);
+             
+             if (!quizData.questions || !Array.isArray(quizData.questions)) {
+               throw new Error('Invalid quiz data structure');
+             }
+             
+             const questions: Question[] = quizData.questions.map((q: any, index: number) => {
+               if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4) {
+                 throw new Error(`Invalid question structure at index ${index}`);
+               }
+               
+               const correctAnswer = typeof q.correct_answer_index === 'number' 
+                 ? q.correct_answer_index 
+                 : parseInt(q.correct_answer_index);
+               
+               if (isNaN(correctAnswer) || correctAnswer < 0 || correctAnswer >= q.options.length) {
+                 throw new Error(`Invalid correct answer index at question ${index}`);
+               }
+               
+               // Additional content validation on each question
+               const questionText = String(q.question).trim();
+               const allOptions = q.options.map((opt: any) => String(opt).trim()).join(' ');
+               const explanation = q.explanation ? String(q.explanation).trim() : '';
+               const fullQuestionContent = `${questionText} ${allOptions} ${explanation}`;
+               
+               const questionModeration = ContentModerator.moderateContent(fullQuestionContent);
+               if (!questionModeration.isAllowed) {
+                 console.warn(`❌ Question ${index + 1} failed content moderation:`, questionModeration.reason);
+                 throw new Error(`Generated question contains inappropriate content: ${questionModeration.reason}`);
+               }
+               
+               return {
+                 id: `q_${Date.now()}_${index}`,
+                 question: questionText,
+                 options: q.options.map((opt: any) => String(opt).trim()),
+                 correctAnswer,
+                 explanation: explanation || undefined
+               };
+             });
+             
+             if (questions.length === 0) {
+               throw new Error('No valid questions generated');
+             }
+             
+             console.log(`✅ Content validation passed for ${questions.length} questions`);
+             return questions;
+           } catch (parseError) {
+             console.error('❌ Failed to parse AI response:', parseError);
+             console.error('Raw response (first 500 chars):', content.substring(0, 500) + '...');
+             throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+           }
+         }, 'Parse Response');
         
         console.log(`✅ Successfully generated ${questions.length} questions for topic: "${topic}"`);
         return questions;
@@ -455,6 +497,145 @@ class AIService {
 async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
   const aiService = AIService.getInstance();
   return await aiService.generateQuiz(topic, questionCount);
+}
+
+// Content Moderation System
+interface ContentModerationResult {
+  isAllowed: boolean;
+  reason?: string;
+  suggestion?: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+class ContentModerator {
+  private static readonly BLOCKED_PATTERNS = [
+    // Hate speech and discrimination
+    /\b(racist?|racism|nazi|hitler|supremacist|genocide|ethnic\s*cleansing)\b/i,
+    /\b(sexist|misogyn|incel|femoid|chad|beta\s*male)\b/i,
+    /\b(homophob|transphob|f[a4]gg[o0]t|tr[a4]nny|dyke)\b/i,
+    /\b(terrorist|jihad|isis|al\s*qaeda|bomb\s*making)\b/i,
+    
+    // Sexual content
+    /\b(porn|xxx|sex|nude|naked|erotic|fetish|bdsm)\b/i,
+    /\b(masturbat|orgasm|penis|vagina|breast|genitals)\b/i,
+    
+    // Violence and illegal activities
+    /\b(murder|kill|death|suicide|self\s*harm|cutting)\b/i,
+    /\b(drug\s*deal|cocaine|heroin|methamphetamine|illegal\s*drugs)\b/i,
+    /\b(weapon|gun|rifle|pistol|explosive|ammunition)\b/i,
+    
+    // Personal attacks and doxxing
+    /\b(doxx|dox|personal\s*info|address|phone\s*number)\b/i,
+    /\b(cyberbully|harassment|stalking|threaten)\b/i
+  ];
+
+  private static readonly FLAGGED_PATTERNS = [
+    // Potentially sensitive but context-dependent
+    /\b(war|conflict|battle|revolution|protest)\b/i,
+    /\b(religion|god|jesus|allah|buddha|christian|muslim|jewish)\b/i,
+    /\b(politics|democrat|republican|conservative|liberal)\b/i,
+    /\b(alcohol|beer|wine|drunk|drinking)\b/i,
+    /\b(medical|disease|cancer|covid|virus|pandemic)\b/i
+  ];
+
+  private static readonly POSITIVE_CONTEXT_PATTERNS = [
+    // Educational contexts that make flagged content acceptable
+    /\b(history|historical|world\s*war|civil\s*war|educational)\b/i,
+    /\b(science|biology|anatomy|medical\s*education|health)\b/i,
+    /\b(geography|countries|cultures|traditions)\b/i,
+    /\b(literature|books|novels|poetry|art)\b/i,
+    /\b(movies|films|tv\s*shows|entertainment|celebrities)\b/i,
+    /\b(sports|games|olympics|championship|competition)\b/i,
+    /\b(food|cooking|recipes|cuisine|restaurants)\b/i,
+    /\b(travel|tourism|destinations|landmarks)\b/i,
+    /\b(technology|computers|programming|innovation)\b/i,
+    /\b(nature|animals|environment|conservation)\b/i
+  ];
+
+  static moderateContent(topic: string, title?: string): ContentModerationResult {
+    const fullText = `${topic} ${title || ''}`.toLowerCase().trim();
+    
+    // Check for blocked content
+    for (const pattern of this.BLOCKED_PATTERNS) {
+      if (pattern.test(fullText)) {
+        return {
+          isAllowed: false,
+          reason: 'This topic contains inappropriate content that violates our community guidelines.',
+          suggestion: 'Try a different topic like science, history, entertainment, or general knowledge.',
+          severity: 'high'
+        };
+      }
+    }
+    
+    // Check for flagged content
+    const flaggedMatches = this.FLAGGED_PATTERNS.filter(pattern => pattern.test(fullText));
+    if (flaggedMatches.length > 0) {
+      // Check if there's positive educational context
+      const hasPositiveContext = this.POSITIVE_CONTEXT_PATTERNS.some(pattern => pattern.test(fullText));
+      
+      if (!hasPositiveContext) {
+        return {
+          isAllowed: false,
+          reason: 'This topic may be sensitive or controversial.',
+          suggestion: 'Consider focusing on educational, historical, or entertainment aspects of this topic.',
+          severity: 'medium'
+        };
+      }
+      
+      // Allow but with educational context
+      console.log(`📚 Educational content approved: "${topic}" (flagged but has positive context)`);
+    }
+    
+    // Additional AI-based moderation prompt
+    const aiModerationPrompt = this.generateAIModerationPrompt(topic, title);
+    
+    return {
+      isAllowed: true,
+      reason: 'Content approved',
+      severity: 'low'
+    };
+  }
+
+  static generateAIModerationPrompt(topic: string, title?: string): string {
+    return `
+CONTENT MODERATION: Before generating quiz questions, verify this topic is appropriate:
+Topic: "${topic}"
+Title: "${title || 'N/A'}"
+
+STRICT GUIDELINES - DO NOT generate questions if the topic involves:
+1. Hate speech, discrimination, or offensive content targeting any group
+2. Explicit sexual content or inappropriate material
+3. Violence, illegal activities, or harmful instructions
+4. Personal attacks, doxxing, or harassment
+5. Misinformation that could cause harm
+
+APPROVED EDUCATIONAL TOPICS include:
+- Science, technology, nature, animals
+- History, geography, cultures (presented respectfully)
+- Literature, arts, entertainment, movies, music
+- Sports, games, food, travel
+- General knowledge and trivia
+
+If the topic is inappropriate, respond with: {"error": "inappropriate_content", "message": "This topic violates content guidelines"}
+
+If appropriate, proceed with quiz generation focusing on educational and entertaining aspects.
+`;
+  }
+
+  static getContentGuidelines(): string[] {
+    return [
+      "✅ Educational topics (science, history, literature)",
+      "✅ Entertainment (movies, music, sports, games)",
+      "✅ General knowledge and trivia",
+      "✅ Nature, animals, and geography",
+      "✅ Food, travel, and culture (respectful)",
+      "❌ Hate speech or discrimination",
+      "❌ Explicit or inappropriate content",
+      "❌ Violence or illegal activities",
+      "❌ Personal attacks or harassment",
+      "❌ Controversial political topics"
+    ];
+  }
 }
 
 export default class QuizaruServer implements Party.Server {
@@ -566,6 +747,18 @@ export default class QuizaruServer implements Party.Server {
       const { topic, questionCount = 10, title, playerName } = data;
       
       console.log(`🎯 Creating quiz: "${title}" about "${topic}"`);
+      
+      // Moderate content
+      const moderationResult = ContentModerator.moderateContent(topic, title);
+      
+      if (!moderationResult.isAllowed) {
+        console.warn(`❌ Content moderation failed:`, moderationResult);
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: moderationResult.reason || 'Content moderation failed'
+        }));
+        return;
+      }
       
       // Generate questions using AI
       const questions = await generateQuizWithOpenAI(topic, questionCount);
