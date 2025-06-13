@@ -414,7 +414,12 @@ Return ONLY valid JSON in this exact format:
              if (content.includes('"error": "inappropriate_content"') || 
                  content.includes('inappropriate') || 
                  content.includes('violates content guidelines')) {
-               throw new Error('Content was rejected by AI moderation');
+               
+               // Create a more specific error for content moderation
+               const moderationError = new Error('CONTENT_MODERATION_FAILED');
+               (moderationError as any).isContentModerationError = true;
+               (moderationError as any).userMessage = 'This topic violates content guidelines. Please try a different topic like science, history, entertainment, or general knowledge.';
+               throw moderationError;
              }
              
              const quizData = JSON.parse(content);
@@ -812,6 +817,29 @@ export default class QuizaruServer implements Party.Server {
       
     } catch (error) {
       console.error("❌ Error creating quiz:", error);
+      
+      // Check if this is a content moderation error
+      if ((error as any)?.isContentModerationError) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: (error as any).userMessage || 'This topic violates content guidelines. Please try a different topic.'
+        }));
+        return;
+      }
+      
+      // Check if error message contains content moderation info
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('CONTENT_MODERATION_FAILED') || 
+          errorMessage.includes('content guidelines') || 
+          errorMessage.includes('inappropriate content')) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: 'This topic violates content guidelines. Please try a different topic like science, history, entertainment, or general knowledge.'
+        }));
+        return;
+      }
+      
+      // Generic error for other issues
       sender.send(JSON.stringify({
         type: 'error',
         message: 'Failed to create quiz. Please try again.'
