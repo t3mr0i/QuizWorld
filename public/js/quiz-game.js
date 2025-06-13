@@ -403,6 +403,12 @@ class QuizDatabase {
 // Quizaru Game Client
 class QuizGameClient {
     constructor() {
+        // Prevent multiple initialization
+        if (window.quizGameInitialized) {
+            console.log('⚠️ QuizGame already initialized, skipping...');
+            return window.quizGame;
+        }
+        
         this.socket = null;
         this.gameState = {
             roomCode: '',
@@ -422,6 +428,10 @@ class QuizGameClient {
         // Browser history management
         this.navigationStack = ['welcome'];
         this.isNavigatingBack = false;
+        
+        // Mark as initialized and store reference
+        window.quizGameInitialized = true;
+        window.quizGame = this;
         
         this.init();
     }
@@ -814,6 +824,13 @@ class QuizGameClient {
     }
 
     pushToHistory(screenName, previousScreen) {
+        // Prevent adding the same screen consecutively
+        const lastScreen = this.navigationStack[this.navigationStack.length - 1];
+        if (lastScreen === screenName) {
+            console.log(`📚 Skipping duplicate history entry for: ${screenName}`);
+            return;
+        }
+        
         // Create state object with screen information
         const state = {
             screen: screenName,
@@ -1762,8 +1779,11 @@ class QuizGameClient {
             finishBtn.classList.remove('hidden');
             continueBtn.classList.add('hidden');
             
-            // Save highscores when quiz is finished
-            this.saveHighscores(data.playerAnswers);
+            // Save highscores when quiz is finished (only once)
+            if (!this.gameState.highscoresSaved) {
+                this.saveHighscores(data.playerAnswers);
+                this.gameState.highscoresSaved = true;
+            }
             
             // Auto-show final results after a short delay for last question
             setTimeout(() => {
@@ -1791,9 +1811,10 @@ class QuizGameClient {
         console.log('🏁 Quiz finished:', data);
         
         // Ensure highscores are saved (in case they weren't saved in showInlineResults)
-        if (data.playerAnswers && Object.keys(data.playerAnswers).length > 0) {
+        if (data.playerAnswers && Object.keys(data.playerAnswers).length > 0 && !this.gameState.highscoresSaved) {
             console.log('💾 Ensuring highscores are saved for quiz completion');
             this.saveHighscores(data.playerAnswers);
+            this.gameState.highscoresSaved = true;
         }
         
         // Show final results screen first
@@ -1842,14 +1863,27 @@ class QuizGameClient {
         
         // Convert player answers to sorted array
         const players = Object.entries(playerAnswers).map(([id, data]) => {
-            const correctAnswers = data.correctAnswers || 0;
-            const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            // Calculate correct answers from score if not available directly
+            let correctAnswers = data.correctAnswers || 0;
+            
+            // If correctAnswers is not available, estimate from score
+            // Assuming each correct answer gives 100 points (you can adjust this)
+            if (correctAnswers === 0 && data.score > 0) {
+                correctAnswers = Math.floor(data.score / 100);
+            }
+            
+            // Calculate percentage only if we have valid data
+            let percentage = 0;
+            if (totalQuestions > 0) {
+                percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            }
             
             return {
                 id,
                 name: data.name,
                 score: data.score || 0,
-                percentage: percentage
+                percentage: percentage,
+                correctAnswers: correctAnswers
             };
         });
         
@@ -1884,7 +1918,7 @@ class QuizGameClient {
             scoreItem.innerHTML = `
                 <div class="rank">${index + 1}</div>
                 <div class="player-name">${player.name}${currentPlayer && player.name === currentPlayer.name ? ' (You)' : ''}</div>
-                <div class="score">${player.score} pts (${player.percentage}%)</div>
+                <div class="score">${player.score} pts${(player.percentage !== undefined && !isNaN(player.percentage)) ? ` (${player.percentage}%)` : ''}</div>
             `;
             
             tempContainer.appendChild(scoreItem);
@@ -1993,6 +2027,9 @@ class QuizGameClient {
         
         // Update session with the started quiz data
         this.gameState.currentSession = data.session;
+        
+        // Reset highscores saved flag for new quiz
+        this.gameState.highscoresSaved = false;
         
         // Set game start time when quiz begins
         if (!this.gameStartTime) {
@@ -2677,14 +2714,6 @@ class QuizGameClient {
             
             console.log('📤 Message to send:', message);
             this.sendMessage(message);
-            
-            // Update play count for this quiz
-            try {
-                await this.quizDatabase.updateQuizStats(quizId, 0, quiz.questions.length);
-                console.log('📊 Play count updated for quiz:', quizId);
-            } catch (error) {
-                console.error('❌ Error updating play count:', error);
-            }
             
             // Set timeout for loading
             if (this.playQuizTimeout) {
