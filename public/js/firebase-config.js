@@ -7,6 +7,8 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// NOTE: This Firebase API key is safe to expose in client-side code
+// It's not a secret and is designed to be public for client authentication
 const firebaseConfig = {
   apiKey: "AIzaSyDrIwGLHc4T5XlH3QBID18Lc48xF9dmDi4",
   authDomain: "quizgame-9916c.firebaseapp.com",

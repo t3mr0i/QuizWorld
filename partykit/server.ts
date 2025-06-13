@@ -69,144 +69,392 @@ const MIME_TYPES: Record<string, string> = {
   ".otf": "font/otf",
 };
 
-// AI Quiz Generation using OpenAI Assistant
-async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const assistantId = "asst_ApGsn7wfvZBukHPW9l4rMjn0";
-  
-  if (!apiKey) {
-    throw new Error("OpenAI API key not found");
+// AI Quiz Generation using OpenAI Assistant with robust error handling and retry logic
+interface AIRetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+}
+
+interface AIError {
+  code: string;
+  message: string;
+  type: 'rate_limit' | 'auth' | 'server' | 'timeout' | 'parse' | 'unknown';
+  retryable: boolean;
+}
+
+const AI_RETRY_CONFIG: AIRetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+  backoffMultiplier: 2
+};
+
+class AIService {
+  private static instance: AIService;
+  private apiKey: string;
+  private assistantId: string;
+
+  private constructor() {
+    this.apiKey = process.env.OPENAI_API_KEY || '';
+    this.assistantId = process.env.OPENAI_ASSISTANT_ID || "asst_ApGsn7wfvZBukHPW9l4rMjn0";
+    
+    if (!this.apiKey) {
+      console.error('❌ SECURITY WARNING: OPENAI_API_KEY not configured');
+      throw new Error('AI service not properly configured');
+    }
+    
+    // Validate API key format (basic security check)
+    if (!this.apiKey.startsWith('sk-')) {
+      console.error('❌ SECURITY WARNING: Invalid API key format');
+      throw new Error('Invalid API key format');
+    }
   }
 
-  try {
-    console.log("🤖 Generating quiz questions for topic:", topic);
-    
-    // Create a thread
-    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({})
-    });
-
-    if (!threadResponse.ok) {
-      throw new Error(`Failed to create thread: ${threadResponse.status}`);
+  static getInstance(): AIService {
+    if (!AIService.instance) {
+      AIService.instance = new AIService();
     }
+    return AIService.instance;
+  }
 
-    const thread = await threadResponse.json();
-    
-    // Add message to thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        role: 'user',
-        content: `${topic}`
-      })
-    });
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-    if (!messageResponse.ok) {
-      throw new Error(`Failed to add message: ${messageResponse.status}`);
-    }
+  private calculateBackoffDelay(attempt: number, config: AIRetryConfig): number {
+    const delay = Math.min(
+      config.baseDelayMs * Math.pow(config.backoffMultiplier, attempt),
+      config.maxDelayMs
+    );
+    // Add jitter to prevent thundering herd
+    return delay + Math.random() * 1000;
+  }
 
-    // Run the assistant
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId
-      })
-    });
-
-    if (!runResponse.ok) {
-      throw new Error(`Failed to run assistant: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    
-    // Poll for completion
-    let runStatus = run.status;
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
-    
-    while (runStatus === 'queued' || runStatus === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Assistant run timeout');
+  private parseAIError(error: any): AIError {
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+      
+      switch (status) {
+        case 401:
+          return {
+            code: 'AUTH_ERROR',
+            message: 'Invalid API key or unauthorized access',
+            type: 'auth',
+            retryable: false
+          };
+        case 429:
+          return {
+            code: 'RATE_LIMIT',
+            message: 'API rate limit exceeded',
+            type: 'rate_limit',
+            retryable: true
+          };
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return {
+            code: 'SERVER_ERROR',
+            message: `OpenAI server error: ${status}`,
+            type: 'server',
+            retryable: true
+          };
+        case 408:
+          return {
+            code: 'TIMEOUT',
+            message: 'Request timeout',
+            type: 'timeout',
+            retryable: true
+          };
+        default:
+          return {
+            code: 'API_ERROR',
+            message: data?.error?.message || `HTTP ${status}`,
+            type: 'unknown',
+            retryable: status >= 500
+          };
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+    }
+    
+    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+      return {
+        code: 'TIMEOUT',
+        message: 'Request timed out',
+        type: 'timeout',
+        retryable: true
+      };
+    }
+    
+    return {
+      code: 'UNKNOWN_ERROR',
+      message: error.message || 'Unknown error occurred',
+      type: 'unknown',
+      retryable: true
+    };
+  }
+
+  private async makeSecureRequest(url: string, options: RequestInit, timeoutMs: number = 30000): Promise<Response> {
+    // Create an abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      // Ensure no API key leakage in logs
+      const secureOptions = {
+        ...options,
+        signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
+          ...options.headers,
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+          'User-Agent': 'QuizWorld/1.0'
         }
-      });
+      };
+
+      const response = await fetch(url, secureOptions);
+      clearTimeout(timeoutId);
       
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to check run status: ${statusResponse.status}`);
-      }
-      
-      const statusData = await statusResponse.json();
-      runStatus = statusData.status;
-      attempts++;
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-
-    if (runStatus !== 'completed') {
-      throw new Error(`Assistant run failed with status: ${runStatus}`);
-    }
-
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    });
-
-    if (!messagesResponse.ok) {
-      throw new Error(`Failed to get messages: ${messagesResponse.status}`);
-    }
-
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-    
-    if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-      throw new Error('No response from assistant');
-    }
-
-    const content = assistantMessage.content[0].text.value;
-    
-    // Parse the JSON response
-    const quizData = JSON.parse(content);
-    
-    // Convert to our Question format
-    const questions: Question[] = quizData.questions.map((q: any, index: number) => ({
-      id: `q_${Date.now()}_${index}`,
-      question: q.question,
-      options: q.options,
-      correctAnswer: q.correct_answer_index,
-      explanation: q.explanation
-    }));
-
-    console.log(`✅ Generated ${questions.length} questions for topic: ${topic}`);
-    return questions;
-
-  } catch (error) {
-    console.error("❌ Error generating quiz:", error);
-    throw error;
   }
+
+  private async retryableRequest<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    config: AIRetryConfig = AI_RETRY_CONFIG
+  ): Promise<T> {
+    let lastError: AIError | null = null;
+    
+    for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+      try {
+        console.log(`🔄 ${operationName} - Attempt ${attempt + 1}/${config.maxRetries + 1}`);
+        return await operation();
+      } catch (error) {
+        lastError = this.parseAIError(error);
+        
+        console.warn(`⚠️ ${operationName} failed (attempt ${attempt + 1}):`, {
+          code: lastError.code,
+          message: lastError.message,
+          type: lastError.type,
+          retryable: lastError.retryable
+        });
+        
+        // Don't retry if error is not retryable or we're on the last attempt
+        if (!lastError.retryable || attempt === config.maxRetries) {
+          break;
+        }
+        
+        // Calculate and apply backoff delay
+        const delayMs = this.calculateBackoffDelay(attempt, config);
+        console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+        await this.delay(delayMs);
+      }
+    }
+    
+    // All retries exhausted
+    const errorMessage = lastError 
+      ? `${lastError.code}: ${lastError.message}`
+      : 'Unknown error after all retries';
+    
+    console.error(`❌ ${operationName} failed after ${config.maxRetries + 1} attempts:`, errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  async generateQuiz(topic: string, questionCount: number = 10): Promise<Question[]> {
+    console.log(`🤖 Starting AI quiz generation for topic: "${topic}" (${questionCount} questions)`);
+    
+    try {
+      let threadId: string | null = null;
+      
+      try {
+        // Step 1: Create thread with retry logic
+        threadId = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest('https://api.openai.com/v1/threads', {
+            method: 'POST',
+            body: JSON.stringify({})
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const thread = await response.json();
+          return thread.id;
+        }, 'Create Thread');
+        
+        console.log(`✅ Thread created: ${threadId}`);
+        
+        // Step 2: Add message with retry logic
+        await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'POST',
+            body: JSON.stringify({
+              role: 'user',
+              content: `Generate a quiz about "${topic}" with ${questionCount} questions. Each question should have 4 multiple choice options. Return ONLY valid JSON in the specified format.`
+            })
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          return response.json();
+        }, 'Add Message');
+        
+        console.log(`✅ Message added to thread`);
+        
+        // Step 3: Run assistant with retry logic
+        const runId = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+            method: 'POST',
+            body: JSON.stringify({
+              assistant_id: this.assistantId
+            })
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const run = await response.json();
+          return run.id;
+        }, 'Run Assistant');
+        
+        console.log(`✅ Assistant run started: ${runId}`);
+        
+        // Step 4: Poll for completion with enhanced timeout logic
+        const result = await this.retryableRequest(async () => {
+          const maxAttempts = 60; // 60 seconds max
+          let attempts = 0;
+          
+          while (attempts < maxAttempts) {
+            const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+              method: 'GET'
+            });
+            
+            if (!response.ok) {
+              throw { response };
+            }
+            
+            const statusData = await response.json();
+            const status = statusData.status;
+            
+            console.log(`📊 Run status: ${status} (attempt ${attempts + 1}/${maxAttempts})`);
+            
+            if (status === 'completed') {
+              return 'completed';
+            } else if (status === 'failed' || status === 'cancelled' || status === 'expired') {
+              throw new Error(`Assistant run failed with status: ${status}`);
+            }
+            
+            attempts++;
+            await this.delay(1000);
+          }
+          
+          throw new Error('Assistant run timeout - exceeded maximum wait time');
+        }, 'Wait for Completion');
+        
+        console.log(`✅ Assistant run completed`);
+        
+        // Step 5: Get messages with retry logic
+        const content = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'GET'
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const messages = await response.json();
+          const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+          
+          if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
+            throw new Error('No valid response from assistant');
+          }
+          
+          return assistantMessage.content[0].text.value;
+        }, 'Get Messages');
+        
+        console.log(`✅ Retrieved assistant response`);
+        
+        // Step 6: Parse and validate response
+        const questions = await this.retryableRequest(async () => {
+          try {
+            const quizData = JSON.parse(content);
+            
+            if (!quizData.questions || !Array.isArray(quizData.questions)) {
+              throw new Error('Invalid quiz data structure');
+            }
+            
+            const questions: Question[] = quizData.questions.map((q: any, index: number) => {
+              if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4) {
+                throw new Error(`Invalid question structure at index ${index}`);
+              }
+              
+              const correctAnswer = typeof q.correct_answer_index === 'number' 
+                ? q.correct_answer_index 
+                : parseInt(q.correct_answer_index);
+              
+              if (isNaN(correctAnswer) || correctAnswer < 0 || correctAnswer >= q.options.length) {
+                throw new Error(`Invalid correct answer index at question ${index}`);
+              }
+              
+              return {
+                id: `q_${Date.now()}_${index}`,
+                question: String(q.question).trim(),
+                options: q.options.map((opt: any) => String(opt).trim()),
+                correctAnswer,
+                explanation: q.explanation ? String(q.explanation).trim() : undefined
+              };
+            });
+            
+            if (questions.length === 0) {
+              throw new Error('No valid questions generated');
+            }
+            
+            return questions;
+          } catch (parseError) {
+            console.error('❌ Failed to parse AI response:', parseError);
+            console.error('Raw response:', content.substring(0, 500) + '...');
+            throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+          }
+        }, 'Parse Response');
+        
+        console.log(`✅ Successfully generated ${questions.length} questions for topic: "${topic}"`);
+        return questions;
+        
+      } finally {
+        // Clean up thread regardless of success or failure
+        if (threadId) {
+          try {
+            await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}`, {
+              method: 'DELETE'
+            });
+            console.log(`🗑️ Thread ${threadId} cleaned up`);
+          } catch (cleanupError) {
+            console.warn(`⚠️ Failed to cleanup thread ${threadId}:`, cleanupError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Quiz generation failed for topic "${topic}":`, error);
+      throw new Error(`Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+}
+
+// Factory function to get AI service instance
+async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
+  const aiService = AIService.getInstance();
+  return await aiService.generateQuiz(topic, questionCount);
 }
 
 export default class QuizaruServer implements Party.Server {
