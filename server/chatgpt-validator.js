@@ -7,14 +7,13 @@ const ASSISTANT_ID = process.env.OPENAI_ASSISTANT_ID;
 // Check if we're using a project-style API key
 const isProjectKey = API_KEY && API_KEY.startsWith('sk-proj-');
 
-// Debug log the key details - only show first few chars for security
-console.log('=== OPENAI API KEY DEBUG ===');
-console.log('API_KEY exists:', !!API_KEY);
-console.log('API_KEY prefix:', API_KEY ? API_KEY.substring(0, 10) + '...' : 'undefined');
-console.log('Is project-style key:', isProjectKey);
-console.log('ASSISTANT_ID exists:', !!ASSISTANT_ID);
-console.log('ASSISTANT_ID value:', ASSISTANT_ID || 'undefined');
-console.log('=== END API KEY DEBUG ===');
+// Only log essential security information, never expose keys
+console.log('=== OPENAI API SECURITY CHECK ===');
+console.log('API_KEY configured:', !!API_KEY);
+console.log('API_KEY format valid:', API_KEY ? API_KEY.startsWith('sk-') : false);
+console.log('ASSISTANT_ID configured:', !!ASSISTANT_ID);
+console.log('Using project-style key:', isProjectKey);
+console.log('=== END SECURITY CHECK ===');
 
 // Add a test function to verify API key is working
 async function testApiKey() {
@@ -95,43 +94,23 @@ function getApiHeaders() {
  * @returns {Promise<string>} The thread ID
  */
 async function createThread() {
-  try {
+  return makeValidatorRequest(async () => {
     console.log('🔗 Creating a new thread with OpenAI...');
-    console.log('🔗 Request URL: https://api.openai.com/v1/threads');
-    console.log('🔗 Headers:', JSON.stringify({
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY ? API_KEY.substring(0, 5) + '...' : 'undefined'}`,
-      'OpenAI-Beta': 'assistants=v2'
-    }, null, 2));
     
     const startTime = Date.now();
     const response = await axios.post(
       'https://api.openai.com/v1/threads',
       {},
       {
-        headers: getApiHeaders()
+        headers: getApiHeaders(),
+        timeout: 30000
       }
     );
     const endTime = Date.now();
     
     console.log(`🔗 Thread creation successful in ${endTime - startTime}ms. Thread ID: ${response.data.id}`);
     return response.data.id;
-  } catch (error) {
-    console.error('❌ Error creating thread:');
-    
-    if (error.response) {
-      console.error(`Status code: ${error.response.status}`);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-      console.error('Response headers:', JSON.stringify(error.response.headers, null, 2));
-    } else if (error.request) {
-      console.error('No response received. Request details:', error.request);
-    } else {
-      console.error('Error message:', error.message);
-    }
-    
-    console.error('Error stack:', error.stack);
-    throw error;
-  }
+  }, 'Create Thread');
 }
 
 /**
@@ -141,7 +120,7 @@ async function createThread() {
  * @returns {Promise<string>} The run ID
  */
 async function sendMessage(threadId, content) {
-  try {
+  return makeValidatorRequest(async () => {
     const response = await axios.post(
       `https://api.openai.com/v1/threads/${threadId}/messages`,
       {
@@ -149,14 +128,12 @@ async function sendMessage(threadId, content) {
         content
       },
       {
-        headers: getApiHeaders()
+        headers: getApiHeaders(),
+        timeout: 30000
       }
     );
     return response.data.id;
-  } catch (error) {
-    console.error('Error sending message:', error.response?.data || error.message);
-    throw error;
-  }
+  }, 'Send Message');
 }
 
 /**
@@ -165,21 +142,19 @@ async function sendMessage(threadId, content) {
  * @returns {Promise<string>} The run ID
  */
 async function runAssistant(threadId) {
-  try {
+  return makeValidatorRequest(async () => {
     const response = await axios.post(
       `https://api.openai.com/v1/threads/${threadId}/runs`,
       {
         assistant_id: ASSISTANT_ID
       },
       {
-        headers: getApiHeaders()
+        headers: getApiHeaders(),
+        timeout: 30000
       }
     );
     return response.data.id;
-  } catch (error) {
-    console.error('Error running assistant:', error.response?.data || error.message);
-    throw error;
-  }
+  }, 'Run Assistant');
 }
 
 /**
@@ -189,18 +164,16 @@ async function runAssistant(threadId) {
  * @returns {Promise<string>} The run status
  */
 async function getRunStatus(threadId, runId) {
-  try {
+  return makeValidatorRequest(async () => {
     const response = await axios.get(
       `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`,
       {
-        headers: getApiHeaders()
+        headers: getApiHeaders(),
+        timeout: 30000
       }
     );
     return response.data.status;
-  } catch (error) {
-    console.error('Error getting run status:', error.response?.data || error.message);
-    throw error;
-  }
+  }, 'Get Run Status');
 }
 
 /**
@@ -209,18 +182,16 @@ async function getRunStatus(threadId, runId) {
  * @returns {Promise<Array>} The messages
  */
 async function getMessages(threadId) {
-  try {
+  return makeValidatorRequest(async () => {
     const response = await axios.get(
       `https://api.openai.com/v1/threads/${threadId}/messages`,
       {
-        headers: getApiHeaders()
+        headers: getApiHeaders(),
+        timeout: 30000
       }
     );
     return response.data.data;
-  } catch (error) {
-    console.error('Error getting messages:', error.response?.data || error.message);
-    throw error;
-  }
+  }, 'Get Messages');
 }
 
 /**
@@ -270,6 +241,141 @@ async function waitForRunCompletion(threadId, runId) {
   throw new Error(`Run ${runId} did not complete within the expected time`);
 }
 
+// Add retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 15000,
+  backoffMultiplier: 2
+};
+
+// Utility function for delays
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Calculate exponential backoff with jitter
+function calculateBackoffDelay(attempt) {
+  const delay = Math.min(
+    RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, attempt),
+    RETRY_CONFIG.maxDelayMs
+  );
+  // Add jitter to prevent thundering herd
+  return delay + Math.random() * 1000;
+}
+
+// Enhanced error parsing for better categorization
+function parseValidatorError(error) {
+  if (error.response) {
+    const status = error.response.status;
+    const data = error.response.data;
+    
+    switch (status) {
+      case 401:
+        return {
+          code: 'AUTH_ERROR',
+          message: 'Invalid API key or unauthorized access',
+          retryable: false,
+          suggestion: 'Check your API key configuration'
+        };
+      case 429:
+        return {
+          code: 'RATE_LIMIT',
+          message: 'API rate limit exceeded',
+          retryable: true,
+          suggestion: 'Wait before retrying - consider upgrading your plan'
+        };
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return {
+          code: 'SERVER_ERROR',
+          message: `OpenAI server error: ${status}`,
+          retryable: true,
+          suggestion: 'OpenAI service is experiencing issues'
+        };
+      case 408:
+        return {
+          code: 'TIMEOUT',
+          message: 'Request timeout',
+          retryable: true,
+          suggestion: 'Request took too long - will retry'
+        };
+      default:
+        return {
+          code: 'API_ERROR',
+          message: data?.error?.message || `HTTP ${status}`,
+          retryable: status >= 500,
+          suggestion: 'Check request format and permissions'
+        };
+    }
+  }
+  
+  if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    return {
+      code: 'NETWORK_ERROR',
+      message: 'Network connection failed',
+      retryable: true,
+      suggestion: 'Check internet connection'
+    };
+  }
+  
+  return {
+    code: 'UNKNOWN_ERROR',
+    message: error.message || 'Unknown error occurred',
+    retryable: true,
+    suggestion: 'Unexpected error - will retry'
+  };
+}
+
+// Enhanced request wrapper with timeout and retry logic
+async function makeValidatorRequest(operation, operationName) {
+  let lastError = null;
+  
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      console.log(`🔄 ${operationName} - Attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1}`);
+      
+      // Add timeout to operation
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Operation timeout')), 30000);
+      });
+      
+      const result = await Promise.race([operation(), timeoutPromise]);
+      console.log(`✅ ${operationName} succeeded on attempt ${attempt + 1}`);
+      return result;
+      
+    } catch (error) {
+      lastError = parseValidatorError(error);
+      
+      console.warn(`⚠️ ${operationName} failed (attempt ${attempt + 1}):`, {
+        code: lastError.code,
+        message: lastError.message,
+        suggestion: lastError.suggestion
+      });
+      
+      // Don't retry if error is not retryable or we're on the last attempt
+      if (!lastError.retryable || attempt === RETRY_CONFIG.maxRetries) {
+        break;
+      }
+      
+      // Calculate and apply backoff delay
+      const delayMs = calculateBackoffDelay(attempt);
+      console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+      await delay(delayMs);
+    }
+  }
+  
+  // All retries exhausted
+  const errorMessage = lastError 
+    ? `${lastError.code}: ${lastError.message} (${lastError.suggestion})`
+    : 'Unknown error after all retries';
+  
+  console.error(`❌ ${operationName} failed after ${RETRY_CONFIG.maxRetries + 1} attempts:`, errorMessage);
+  throw new Error(errorMessage);
+}
+
 /**
  * Validates a player's answers using the OpenAI Assistant
  * @param {string} letter The current round letter
@@ -281,7 +387,7 @@ async function validateAnswers(letter, answers, categories) {
   console.log('🔍 validateAnswers called with letter:', letter);
   console.log('📦 Categories to validate:', categories);
   console.log('📦 Answers to validate:', JSON.stringify(answers, null, 2));
-  console.log('🧪 ENVIRONMENT CHECK: OpenAI API Key starts with:', API_KEY ? API_KEY.substring(0, 5) + '...' : 'undefined');
+  console.log('🧪 ENVIRONMENT CHECK: OpenAI API Key configured:', !!API_KEY);
   console.log('🧪 ENVIRONMENT CHECK: Running in environment:', process.env.NODE_ENV || 'unknown');
   console.log('🧪 ENVIRONMENT CHECK: Current working directory:', process.cwd());
   
@@ -355,7 +461,7 @@ async function validateAnswers(letter, answers, categories) {
     });
 
     console.log(`Sending validation request for letter ${letter} with answers:`, answers);
-    console.log('API key type:', API_KEY.startsWith('sk-proj-') ? 'Project-style key' : 'Standard key');
+    console.log('API key type:', isProjectKey ? 'Project-style key' : 'Standard key');
 
     // Create a new thread
     console.log('🔄 Attempting to create thread...');

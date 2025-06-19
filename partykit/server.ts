@@ -69,143 +69,584 @@ const MIME_TYPES: Record<string, string> = {
   ".otf": "font/otf",
 };
 
-// AI Quiz Generation using OpenAI Assistant
-async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  const assistantId = "asst_ApGsn7wfvZBukHPW9l4rMjn0";
-  
-  if (!apiKey) {
-    throw new Error("OpenAI API key not found");
+// AI Quiz Generation using OpenAI Assistant with robust error handling and retry logic
+interface AIRetryConfig {
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+}
+
+interface AIError {
+  code: string;
+  message: string;
+  type: 'rate_limit' | 'auth' | 'server' | 'timeout' | 'parse' | 'unknown';
+  retryable: boolean;
+}
+
+const AI_RETRY_CONFIG: AIRetryConfig = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 30000,
+  backoffMultiplier: 2
+};
+
+class AIService {
+  private static instance: AIService;
+  private apiKey: string;
+  private assistantId: string;
+
+  private constructor() {
+    this.apiKey = process.env.OPENAI_API_KEY || '';
+    this.assistantId = process.env.OPENAI_ASSISTANT_ID || "asst_ApGsn7wfvZBukHPW9l4rMjn0";
+    
+    if (!this.apiKey) {
+      console.error('❌ SECURITY WARNING: OPENAI_API_KEY not configured');
+      throw new Error('AI service not properly configured');
+    }
+    
+    // Validate API key format (basic security check)
+    if (!this.apiKey.startsWith('sk-')) {
+      console.error('❌ SECURITY WARNING: Invalid API key format');
+      throw new Error('Invalid API key format');
+    }
   }
 
-  try {
-    console.log("🤖 Generating quiz questions for topic:", topic);
-    
-    // Create a thread
-    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({})
-    });
-
-    if (!threadResponse.ok) {
-      throw new Error(`Failed to create thread: ${threadResponse.status}`);
+  static getInstance(): AIService {
+    if (!AIService.instance) {
+      AIService.instance = new AIService();
     }
+    return AIService.instance;
+  }
 
-    const thread = await threadResponse.json();
-    
-    // Add message to thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        role: 'user',
-        content: `${topic}`
-      })
-    });
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-    if (!messageResponse.ok) {
-      throw new Error(`Failed to add message: ${messageResponse.status}`);
-    }
+  private calculateBackoffDelay(attempt: number, config: AIRetryConfig): number {
+    const delay = Math.min(
+      config.baseDelayMs * Math.pow(config.backoffMultiplier, attempt),
+      config.maxDelayMs
+    );
+    // Add jitter to prevent thundering herd
+    return delay + Math.random() * 1000;
+  }
 
-    // Run the assistant
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId
-      })
-    });
-
-    if (!runResponse.ok) {
-      throw new Error(`Failed to run assistant: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    
-    // Poll for completion
-    let runStatus = run.status;
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
-    
-    while (runStatus === 'queued' || runStatus === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Assistant run timeout');
+  private parseAIError(error: any): AIError {
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+      
+      switch (status) {
+        case 401:
+          return {
+            code: 'AUTH_ERROR',
+            message: 'Invalid API key or unauthorized access',
+            type: 'auth',
+            retryable: false
+          };
+        case 429:
+          return {
+            code: 'RATE_LIMIT',
+            message: 'API rate limit exceeded',
+            type: 'rate_limit',
+            retryable: true
+          };
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return {
+            code: 'SERVER_ERROR',
+            message: `OpenAI server error: ${status}`,
+            type: 'server',
+            retryable: true
+          };
+        case 408:
+          return {
+            code: 'TIMEOUT',
+            message: 'Request timeout',
+            type: 'timeout',
+            retryable: true
+          };
+        default:
+          return {
+            code: 'API_ERROR',
+            message: data?.error?.message || `HTTP ${status}`,
+            type: 'unknown',
+            retryable: status >= 500
+          };
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+    }
+    
+    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+      return {
+        code: 'TIMEOUT',
+        message: 'Request timed out',
+        type: 'timeout',
+        retryable: true
+      };
+    }
+    
+    return {
+      code: 'UNKNOWN_ERROR',
+      message: error.message || 'Unknown error occurred',
+      type: 'unknown',
+      retryable: true
+    };
+  }
+
+  private async makeSecureRequest(url: string, options: RequestInit, timeoutMs: number = 30000): Promise<Response> {
+    // Create an abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    try {
+      // Ensure no API key leakage in logs
+      const secureOptions = {
+        ...options,
+        signal: controller.signal,
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
+          ...options.headers,
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+          'User-Agent': 'QuizWorld/1.0'
         }
-      });
+      };
+
+      const response = await fetch(url, secureOptions);
+      clearTimeout(timeoutId);
       
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to check run status: ${statusResponse.status}`);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  }
+
+  private async retryableRequest<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    config: AIRetryConfig = AI_RETRY_CONFIG
+  ): Promise<T> {
+    let lastError: AIError | null = null;
+    
+    for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+      try {
+        console.log(`🔄 ${operationName} - Attempt ${attempt + 1}/${config.maxRetries + 1}`);
+        return await operation();
+      } catch (error) {
+        lastError = this.parseAIError(error);
+        
+        console.warn(`⚠️ ${operationName} failed (attempt ${attempt + 1}):`, {
+          code: lastError.code,
+          message: lastError.message,
+          type: lastError.type,
+          retryable: lastError.retryable
+        });
+        
+        // Don't retry if error is not retryable or we're on the last attempt
+        if (!lastError.retryable || attempt === config.maxRetries) {
+          break;
+        }
+        
+        // Calculate and apply backoff delay
+        const delayMs = this.calculateBackoffDelay(attempt, config);
+        console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+        await this.delay(delayMs);
+      }
+    }
+    
+    // All retries exhausted
+    const errorMessage = lastError 
+      ? `${lastError.code}: ${lastError.message}`
+      : 'Unknown error after all retries';
+    
+    console.error(`❌ ${operationName} failed after ${config.maxRetries + 1} attempts:`, errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  async generateQuiz(topic: string, questionCount: number = 10): Promise<Question[]> {
+    console.log(`🤖 Starting AI quiz generation for topic: "${topic}" (${questionCount} questions)`);
+    
+    try {
+      let threadId: string | null = null;
+      
+      try {
+        // Step 1: Create thread with retry logic
+        threadId = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest('https://api.openai.com/v1/threads', {
+            method: 'POST',
+            body: JSON.stringify({})
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const thread = await response.json();
+          return thread.id;
+        }, 'Create Thread');
+        
+        console.log(`✅ Thread created: ${threadId}`);
+        
+                 // Step 2: Add message with content moderation and generation prompt
+         await this.retryableRequest(async () => {
+           const moderationPrompt = ContentModerator.generateAIModerationPrompt(topic);
+           const generationPrompt = `${moderationPrompt}
+
+Generate a ${questionCount}-question quiz about "${topic}". Each question should:
+1. Have exactly 4 multiple choice options (A, B, C, D)
+2. Be educational and appropriate for all audiences
+3. Focus on factual, verifiable information
+4. Avoid controversial or sensitive topics
+5. Be engaging and fun to answer
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "question": "What is the capital of France?",
+      "options": ["London", "Berlin", "Paris", "Madrid"],
+      "correct_answer_index": 2,
+      "explanation": "Paris has been the capital of France since 987 AD."
+    }
+  ]
+}`;
+
+           const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+             method: 'POST',
+             body: JSON.stringify({
+               role: 'user',
+               content: generationPrompt
+             })
+           });
+           
+           if (!response.ok) {
+             throw { response };
+           }
+           
+           return response.json();
+         }, 'Add Message');
+        
+        console.log(`✅ Message added to thread`);
+        
+        // Step 3: Run assistant with retry logic
+        const runId = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+            method: 'POST',
+            body: JSON.stringify({
+              assistant_id: this.assistantId
+            })
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const run = await response.json();
+          return run.id;
+        }, 'Run Assistant');
+        
+        console.log(`✅ Assistant run started: ${runId}`);
+        
+        // Step 4: Poll for completion with enhanced timeout logic
+        const result = await this.retryableRequest(async () => {
+          const maxAttempts = 60; // 60 seconds max
+          let attempts = 0;
+          
+          while (attempts < maxAttempts) {
+            const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+              method: 'GET'
+            });
+            
+            if (!response.ok) {
+              throw { response };
+            }
+            
+            const statusData = await response.json();
+            const status = statusData.status;
+            
+            console.log(`📊 Run status: ${status} (attempt ${attempts + 1}/${maxAttempts})`);
+            
+            if (status === 'completed') {
+              return 'completed';
+            } else if (status === 'failed' || status === 'cancelled' || status === 'expired') {
+              throw new Error(`Assistant run failed with status: ${status}`);
+            }
+            
+            attempts++;
+            await this.delay(1000);
+          }
+          
+          throw new Error('Assistant run timeout - exceeded maximum wait time');
+        }, 'Wait for Completion');
+        
+        console.log(`✅ Assistant run completed`);
+        
+        // Step 5: Get messages with retry logic
+        const content = await this.retryableRequest(async () => {
+          const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            method: 'GET'
+          });
+          
+          if (!response.ok) {
+            throw { response };
+          }
+          
+          const messages = await response.json();
+          const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+          
+          if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
+            throw new Error('No valid response from assistant');
+          }
+          
+          return assistantMessage.content[0].text.value;
+        }, 'Get Messages');
+        
+        console.log(`✅ Retrieved assistant response`);
+        
+                 // Step 6: Parse and validate response
+         const questions = await this.retryableRequest(async () => {
+           try {
+             // Check if AI explicitly refused to generate content due to moderation
+             if (content.includes('"error": "inappropriate_content"') || 
+                 (content.includes('violates content guidelines') && content.includes('error'))) {
+               
+               // Create a more specific error for content moderation
+               const moderationError = new Error('CONTENT_MODERATION_FAILED');
+               (moderationError as any).isContentModerationError = true;
+               (moderationError as any).userMessage = 'This topic violates content guidelines. Please try a different topic like science, history, entertainment, or general knowledge.';
+               throw moderationError;
+             }
+             
+             const quizData = JSON.parse(content);
+             
+             if (!quizData.questions || !Array.isArray(quizData.questions)) {
+               throw new Error('Invalid quiz data structure');
+             }
+             
+             const questions: Question[] = quizData.questions.map((q: any, index: number) => {
+               if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4) {
+                 throw new Error(`Invalid question structure at index ${index}`);
+               }
+               
+               const correctAnswer = typeof q.correct_answer_index === 'number' 
+                 ? q.correct_answer_index 
+                 : parseInt(q.correct_answer_index);
+               
+               if (isNaN(correctAnswer) || correctAnswer < 0 || correctAnswer >= q.options.length) {
+                 throw new Error(`Invalid correct answer index at question ${index}`);
+               }
+               
+               // Additional content validation on each question
+               const questionText = String(q.question).trim();
+               const allOptions = q.options.map((opt: any) => String(opt).trim()).join(' ');
+               const explanation = q.explanation ? String(q.explanation).trim() : '';
+               const fullQuestionContent = `${questionText} ${allOptions} ${explanation}`;
+               
+               const questionModeration = ContentModerator.moderateContent(fullQuestionContent);
+               if (!questionModeration.isAllowed) {
+                 console.warn(`❌ Question ${index + 1} failed content moderation:`, questionModeration.reason);
+                 throw new Error(`Generated question contains inappropriate content: ${questionModeration.reason}`);
+               }
+               
+               return {
+                 id: `q_${Date.now()}_${index}`,
+                 question: questionText,
+                 options: q.options.map((opt: any) => String(opt).trim()),
+                 correctAnswer,
+                 explanation: explanation || undefined
+               };
+             });
+             
+             if (questions.length === 0) {
+               throw new Error('No valid questions generated');
+             }
+             
+             console.log(`✅ Content validation passed for ${questions.length} questions`);
+             return questions;
+           } catch (parseError) {
+             console.error('❌ Failed to parse AI response:', parseError);
+             console.error('Raw response (first 500 chars):', content.substring(0, 500) + '...');
+             throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+           }
+         }, 'Parse Response');
+        
+        console.log(`✅ Successfully generated ${questions.length} questions for topic: "${topic}"`);
+        return questions;
+        
+      } finally {
+        // Clean up thread regardless of success or failure
+        if (threadId) {
+          try {
+            await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}`, {
+              method: 'DELETE'
+            });
+            console.log(`🗑️ Thread ${threadId} cleaned up`);
+          } catch (cleanupError) {
+            console.warn(`⚠️ Failed to cleanup thread ${threadId}:`, cleanupError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Quiz generation failed for topic "${topic}":`, error);
+      throw new Error(`Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+}
+
+// Factory function to get AI service instance
+async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
+  const aiService = AIService.getInstance();
+  return await aiService.generateQuiz(topic, questionCount);
+}
+
+// Content Moderation System
+interface ContentModerationResult {
+  isAllowed: boolean;
+  reason?: string;
+  suggestion?: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+class ContentModerator {
+  private static readonly BLOCKED_PATTERNS = [
+    // Hate speech and discrimination
+    /\b(racist?|racism|nazi|hitler|supremacist|genocide|ethnic\s*cleansing)\b/i,
+    /\b(sexist|misogyn|incel|femoid|chad|beta\s*male)\b/i,
+    /\b(homophob|transphob|f[a4]gg[o0]t|tr[a4]nny|dyke)\b/i,
+    /\b(terrorist|jihad|isis|al\s*qaeda|bomb\s*making)\b/i,
+    
+    // Sexual content
+    /\b(porn|xxx|sex|nude|naked|erotic|fetish|bdsm)\b/i,
+    /\b(masturbat|orgasm|penis|vagina|breast|genitals)\b/i,
+    
+    // Violence and illegal activities
+    /\b(murder|kill|death|suicide|self\s*harm|cutting)\b/i,
+    /\b(drug\s*deal|cocaine|heroin|methamphetamine|illegal\s*drugs)\b/i,
+    /\b(weapon|gun|rifle|pistol|explosive|ammunition)\b/i,
+    
+    // Personal attacks and doxxing
+    /\b(doxx|dox|personal\s*info|address|phone\s*number)\b/i,
+    /\b(cyberbully|harassment|stalking|threaten)\b/i
+  ];
+
+  private static readonly FLAGGED_PATTERNS = [
+    // Potentially sensitive but context-dependent
+    /\b(war|conflict|battle|revolution|protest)\b/i,
+    /\b(religion|god|jesus|allah|buddha|christian|muslim|jewish)\b/i,
+    /\b(politics|democrat|republican|conservative|liberal)\b/i,
+    /\b(alcohol|beer|wine|drunk|drinking)\b/i,
+    /\b(medical|disease|cancer|covid|virus|pandemic)\b/i
+  ];
+
+  private static readonly POSITIVE_CONTEXT_PATTERNS = [
+    // Educational contexts that make flagged content acceptable
+    /\b(history|historical|world\s*war|civil\s*war|educational)\b/i,
+    /\b(science|biology|anatomy|medical\s*education|health)\b/i,
+    /\b(geography|countries|cultures|traditions)\b/i,
+    /\b(literature|books|novels|poetry|art)\b/i,
+    /\b(movies|films|tv\s*shows|entertainment|celebrities)\b/i,
+    /\b(sports|games|olympics|championship|competition)\b/i,
+    /\b(food|cooking|recipes|cuisine|restaurants)\b/i,
+    /\b(travel|tourism|destinations|landmarks)\b/i,
+    /\b(technology|computers|programming|innovation)\b/i,
+    /\b(nature|animals|environment|conservation)\b/i
+  ];
+
+  static moderateContent(topic: string, title?: string): ContentModerationResult {
+    const fullText = `${topic} ${title || ''}`.toLowerCase().trim();
+    
+    // Check for blocked content
+    for (const pattern of this.BLOCKED_PATTERNS) {
+      if (pattern.test(fullText)) {
+        return {
+          isAllowed: false,
+          reason: 'This topic contains inappropriate content that violates our community guidelines.',
+          suggestion: 'Try a different topic like science, history, entertainment, or general knowledge.',
+          severity: 'high'
+        };
+      }
+    }
+    
+    // Check for flagged content
+    const flaggedMatches = this.FLAGGED_PATTERNS.filter(pattern => pattern.test(fullText));
+    if (flaggedMatches.length > 0) {
+      // Check if there's positive educational context
+      const hasPositiveContext = this.POSITIVE_CONTEXT_PATTERNS.some(pattern => pattern.test(fullText));
+      
+      if (!hasPositiveContext) {
+        return {
+          isAllowed: false,
+          reason: 'This topic may be sensitive or controversial.',
+          suggestion: 'Consider focusing on educational, historical, or entertainment aspects of this topic.',
+          severity: 'medium'
+        };
       }
       
-      const statusData = await statusResponse.json();
-      runStatus = statusData.status;
-      attempts++;
+      // Allow but with educational context
+      console.log(`📚 Educational content approved: "${topic}" (flagged but has positive context)`);
     }
-
-    if (runStatus !== 'completed') {
-      throw new Error(`Assistant run failed with status: ${runStatus}`);
-    }
-
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    });
-
-    if (!messagesResponse.ok) {
-      throw new Error(`Failed to get messages: ${messagesResponse.status}`);
-    }
-
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
     
-    if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-      throw new Error('No response from assistant');
-    }
-
-    const content = assistantMessage.content[0].text.value;
+    // Additional AI-based moderation prompt
+    const aiModerationPrompt = this.generateAIModerationPrompt(topic, title);
     
-    // Parse the JSON response
-    const quizData = JSON.parse(content);
-    
-    // Convert to our Question format
-    const questions: Question[] = quizData.questions.map((q: any, index: number) => ({
-      id: `q_${Date.now()}_${index}`,
-      question: q.question,
-      options: q.options,
-      correctAnswer: q.correct_answer_index,
-      explanation: q.explanation
-    }));
+    return {
+      isAllowed: true,
+      reason: 'Content approved',
+      severity: 'low'
+    };
+  }
 
-    console.log(`✅ Generated ${questions.length} questions for topic: ${topic}`);
-    return questions;
+  static generateAIModerationPrompt(topic: string, title?: string): string {
+    return `
+CONTENT MODERATION: Before generating quiz questions, verify this topic is appropriate:
+Topic: "${topic}"
+Title: "${title || 'N/A'}"
 
-  } catch (error) {
-    console.error("❌ Error generating quiz:", error);
-    throw error;
+STRICT GUIDELINES - ONLY reject if the topic involves:
+1. Hate speech, discrimination, or offensive content targeting any group
+2. Explicit sexual content or inappropriate material  
+3. Violence, illegal activities, or harmful instructions
+4. Personal attacks, doxxing, or harassment
+5. Misinformation that could cause harm
+
+EXPLICITLY APPROVED TOPICS (always generate quizzes for these):
+- Music artists, bands, musicians, singers (Twenty One Pilots, Taylor Swift, etc.)
+- Movies, TV shows, entertainment, celebrities, actors
+- Sports teams, athletes, games, competitions
+- Science, technology, nature, animals, space
+- History, geography, cultures, countries
+- Literature, books, authors, poetry
+- Art, artists, paintings, sculptures
+- Food, cooking, restaurants, cuisine
+- Travel, destinations, landmarks
+- Video games, gaming, board games
+- Educational topics and general knowledge
+
+IMPORTANT: Music artists and bands are ENTERTAINMENT content and should ALWAYS be approved.
+Examples of acceptable music topics: "Twenty One Pilots", "Taylor Swift", "Beatles", "Mozart", etc.
+
+ONLY respond with error format if topic involves explicit harm, hate, or illegal content.
+For all entertainment, educational, and general knowledge topics, proceed with quiz generation.
+`;
+  }
+
+  static getContentGuidelines(): string[] {
+    return [
+      "✅ Educational topics (science, history, literature)",
+      "✅ Entertainment (movies, music, sports, games)",
+      "✅ General knowledge and trivia",
+      "✅ Nature, animals, and geography",
+      "✅ Food, travel, and culture (respectful)",
+      "❌ Hate speech or discrimination",
+      "❌ Explicit or inappropriate content",
+      "❌ Violence or illegal activities",
+      "❌ Personal attacks or harassment",
+      "❌ Controversial political topics"
+    ];
   }
 }
 
@@ -319,6 +760,18 @@ export default class QuizaruServer implements Party.Server {
       
       console.log(`🎯 Creating quiz: "${title}" about "${topic}"`);
       
+      // Moderate content
+      const moderationResult = ContentModerator.moderateContent(topic, title);
+      
+      if (!moderationResult.isAllowed) {
+        console.warn(`❌ Content moderation failed:`, moderationResult);
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: moderationResult.reason || 'Content moderation failed'
+        }));
+        return;
+      }
+      
       // Generate questions using AI
       const questions = await generateQuizWithOpenAI(topic, questionCount);
       
@@ -371,6 +824,29 @@ export default class QuizaruServer implements Party.Server {
       
     } catch (error) {
       console.error("❌ Error creating quiz:", error);
+      
+      // Check if this is a content moderation error
+      if ((error as any)?.isContentModerationError) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: (error as any).userMessage || 'This topic violates content guidelines. Please try a different topic.'
+        }));
+        return;
+      }
+      
+      // Check if error message contains content moderation info
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('CONTENT_MODERATION_FAILED') || 
+          errorMessage.includes('content guidelines') || 
+          errorMessage.includes('inappropriate content')) {
+        sender.send(JSON.stringify({
+          type: 'error',
+          message: 'This topic violates content guidelines. Please try a different topic like science, history, entertainment, or general knowledge.'
+        }));
+        return;
+      }
+      
+      // Generic error for other issues
       sender.send(JSON.stringify({
         type: 'error',
         message: 'Failed to create quiz. Please try again.'

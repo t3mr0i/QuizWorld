@@ -1,6 +1,166 @@
 // Import Firebase functions
 import { ref, push, set, get, query, orderByChild, limitToLast, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
+// Error handling and retry logic utilities
+class ErrorHandler {
+    static MAX_RETRIES = 3;
+    static BASE_DELAY = 1000;
+    static MAX_DELAY = 10000;
+
+    static async retry(operation, operationName, maxRetries = this.MAX_RETRIES) {
+        let lastError = null;
+        
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`🔄 ${operationName} - Attempt ${attempt + 1}/${maxRetries + 1}`);
+                return await operation();
+            } catch (error) {
+                lastError = error;
+                
+                const errorInfo = this.categorizeError(error);
+                console.warn(`⚠️ ${operationName} failed (attempt ${attempt + 1}):`, {
+                    type: errorInfo.type,
+                    message: errorInfo.message,
+                    retryable: errorInfo.retryable
+                });
+                
+                // Don't retry if error is not retryable or we're on the last attempt
+                if (!errorInfo.retryable || attempt === maxRetries) {
+                    break;
+                }
+                
+                // Calculate and apply backoff delay
+                const delayMs = this.calculateBackoffDelay(attempt);
+                console.log(`⏳ Waiting ${delayMs}ms before retry...`);
+                await this.delay(delayMs);
+            }
+        }
+        
+        console.error(`❌ ${operationName} failed after ${maxRetries + 1} attempts:`, lastError);
+        throw lastError;
+    }
+
+    static categorizeError(error) {
+        // Network errors
+        if (error.name === 'NetworkError' || error.code === 'NETWORK_ERROR') {
+            return {
+                type: 'network',
+                message: 'Network connection failed',
+                retryable: true,
+                userMessage: 'Connection issue. Please check your internet connection.'
+            };
+        }
+        
+        // WebSocket errors
+        if (error.name === 'WebSocketError' || error.type === 'websocket') {
+            return {
+                type: 'websocket',
+                message: 'WebSocket connection failed',
+                retryable: true,
+                userMessage: 'Connection to game server lost. Attempting to reconnect...'
+            };
+        }
+        
+        // AI/API errors
+        if (error.message?.includes('AI') || error.message?.includes('assistant')) {
+            return {
+                type: 'ai',
+                message: error.message,
+                retryable: !error.message.includes('AUTH_ERROR'),
+                userMessage: 'AI service temporarily unavailable. Please try again.'
+            };
+        }
+        
+        // Validation errors (user input)
+        if (error.name === 'ValidationError') {
+            return {
+                type: 'validation',
+                message: error.message,
+                retryable: false,
+                userMessage: error.message
+            };
+        }
+        
+        // Generic errors
+        return {
+            type: 'unknown',
+            message: error.message || 'Unknown error occurred',
+            retryable: true,
+            userMessage: 'Something went wrong. Please try again.'
+        };
+    }
+
+    static calculateBackoffDelay(attempt) {
+        const delay = Math.min(
+            this.BASE_DELAY * Math.pow(2, attempt),
+            this.MAX_DELAY
+        );
+        // Add jitter to prevent thundering herd
+        return delay + Math.random() * 1000;
+    }
+
+    static delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    static showUserError(error, fallbackMessage = 'An error occurred. Please try again.') {
+        const errorInfo = this.categorizeError(error);
+        const message = errorInfo.userMessage || fallbackMessage;
+        
+        // Show user-friendly error message
+        this.showErrorToast(message);
+        
+        // Log technical details for debugging
+        console.error('User error:', {
+            type: errorInfo.type,
+            message: errorInfo.message,
+            original: error
+        });
+    }
+
+    static showErrorToast(message) {
+        // Create or update error toast
+        let toast = document.getElementById('error-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'error-toast';
+            toast.className = 'error-toast';
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #ff4444;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 10000;
+                display: none;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                max-width: 300px;
+                word-wrap: break-word;
+                font-family: system-ui, -apple-system, sans-serif;
+            `;
+            document.body.appendChild(toast);
+        }
+        
+        toast.textContent = message;
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.opacity = '1';
+        }, 10);
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 300);
+        }, 5000);
+    }
+}
+
 // Firebase Database Service
 class QuizDatabase {
     constructor() {
@@ -243,6 +403,12 @@ class QuizDatabase {
 // Quizaru Game Client
 class QuizGameClient {
     constructor() {
+        // Prevent multiple initialization
+        if (window.quizGameInitialized) {
+            console.log('⚠️ QuizGame already initialized, skipping...');
+            return window.quizGame;
+        }
+        
         this.socket = null;
         this.gameState = {
             roomCode: '',
@@ -262,6 +428,10 @@ class QuizGameClient {
         // Browser history management
         this.navigationStack = ['welcome'];
         this.isNavigatingBack = false;
+        
+        // Mark as initialized and store reference
+        window.quizGameInitialized = true;
+        window.quizGame = this;
         
         this.init();
     }
@@ -415,31 +585,206 @@ class QuizGameClient {
     setupCreateQuizValidation() {
         const form = document.getElementById('create-quiz-form');
         const submitBtn = document.getElementById('generate-quiz-btn');
-        const requiredFields = [
-            document.getElementById('quiz-title'),
-            document.getElementById('quiz-topic'),
-            document.getElementById('creator-name')
-        ];
+        const titleField = document.getElementById('quiz-title');
+        const topicField = document.getElementById('quiz-topic');
+        const creatorField = document.getElementById('creator-name');
+        const questionCountSelect = document.getElementById('question-count');
+        
+        const requiredFields = [titleField, topicField, creatorField];
 
-        // Function to check if all required fields are filled
+        // Create content validation elements
+        this.createContentValidationElements();
+
+        // Function to check if all required fields are filled and content is appropriate
         const validateForm = () => {
-            const allFieldsFilled = requiredFields.every(field => field.value.trim() !== '');
-            submitBtn.disabled = !allFieldsFilled;
+            const allFieldsFilled = requiredFields.every(field => field && field.value.trim() !== '');
+            
+            // Content moderation validation
+            let contentValid = true;
+            let contentMessage = '';
+            
+            if (topicField && topicField.value.trim()) {
+                const moderation = ClientContentModerator.validateTopic(
+                    topicField.value.trim(), 
+                    titleField ? titleField.value.trim() : ''
+                );
+                contentValid = moderation.isValid;
+                contentMessage = moderation.message;
+                
+                // Only show feedback if content is invalid
+                if (!contentValid) {
+                    this.updateContentValidationFeedback(moderation);
+                    this.showContentSuggestions();
+                } else {
+                    // Hide feedback and suggestions when content is valid
+                    const feedbackDiv = document.getElementById('content-validation-feedback');
+                    if (feedbackDiv) {
+                        feedbackDiv.style.display = 'none';
+                    }
+                    
+                    const suggestionsDiv = document.getElementById('topic-suggestions');
+                    if (suggestionsDiv) {
+                        suggestionsDiv.remove();
+                    }
+                }
+            }
+            
+            const isFormValid = allFieldsFilled && contentValid;
+            
+            if (submitBtn) {
+                submitBtn.disabled = !isFormValid;
+                
+                // Force white text color when disabled
+                if (submitBtn.disabled) {
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (btnText) {
+                        btnText.style.color = 'white';
+                        btnText.style.setProperty('color', 'white', 'important');
+                    }
+                    submitBtn.style.color = 'white';
+                    submitBtn.style.setProperty('color', 'white', 'important');
+                } else {
+                    const btnText = submitBtn.querySelector('.btn-text');
+                    if (btnText) {
+                        btnText.style.color = '';
+                    }
+                    submitBtn.style.color = '';
+                }
+                
+                if (!contentValid && topicField && topicField.value.trim()) {
+                    submitBtn.title = contentMessage;
+                } else {
+                    submitBtn.title = '';
+                }
+            }
         };
 
         // Initially disable the button
-        submitBtn.disabled = true;
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            
+            // Force white text color on disabled button
+            const btnText = submitBtn.querySelector('.btn-text');
+            if (btnText) {
+                btnText.style.color = 'white';
+                btnText.style.setProperty('color', 'white', 'important');
+            }
+            submitBtn.style.color = 'white';
+            submitBtn.style.setProperty('color', 'white', 'important');
+        }
 
         // Add event listeners to all required fields
         requiredFields.forEach(field => {
-            field.addEventListener('input', validateForm);
-            field.addEventListener('blur', validateForm);
+            if (field) {
+                field.addEventListener('input', validateForm);
+                field.addEventListener('blur', validateForm);
+            }
         });
 
-        // Also listen to the select field (question count) in case it's needed
-        const questionCountSelect = document.getElementById('question-count');
-        questionCountSelect.addEventListener('change', validateForm);
+        // Also listen to the select field (question count)
+        if (questionCountSelect) {
+            questionCountSelect.addEventListener('change', validateForm);
+        }
+
+        // Content guidelines removed - validation handled directly
     }
+
+    createContentValidationElements() {
+        const topicField = document.getElementById('quiz-topic');
+        if (!topicField) return;
+        
+        // Add content validation feedback after topic input
+        if (!document.getElementById('content-validation-feedback')) {
+            const feedbackDiv = document.createElement('div');
+            feedbackDiv.id = 'content-validation-feedback';
+            feedbackDiv.style.cssText = `
+                margin-top: 8px;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 14px;
+                display: none;
+                transition: all 0.3s ease;
+            `;
+            topicField.parentNode.insertBefore(feedbackDiv, topicField.nextSibling);
+        }
+    }
+
+    updateContentValidationFeedback(moderation) {
+        const feedbackDiv = document.getElementById('content-validation-feedback');
+        if (!feedbackDiv) return;
+        
+        if (moderation.isValid) {
+            feedbackDiv.style.display = 'block';
+            feedbackDiv.style.background = '#d4edda';
+            feedbackDiv.style.border = '1px solid #c3e6cb';
+            feedbackDiv.style.color = '#155724';
+            feedbackDiv.innerHTML = `✅ ${moderation.message}`;
+        } else {
+            feedbackDiv.style.display = 'block';
+            feedbackDiv.style.background = moderation.severity === 'high' ? '#f8d7da' : '#fff3cd';
+            feedbackDiv.style.border = moderation.severity === 'high' ? '1px solid #f5c6cb' : '1px solid #ffeaa7';
+            feedbackDiv.style.color = moderation.severity === 'high' ? '#721c24' : '#856404';
+            feedbackDiv.innerHTML = `
+                ${moderation.severity === 'high' ? '❌' : '⚠️'} ${moderation.message}
+                ${moderation.suggestion ? `<br><strong>Suggestion:</strong> ${moderation.suggestion}` : ''}
+            `;
+        }
+    }
+
+    showContentSuggestions() {
+        if (document.getElementById('topic-suggestions')) return;
+        
+        const topicField = document.getElementById('quiz-topic');
+        if (!topicField) return;
+        
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.id = 'topic-suggestions';
+        suggestionsDiv.innerHTML = `
+            <div style="margin-top: 16px; padding: 16px; background: #e8f4fd; border-radius: 8px; border-left: 4px solid #007bff;">
+                <h4 style="margin: 0 0 12px 0; color: #004085; font-size: 16px;">
+                    💡 Suggested Topics
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 14px;">
+                    ${ClientContentModerator.getSuggestedTopics().map(topic => 
+                        `<button type="button" class="topic-suggestion-btn" style="
+                            padding: 8px 12px;
+                            background: white;
+                            border: 1px solid #007bff;
+                            border-radius: 6px;
+                            color: #007bff;
+                            cursor: pointer;
+                            text-align: left;
+                            transition: all 0.2s ease;
+                        " onmouseover="this.style.background='#007bff'; this.style.color='white';" 
+                           onmouseout="this.style.background='white'; this.style.color='#007bff';"
+                           onclick="window.quizGame.selectSuggestedTopic('${topic}')">${topic}</button>`
+                    ).join('')}
+                </div>
+            </div>
+        `;
+        
+        const feedbackDiv = document.getElementById('content-validation-feedback');
+        if (feedbackDiv && feedbackDiv.parentNode) {
+            feedbackDiv.parentNode.insertBefore(suggestionsDiv, feedbackDiv.nextSibling);
+        }
+    }
+
+    selectSuggestedTopic(topic) {
+        const topicField = document.getElementById('quiz-topic');
+        if (topicField) {
+            topicField.value = topic;
+            topicField.dispatchEvent(new Event('input'));
+        }
+        
+        // Remove suggestions after selection
+        const suggestionsDiv = document.getElementById('topic-suggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.remove();
+        }
+    }
+
+    // Content guidelines removed - validation is now handled directly through button state
+    // showContentGuidelines() method no longer needed
 
     showScreen(screenName, addToHistory = true) {
         // Hide all screens
@@ -479,6 +824,13 @@ class QuizGameClient {
     }
 
     pushToHistory(screenName, previousScreen) {
+        // Prevent adding the same screen consecutively
+        const lastScreen = this.navigationStack[this.navigationStack.length - 1];
+        if (lastScreen === screenName) {
+            console.log(`📚 Skipping duplicate history entry for: ${screenName}`);
+            return;
+        }
+        
         // Create state object with screen information
         const state = {
             screen: screenName,
@@ -672,6 +1024,21 @@ class QuizGameClient {
             return;
         }
         
+        if (questionCount < 5 || questionCount > 15) {
+            this.showToast('Number of questions must be between 5 and 15', 'error');
+            return;
+        }
+        
+        // Final content validation before submission
+        const moderation = ClientContentModerator.validateTopic(topic, title);
+        if (!moderation.isValid) {
+            this.showAlert(
+                `${moderation.message}\n\n${moderation.suggestion || 'Please choose a different topic.'}`,
+                'Content Policy Violation'
+            );
+            return;
+        }
+        
         // Show loading
         this.showLoading('Generating your quiz...', 'AI is creating questions based on your topic');
         
@@ -681,19 +1048,36 @@ class QuizGameClient {
         this.gameState.isHost = true;
         
         try {
-            await this.connectWebSocket();
-            
-            // Send create quiz message
-            this.sendMessage({
-                type: 'create_quiz',
-                title,
-                topic,
-                questionCount,
-                playerName: creatorName
-            });
+            await ErrorHandler.retry(async () => {
+                await this.connectWebSocket();
+                
+                // Send create quiz message
+                this.sendMessage({
+                    type: 'create_quiz',
+                    title,
+                    topic,
+                    questionCount,
+                    playerName: creatorName
+                });
+            }, 'Create Quiz');
         } catch (error) {
             this.hideLoading();
-            this.showToast('Failed to create quiz. Please try again.', 'error');
+            
+            // Handle content moderation errors specifically
+            if (error.message && (
+                error.message.includes('inappropriate content') ||
+                error.message.includes('violates content guidelines') ||
+                error.message.includes('Content moderation failed') ||
+                error.message.includes('rejected by AI moderation')
+            )) {
+                this.showAlert(
+                    'The quiz topic or generated content was flagged as inappropriate. Please try a different topic that follows our content guidelines.',
+                    'Content Moderation'
+                );
+            } else {
+                ErrorHandler.showUserError(error, 'Failed to create quiz. Please try again.');
+            }
+            
             console.error('Error creating quiz:', error);
         }
     }
@@ -1002,61 +1386,71 @@ class QuizGameClient {
         return shuffled;
     }
 
-    connectWebSocket() {
-        return new Promise((resolve, reject) => {
-            // Use PartyKit host for WebSocket connection
-            const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
-            const host = window.PARTYKIT_HOST;
-            const url = `${protocol}//${host}/party/${this.gameState.roomCode}`;
-            
-            console.log('🔌 Connecting to WebSocket:', url);
-            console.log('🔌 Using host:', host);
-            console.log('🔌 Using protocol:', protocol);
-            
-            if (this.socket) {
-                console.log('🔌 Closing existing socket');
-                this.socket.close();
-            }
-            
-            this.socket = new WebSocket(url);
-            
-            // Set a connection timeout
-            const connectionTimeout = setTimeout(() => {
-                console.error('❌ WebSocket connection timeout');
-                this.socket.close();
-                reject(new Error('Connection timeout'));
-            }, 5000);
-            
-            this.socket.onopen = () => {
-                console.log('✅ WebSocket connected to room:', this.gameState.roomCode);
-                clearTimeout(connectionTimeout);
-                resolve();
-            };
-            
-            this.socket.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log('📨 Received WebSocket message:', data);
-                    this.handleMessage(data);
-                } catch (error) {
-                    console.error('❌ Error parsing WebSocket message:', error);
+    async connectWebSocket() {
+        return ErrorHandler.retry(async () => {
+            return new Promise((resolve, reject) => {
+                // Use PartyKit host for WebSocket connection
+                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
+                const host = window.PARTYKIT_HOST;
+                const url = `${protocol}//${host}/party/${this.gameState.roomCode}`;
+                
+                console.log('🔌 Connecting to WebSocket:', url);
+                console.log('🔌 Using host:', host);
+                console.log('🔌 Using protocol:', protocol);
+                
+                if (this.socket) {
+                    console.log('🔌 Closing existing socket');
+                    this.socket.close();
                 }
-            };
-            
-            this.socket.onclose = (event) => {
-                console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                clearTimeout(connectionTimeout);
-                if (event.code !== 1000) { // Not a normal closure
-                    this.showToast('Connection lost', 'error');
-                }
-            };
-            
-            this.socket.onerror = (error) => {
-                console.error('❌ WebSocket error:', error);
-                clearTimeout(connectionTimeout);
-                reject(error);
-            };
-        });
+                
+                this.socket = new WebSocket(url);
+                
+                // Set a connection timeout
+                const connectionTimeout = setTimeout(() => {
+                    console.error('❌ WebSocket connection timeout');
+                    this.socket.close();
+                    const error = new Error('Connection timeout');
+                    error.type = 'websocket';
+                    reject(error);
+                }, 10000); // Increased timeout to 10 seconds
+                
+                this.socket.onopen = () => {
+                    console.log('✅ WebSocket connected to room:', this.gameState.roomCode);
+                    clearTimeout(connectionTimeout);
+                    resolve();
+                };
+                
+                this.socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('📨 Received WebSocket message:', data);
+                        this.handleMessage(data);
+                    } catch (error) {
+                        console.error('❌ Error parsing WebSocket message:', error);
+                        ErrorHandler.showUserError(error, 'Failed to process server message');
+                    }
+                };
+                
+                this.socket.onclose = (event) => {
+                    console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                    clearTimeout(connectionTimeout);
+                    if (event.code !== 1000) { // Not a normal closure
+                        this.showToast('Connection lost', 'error');
+                        const error = new Error(`WebSocket closed unexpectedly: ${event.code} ${event.reason}`);
+                        error.type = 'websocket';
+                        reject(error);
+                    }
+                };
+                
+                this.socket.onerror = (error) => {
+                    console.error('❌ WebSocket error:', error);
+                    clearTimeout(connectionTimeout);
+                    const wsError = new Error('WebSocket connection failed');
+                    wsError.type = 'websocket';
+                    reject(wsError);
+                };
+            });
+        }, 'WebSocket Connection', 2); // Only 2 retries for WebSocket
     }
 
     sendMessage(data) {
@@ -1066,10 +1460,16 @@ class QuizGameClient {
                 console.log('📤 Sent message:', data);
             } catch (error) {
                 console.error('❌ Error sending message:', error);
+                ErrorHandler.showUserError(error, 'Failed to send message to server');
+                throw error; // Re-throw so retry logic can handle it
             }
         } else {
             console.error('❌ Cannot send message: WebSocket not connected. ReadyState:', this.socket?.readyState);
             console.error('❌ WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
+            const error = new Error('WebSocket not connected');
+            error.type = 'websocket';
+            ErrorHandler.showUserError(error, 'Connection lost. Please try again.');
+            throw error;
         }
     }
 
@@ -1312,8 +1712,10 @@ class QuizGameClient {
         const selectedOption = document.querySelector('.answer-option.selected');
         
         answerOptions.forEach((option, index) => {
-            // Remove existing color classes
+            // Remove existing color classes and inline styles
             option.classList.remove('correct', 'incorrect', 'neutral');
+            option.style.backgroundColor = '';
+            option.style.color = '';
             
             if (index === correctAnswerIndex) {
                 // This is the correct answer
@@ -1377,8 +1779,11 @@ class QuizGameClient {
             finishBtn.classList.remove('hidden');
             continueBtn.classList.add('hidden');
             
-            // Save highscores when quiz is finished
-            this.saveHighscores(data.playerAnswers);
+            // Save highscores when quiz is finished (only once)
+            if (!this.gameState.highscoresSaved) {
+                this.saveHighscores(data.playerAnswers);
+                this.gameState.highscoresSaved = true;
+            }
             
             // Auto-show final results after a short delay for last question
             setTimeout(() => {
@@ -1406,9 +1811,10 @@ class QuizGameClient {
         console.log('🏁 Quiz finished:', data);
         
         // Ensure highscores are saved (in case they weren't saved in showInlineResults)
-        if (data.playerAnswers && Object.keys(data.playerAnswers).length > 0) {
+        if (data.playerAnswers && Object.keys(data.playerAnswers).length > 0 && !this.gameState.highscoresSaved) {
             console.log('💾 Ensuring highscores are saved for quiz completion');
             this.saveHighscores(data.playerAnswers);
+            this.gameState.highscoresSaved = true;
         }
         
         // Show final results screen first
@@ -1451,12 +1857,35 @@ class QuizGameClient {
             return;
         }
         
+        // Get the total number of questions to calculate percentage
+        const session = this.gameState.currentSession;
+        const totalQuestions = session?.quiz?.questions?.length || 1;
+        
         // Convert player answers to sorted array
-        const players = Object.entries(playerAnswers).map(([id, data]) => ({
-            id,
-            name: data.name,
-            score: data.score || 0
-        }));
+        const players = Object.entries(playerAnswers).map(([id, data]) => {
+            // Calculate correct answers from score if not available directly
+            let correctAnswers = data.correctAnswers || 0;
+            
+            // If correctAnswers is not available, estimate from score
+            // Assuming each correct answer gives 100 points (you can adjust this)
+            if (correctAnswers === 0 && data.score > 0) {
+                correctAnswers = Math.floor(data.score / 100);
+            }
+            
+            // Calculate percentage only if we have valid data
+            let percentage = 0;
+            if (totalQuestions > 0) {
+                percentage = Math.round((correctAnswers / totalQuestions) * 100);
+            }
+            
+            return {
+                id,
+                name: data.name,
+                score: data.score || 0,
+                percentage: percentage,
+                correctAnswers: correctAnswers
+            };
+        });
         
         // Sort by score (highest first)
         players.sort((a, b) => b.score - a.score);
@@ -1489,7 +1918,7 @@ class QuizGameClient {
             scoreItem.innerHTML = `
                 <div class="rank">${index + 1}</div>
                 <div class="player-name">${player.name}${currentPlayer && player.name === currentPlayer.name ? ' (You)' : ''}</div>
-                <div class="score">${player.score} pts (${player.percentage}%)</div>
+                <div class="score">${player.score} pts${(player.percentage !== undefined && !isNaN(player.percentage)) ? ` (${player.percentage}%)` : ''}</div>
             `;
             
             tempContainer.appendChild(scoreItem);
@@ -1553,7 +1982,7 @@ class QuizGameClient {
                 scoreItem.innerHTML = `
                     <div class="rank">${index + 1}</div>
                     <div class="player-name">${score.playerName}${currentPlayer && score.playerName === currentPlayer.name ? ' (You)' : ''}</div>
-                    <div class="score">${score.score} pts (${score.percentage}%)</div>
+                    <div class="score">${score.score} pts${score.percentage !== undefined ? ` (${score.percentage}%)` : ''}</div>
                 `;
                 
                 allTimeElement.appendChild(scoreItem);
@@ -1598,6 +2027,9 @@ class QuizGameClient {
         
         // Update session with the started quiz data
         this.gameState.currentSession = data.session;
+        
+        // Reset highscores saved flag for new quiz
+        this.gameState.highscoresSaved = false;
         
         // Set game start time when quiz begins
         if (!this.gameStartTime) {
@@ -1799,6 +2231,9 @@ class QuizGameClient {
             const selectedOption = document.querySelectorAll('.answer-option')[answerIndex];
             if (selectedOption) {
                 selectedOption.classList.add('selected');
+                // Immediately show visual feedback for selection
+                selectedOption.style.backgroundColor = 'var(--accent-color)';
+                selectedOption.style.color = 'white';
             }
         }
         
@@ -2343,7 +2778,7 @@ class QuizGameClient {
         modal.className = 'highscores-modal';
         modal.onclick = (e) => {
             if (e.target === modal) {
-                document.body.removeChild(modal);
+                this.closeHighscoresModal(modal);
             }
         };
         
@@ -2351,7 +2786,7 @@ class QuizGameClient {
             <div class="highscores-content">
                 <div class="highscores-header">
                     <h3>Highscores: ${quizTitle}</h3>
-                    <button class="close-btn" onclick="document.body.removeChild(this.closest('.highscores-modal'))">×</button>
+                    <button class="close-btn" onclick="window.quizGame.closeHighscoresModal(this.closest('.highscores-modal'))">×</button>
                 </div>
                 <ul class="highscore-list">
                     ${highscores.length === 0 ? '<li class="highscore-item">No scores yet. Be the first to play!</li>' : 
@@ -2360,7 +2795,7 @@ class QuizGameClient {
                                 <span class="highscore-rank">#${index + 1}</span>
                                 <span class="highscore-name">${score.playerName}</span>
                                 <span class="highscore-score">
-                                    ${score.score} pts (${score.percentage}%)
+                                    ${score.score} pts${score.percentage !== undefined ? ` (${score.percentage}%)` : ''}
                                 </span>
                             </li>
                         `).join('')
@@ -2369,7 +2804,34 @@ class QuizGameClient {
             </div>
         `;
         
+        // Add keyboard escape support
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                this.closeHighscoresModal(modal);
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        // Store the escape handler for cleanup
+        modal._escapeHandler = handleEscape;
+        
         document.body.appendChild(modal);
+        
+        // Focus the modal for better accessibility
+        setTimeout(() => {
+            modal.focus();
+        }, 100);
+    }
+
+    closeHighscoresModal(modal) {
+        if (modal && modal.parentNode) {
+            // Clean up escape handler
+            if (modal._escapeHandler) {
+                document.removeEventListener('keydown', modal._escapeHandler);
+            }
+            document.body.removeChild(modal);
+        }
     }
 
     showToast(message, type = 'info') {
@@ -2602,3 +3064,108 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.quizGame = new QuizGameClient();
     await window.quizGame.init();
 }); 
+
+// Content Moderation for Client-side
+class ClientContentModerator {
+    static BLOCKED_KEYWORDS = [
+        // Hate speech and discrimination
+        'racist', 'racism', 'nazi', 'hitler', 'supremacist', 'genocide',
+        'sexist', 'misogyn', 'homophob', 'transphob', 'terrorist',
+        
+        // Sexual content
+        'porn', 'xxx', 'sex', 'nude', 'naked', 'erotic', 'fetish',
+        
+        // Violence and illegal
+        'murder', 'kill', 'death', 'suicide', 'drug deal', 'weapon', 'gun',
+        
+        // Personal attacks
+        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully'
+    ];
+
+    static FLAGGED_KEYWORDS = [
+        'war', 'conflict', 'politics', 'religion', 'alcohol', 'medical'
+    ];
+
+    static POSITIVE_KEYWORDS = [
+        'history', 'historical', 'educational', 'science', 'biology',
+        'geography', 'literature', 'movies', 'entertainment', 'sports',
+        'food', 'travel', 'technology', 'nature', 'animals'
+    ];
+
+    static validateTopic(topic, title = '') {
+        const fullText = `${topic} ${title}`.toLowerCase().trim();
+        
+        // Check for blocked content
+        for (const keyword of this.BLOCKED_KEYWORDS) {
+            if (fullText.includes(keyword.toLowerCase())) {
+                return {
+                    isValid: false,
+                    severity: 'high',
+                    message: 'This topic contains inappropriate content that violates our community guidelines.',
+                    suggestion: 'Try topics like science, history, entertainment, sports, or general knowledge.'
+                };
+            }
+        }
+        
+        // Check for flagged content
+        const flaggedCount = this.FLAGGED_KEYWORDS.filter(keyword => 
+            fullText.includes(keyword.toLowerCase())
+        ).length;
+        
+        if (flaggedCount > 0) {
+            const positiveCount = this.POSITIVE_KEYWORDS.filter(keyword => 
+                fullText.includes(keyword.toLowerCase())
+            ).length;
+            
+            if (positiveCount === 0) {
+                return {
+                    isValid: false,
+                    severity: 'medium',
+                    message: 'This topic may be sensitive or controversial.',
+                    suggestion: 'Consider focusing on educational, historical, or entertainment aspects.'
+                };
+            }
+        }
+        
+        return {
+            isValid: true,
+            severity: 'low',
+            message: 'Topic looks good!'
+        };
+    }
+
+    static getSuggestedTopics() {
+        return [
+            'Ancient Civilizations History',
+            'Space and Astronomy',
+            'World Geography and Landmarks',
+            'Classic Literature and Authors',
+            'Movie Trivia and Entertainment',
+            'Scientific Discoveries',
+            'Animal Kingdom and Nature',
+            'World Cuisine and Food Culture',
+            'Sports and Olympics',
+            'Technology and Innovation',
+            'Art and Famous Artists',
+            'Music History and Genres',
+            'Travel Destinations',
+            'Video Games and Gaming',
+            'Famous Inventions'
+        ];
+    }
+
+    static getContentGuidelines() {
+        return [
+            "✅ Educational topics (science, history, literature)",
+            "✅ Entertainment (movies, music, sports, games)",
+            "✅ General knowledge and trivia",
+            "✅ Nature, animals, and geography",
+            "✅ Food, travel, and culture (respectful)",
+            "❌ Hate speech or discrimination",
+            "❌ Explicit or inappropriate content",
+            "❌ Violence or illegal activities",
+            "❌ Personal attacks or harassment",
+            "❌ Controversial political topics"
+        ];
+    }
+} 

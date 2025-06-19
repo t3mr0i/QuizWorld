@@ -351,8 +351,12 @@ select {
   border-radius: var(--border-radius-sm);
   font-family: var(--font-primary);
   font-size: 1rem;
+  color: var(--kb-black);
   background-color: rgba(255, 255, 255, 0.9);
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 input[type="text"]:focus,
@@ -361,6 +365,7 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--primary-accent-color);
+  color: var(--kb-black);
   background-color: rgba(255, 255, 255, 1);
   box-shadow: 0 0 0 3px rgba(255, 70, 0, 0.1);
 }
@@ -368,6 +373,17 @@ select:focus {
 textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* Select specific styling to remove weird effects */
+select {
+  background-image: none;
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  cursor: pointer;
+}
+
+select:focus {
+  background-color: rgba(255, 255, 255, 1) !important;
 }
 
 small {
@@ -454,15 +470,17 @@ small {
 .btn-text {
   background: none;
   border: none;
-  color: var(--text-color-secondary);
+  color: var(--primary-accent-color);
   text-decoration: underline;
   padding: var(--spacing-sm);
+  font-weight: 500;
 }
 
 .btn-text:hover {
-  color: var(--primary-accent-color);
+  color: var(--secondary-accent-color-1);
   transform: none;
   box-shadow: none;
+  text-decoration: none;
 }
 
 .btn-icon {
@@ -480,15 +498,60 @@ small {
   margin-right: 0;
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
+.btn:disabled,
+.btn:disabled *,
+.btn:disabled .btn-text,
+.btn:disabled span,
+#generate-quiz-btn:disabled,
+#generate-quiz-btn:disabled *,
+#generate-quiz-btn:disabled .btn-text,
+#generate-quiz-btn:disabled span,
+button:disabled,
+button:disabled *,
+button:disabled .btn-text,
+button:disabled span {
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  color: white !important;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      #A8ADB4,
+      #A8ADB4 10px,
+      #7E8187 10px,
+      #7E8187 20px
+    ) !important;
+  border-color: #7E8187 !important;
+  pointer-events: none !important;
 }
 
-.btn:disabled:hover {
-  transform: none;
-  box-shadow: none;
+.btn:disabled:hover,
+.btn:disabled:hover *,
+.btn:disabled:hover .btn-text,
+.btn:disabled:hover span,
+#generate-quiz-btn:disabled:hover,
+#generate-quiz-btn:disabled:hover *,
+#generate-quiz-btn:disabled:hover .btn-text,
+#generate-quiz-btn:disabled:hover span,
+button:disabled:hover,
+button:disabled:hover *,
+button:disabled:hover .btn-text,
+button:disabled:hover span {
+  transform: none !important;
+  box-shadow: none !important;
+  color: white !important;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      #A8ADB4,
+      #A8ADB4 10px,
+      #7E8187 10px,
+      #7E8187 20px
+    ) !important;
+  border-color: #7E8187 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }
 
 /* Form Actions */
@@ -497,6 +560,25 @@ small {
   justify-content: space-between;
   align-items: center;
   margin-top: var(--spacing-xl);
+}
+
+/* Specific override for disabled button text color */
+#generate-quiz-btn[disabled] .btn-text,
+#generate-quiz-btn[disabled] span,
+.btn-primary[disabled] .btn-text,
+.btn-primary[disabled] span,
+.btn[disabled] .btn-text,
+.btn[disabled] span {
+  color: white !important;
+}
+
+#generate-quiz-btn:disabled .btn-text,
+#generate-quiz-btn:disabled span,
+.btn-primary:disabled .btn-text,
+.btn-primary:disabled span,
+.btn:disabled .btn-text,
+.btn:disabled span {
+  color: white !important;
 }
 
 .btn-loading {
