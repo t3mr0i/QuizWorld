@@ -99,12 +99,12 @@ class AIService {
   private constructor() {
     this.apiKey = process.env.OPENAI_API_KEY || '';
     this.assistantId = process.env.OPENAI_ASSISTANT_ID || "asst_ApGsn7wfvZBukHPW9l4rMjn0";
-    
+  
     if (!this.apiKey) {
       console.error('❌ SECURITY WARNING: OPENAI_API_KEY not configured');
       throw new Error('AI service not properly configured');
-    }
-    
+  }
+
     // Validate API key format (basic security check)
     if (!this.apiKey.startsWith('sk-')) {
       console.error('❌ SECURITY WARNING: Invalid API key format');
@@ -206,10 +206,10 @@ class AIService {
       const secureOptions = {
         ...options,
         signal: controller.signal,
-        headers: {
+      headers: {
           ...options.headers,
           'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+        'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2',
           'User-Agent': 'QuizWorld/1.0'
         }
@@ -278,9 +278,9 @@ class AIService {
         threadId = await this.retryableRequest(async () => {
           const response = await this.makeSecureRequest('https://api.openai.com/v1/threads', {
             method: 'POST',
-            body: JSON.stringify({})
-          });
-          
+      body: JSON.stringify({})
+    });
+
           if (!response.ok) {
             throw { response };
           }
@@ -316,13 +316,13 @@ Return ONLY valid JSON in this exact format:
 }`;
 
            const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-             method: 'POST',
-             body: JSON.stringify({
-               role: 'user',
+      method: 'POST',
+      body: JSON.stringify({
+        role: 'user',
                content: generationPrompt
-             })
-           });
-           
+      })
+    });
+
            if (!response.ok) {
              throw { response };
            }
@@ -331,16 +331,16 @@ Return ONLY valid JSON in this exact format:
          }, 'Add Message');
         
         console.log(`✅ Message added to thread`);
-        
+
         // Step 3: Run assistant with retry logic
         const runId = await this.retryableRequest(async () => {
           const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-            method: 'POST',
-            body: JSON.stringify({
+      method: 'POST',
+      body: JSON.stringify({
               assistant_id: this.assistantId
-            })
-          });
-          
+      })
+    });
+
           if (!response.ok) {
             throw { response };
           }
@@ -350,17 +350,17 @@ Return ONLY valid JSON in this exact format:
         }, 'Run Assistant');
         
         console.log(`✅ Assistant run started: ${runId}`);
-        
+    
         // Step 4: Poll for completion with enhanced timeout logic
         const result = await this.retryableRequest(async () => {
           const maxAttempts = 60; // 60 seconds max
-          let attempts = 0;
+    let attempts = 0;
           
           while (attempts < maxAttempts) {
             const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
               method: 'GET'
-            });
-            
+      });
+      
             if (!response.ok) {
               throw { response };
             }
@@ -376,7 +376,7 @@ Return ONLY valid JSON in this exact format:
               throw new Error(`Assistant run failed with status: ${status}`);
             }
             
-            attempts++;
+      attempts++;
             await this.delay(1000);
           }
           
@@ -389,24 +389,24 @@ Return ONLY valid JSON in this exact format:
         const content = await this.retryableRequest(async () => {
           const response = await this.makeSecureRequest(`https://api.openai.com/v1/threads/${threadId}/messages`, {
             method: 'GET'
-          });
-          
+    });
+
           if (!response.ok) {
             throw { response };
-          }
-          
+    }
+
           const messages = await response.json();
-          const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-          
-          if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
+    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+    
+    if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
             throw new Error('No valid response from assistant');
-          }
-          
+    }
+
           return assistantMessage.content[0].text.value;
         }, 'Get Messages');
         
         console.log(`✅ Retrieved assistant response`);
-        
+    
                  // Step 6: Parse and validate response
          const questions = await this.retryableRequest(async () => {
            try {
@@ -421,8 +421,8 @@ Return ONLY valid JSON in this exact format:
                throw moderationError;
              }
              
-             const quizData = JSON.parse(content);
-             
+    const quizData = JSON.parse(content);
+    
              if (!quizData.questions || !Array.isArray(quizData.questions)) {
                throw new Error('Invalid quiz data structure');
              }
@@ -453,7 +453,7 @@ Return ONLY valid JSON in this exact format:
                }
                
                return {
-                 id: `q_${Date.now()}_${index}`,
+      id: `q_${Date.now()}_${index}`,
                  question: questionText,
                  options: q.options.map((opt: any) => String(opt).trim()),
                  correctAnswer,
@@ -464,9 +464,9 @@ Return ONLY valid JSON in this exact format:
              if (questions.length === 0) {
                throw new Error('No valid questions generated');
              }
-             
+
              console.log(`✅ Content validation passed for ${questions.length} questions`);
-             return questions;
+    return questions;
            } catch (parseError) {
              console.error('❌ Failed to parse AI response:', parseError);
              console.error('Raw response (first 500 chars):', content.substring(0, 500) + '...');
@@ -490,7 +490,7 @@ Return ONLY valid JSON in this exact format:
           }
         }
       }
-    } catch (error) {
+  } catch (error) {
       console.error(`❌ Quiz generation failed for topic "${topic}":`, error);
       throw new Error(`Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -517,61 +517,64 @@ class ContentModerator {
     /\b(racist?|racism|nazi|hitler|supremacist|genocide|ethnic\s*cleansing)\b/i,
     /\b(sexist|misogyn|incel|femoid|chad|beta\s*male)\b/i,
     /\b(homophob|transphob|f[a4]gg[o0]t|tr[a4]nny|dyke)\b/i,
-    /\b(terrorist|jihad|isis|al\s*qaeda|bomb\s*making)\b/i,
+    /\b(terrorist|jihad|isis|al\s*qaeda|bomb\s*making|how\s*to\s*make\s*bomb)\b/i,
     
-    // Sexual content
-    /\b(porn|xxx|sex|nude|naked|erotic|fetish|bdsm)\b/i,
-    /\b(masturbat|orgasm|penis|vagina|breast|genitals)\b/i,
+    // Explicit sexual content
+    /\b(porn|xxx|hardcore\s*sex|nude\s*photos|naked\s*pics|erotic\s*images|fetish\s*porn|bdsm\s*porn)\b/i,
+    /\b(masturbat|orgasm|explicit\s*sexual|sexual\s*acts)\b/i,
     
-    // Violence and illegal activities
-    /\b(murder|kill|death|suicide|self\s*harm|cutting)\b/i,
-    /\b(drug\s*deal|cocaine|heroin|methamphetamine|illegal\s*drugs)\b/i,
-    /\b(weapon|gun|rifle|pistol|explosive|ammunition)\b/i,
+    // Illegal violence and truly harmful activities
+    /\b(how\s*to\s*murder|how\s*to\s*kill|assassination|murder\s*methods)\b/i,
+    /\b(illegal\s*drug\s*making|how\s*to\s*make\s*drugs|drug\s*manufacturing|cocaine\s*production|heroin\s*production|methamphetamine\s*production)\b/i,
+    /\b(illegal\s*weapons|how\s*to\s*make\s*weapons|bomb\s*instructions|explosive\s*instructions)\b/i,
+    /\b(how\s*to\s*hack|illegal\s*hacking|credit\s*card\s*fraud|identity\s*theft)\b/i,
     
     // Personal attacks and doxxing
-    /\b(doxx|dox|personal\s*info|address|phone\s*number)\b/i,
-    /\b(cyberbully|harassment|stalking|threaten)\b/i
+    /\b(doxx|dox|personal\s*info|address|phone\s*number|home\s*address)\b/i,
+    /\b(cyberbully|harassment|stalking|threaten|death\s*threat)\b/i
   ];
 
   private static readonly FLAGGED_PATTERNS = [
-    // Potentially sensitive but context-dependent
-    /\b(war|conflict|battle|revolution|protest)\b/i,
-    /\b(religion|god|jesus|allah|buddha|christian|muslim|jewish)\b/i,
-    /\b(politics|democrat|republican|conservative|liberal)\b/i,
-    /\b(alcohol|beer|wine|drunk|drinking)\b/i,
-    /\b(medical|disease|cancer|covid|virus|pandemic)\b/i
+    // Potentially sensitive but often educational - require context
+    /\b(war|conflict|battle|revolution|protest|civil\s*war)\b/i,
+    /\b(politics|democrat|republican|conservative|liberal|political\s*party)\b/i,
+    /\b(controversial|sensitive\s*topic|adult\s*content)\b/i
   ];
 
   private static readonly POSITIVE_CONTEXT_PATTERNS = [
     // Educational contexts that make flagged content acceptable
-    /\b(history|historical|world\s*war|civil\s*war|educational)\b/i,
-    /\b(science|biology|anatomy|medical\s*education|health)\b/i,
-    /\b(geography|countries|cultures|traditions)\b/i,
-    /\b(literature|books|novels|poetry|art)\b/i,
-    /\b(movies|films|tv\s*shows|entertainment|celebrities)\b/i,
-    /\b(sports|games|olympics|championship|competition)\b/i,
-    /\b(food|cooking|recipes|cuisine|restaurants)\b/i,
-    /\b(travel|tourism|destinations|landmarks)\b/i,
-    /\b(technology|computers|programming|innovation)\b/i,
-    /\b(nature|animals|environment|conservation)\b/i
+    /\b(history|historical|world\s*war|civil\s*war|educational|academic|learning)\b/i,
+    /\b(science|biology|anatomy|medical\s*education|health|healthcare|medicine)\b/i,
+    /\b(geography|countries|cultures|traditions|cultural|anthropology)\b/i,
+    /\b(literature|books|novels|poetry|art|philosophy|sociology)\b/i,
+    /\b(movies|films|tv\s*shows|entertainment|celebrities|music|bands|artists)\b/i,
+    /\b(sports|games|olympics|championship|competition|athletics)\b/i,
+    /\b(food|cooking|recipes|cuisine|restaurants|culinary|gastronomy)\b/i,
+    /\b(travel|tourism|destinations|landmarks|world\s*heritage)\b/i,
+    /\b(technology|computers|programming|innovation|engineering)\b/i,
+    /\b(nature|animals|environment|conservation|wildlife|ecology)\b/i,
+    /\b(religion|religious|mythology|folklore|spiritual|belief)\b/i,
+    /\b(alcohol|beer|wine|spirits|brewing|distilling|cocktails|bartending)\b/i,
+    /\b(festival|celebration|holiday|tradition|custom|ritual)\b/i,
+    /\b(quiz|trivia|knowledge|facts|information|general\s*knowledge)\b/i
   ];
 
   static moderateContent(topic: string, title?: string): ContentModerationResult {
     const fullText = `${topic} ${title || ''}`.toLowerCase().trim();
     
-    // Check for blocked content
+    // Check for blocked content (truly inappropriate/illegal)
     for (const pattern of this.BLOCKED_PATTERNS) {
       if (pattern.test(fullText)) {
         return {
           isAllowed: false,
-          reason: 'This topic contains inappropriate content that violates our community guidelines.',
+          reason: 'This topic contains content that violates our community guidelines.',
           suggestion: 'Try a different topic like science, history, entertainment, or general knowledge.',
           severity: 'high'
         };
       }
     }
     
-    // Check for flagged content
+    // Check for flagged content (potentially sensitive but often legitimate)
     const flaggedMatches = this.FLAGGED_PATTERNS.filter(pattern => pattern.test(fullText));
     if (flaggedMatches.length > 0) {
       // Check if there's positive educational context
@@ -580,8 +583,8 @@ class ContentModerator {
       if (!hasPositiveContext) {
         return {
           isAllowed: false,
-          reason: 'This topic may be sensitive or controversial.',
-          suggestion: 'Consider focusing on educational, historical, or entertainment aspects of this topic.',
+          reason: 'This topic may be sensitive. Consider adding educational context.',
+          suggestion: 'Try adding educational context like "History of..." or "Science of..." to make the topic more appropriate.',
           severity: 'medium'
         };
       }
@@ -608,44 +611,59 @@ Title: "${title || 'N/A'}"
 
 STRICT GUIDELINES - ONLY reject if the topic involves:
 1. Hate speech, discrimination, or offensive content targeting any group
-2. Explicit sexual content or inappropriate material  
-3. Violence, illegal activities, or harmful instructions
+2. Explicit sexual content or graphic sexual material
+3. Instructions for illegal activities or violence (how to make bombs, drugs, weapons)
 4. Personal attacks, doxxing, or harassment
-5. Misinformation that could cause harm
+5. Content that could cause direct harm if followed
 
 EXPLICITLY APPROVED TOPICS (always generate quizzes for these):
-- Music artists, bands, musicians, singers (Twenty One Pilots, Taylor Swift, etc.)
+- Music artists, bands, musicians, singers (any artist or musical topic)
 - Movies, TV shows, entertainment, celebrities, actors
-- Sports teams, athletes, games, competitions
-- Science, technology, nature, animals, space
-- History, geography, cultures, countries
-- Literature, books, authors, poetry
-- Art, artists, paintings, sculptures
-- Food, cooking, restaurants, cuisine
-- Travel, destinations, landmarks
-- Video games, gaming, board games
+- Sports teams, athletes, games, competitions, olympics
+- Science, technology, nature, animals, space, physics, chemistry
+- History, geography, cultures, countries, historical events
+- Literature, books, authors, poetry, philosophy
+- Art, artists, paintings, sculptures, museums
+- Food, cooking, restaurants, cuisine, culinary traditions
+- Travel, destinations, landmarks, world heritage sites
+- Video games, gaming, board games, puzzles
 - Educational topics and general knowledge
+- Alcohol and beverages (beer, wine, spirits, cocktails, brewing, history of alcohol)
+- Religion and mythology (when presented factually and respectfully)
+- Medical topics (anatomy, diseases, healthcare - when educational)
+- Legal recreational activities and hobbies
 
-IMPORTANT: Music artists and bands are ENTERTAINMENT content and should ALWAYS be approved.
-Examples of acceptable music topics: "Twenty One Pilots", "Taylor Swift", "Beatles", "Mozart", etc.
+IMPORTANT CLARIFICATIONS:
+- Alcohol-related topics are APPROVED (beer history, wine regions, cocktail recipes, etc.)
+- Historical topics including wars are APPROVED when educational
+- Religious topics are APPROVED when respectful and factual
+- Medical topics are APPROVED when educational
+- Entertainment topics are ALWAYS APPROVED
 
-ONLY respond with error format if topic involves explicit harm, hate, or illegal content.
-For all entertainment, educational, and general knowledge topics, proceed with quiz generation.
+ONLY reject topics that explicitly involve:
+- Teaching illegal activities
+- Explicit hate speech
+- Graphic sexual content
+- Direct harm or violence instructions
+
+For all other topics, proceed with quiz generation.
 `;
   }
 
   static getContentGuidelines(): string[] {
     return [
-      "✅ Educational topics (science, history, literature)",
-      "✅ Entertainment (movies, music, sports, games)",
+      "✅ Educational topics (science, history, literature, medicine)",
+      "✅ Entertainment (movies, music, sports, games, celebrities)",
       "✅ General knowledge and trivia",
       "✅ Nature, animals, and geography",
       "✅ Food, travel, and culture (respectful)",
+      "✅ Alcohol and beverages (beer, wine, cocktails, history)",
+      "✅ Religion and mythology (presented respectfully)",
+      "✅ Historical events and figures",
+      "❌ Instructions for illegal activities",
       "❌ Hate speech or discrimination",
-      "❌ Explicit or inappropriate content",
-      "❌ Violence or illegal activities",
-      "❌ Personal attacks or harassment",
-      "❌ Controversial political topics"
+      "❌ Explicit sexual content",
+      "❌ Personal attacks or harassment"
     ];
   }
 }

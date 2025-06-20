@@ -5,42 +5,48 @@ export class ClientContentModerator {
         'racist', 'racism', 'nazi', 'hitler', 'supremacist', 'genocide',
         'sexist', 'misogyn', 'homophob', 'transphob', 'terrorist',
         
-        // Sexual content
-        'porn', 'xxx', 'sex', 'nude', 'naked', 'erotic', 'fetish',
+        // Explicit sexual content
+        'hardcore sex', 'nude photos', 'naked pics', 'erotic images', 'fetish porn', 'bdsm porn',
         
-        // Violence and illegal
-        'murder', 'kill', 'death', 'suicide', 'drug deal', 'weapon', 'gun',
+        // Instructions for illegal activities
+        'how to murder', 'how to kill', 'murder methods', 'assassination',
+        'how to make drugs', 'drug manufacturing', 'cocaine production', 'heroin production',
+        'how to make weapons', 'bomb instructions', 'explosive instructions',
+        'how to hack', 'illegal hacking', 'credit card fraud', 'identity theft',
         
         // Personal attacks
-        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully'
+        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully', 'death threat'
     ];
 
     static FLAGGED_KEYWORDS = [
-        'war', 'conflict', 'politics', 'religion', 'alcohol', 'medical'
+        'controversial', 'political party', 'sensitive topic', 'adult content'
     ];
 
     static POSITIVE_KEYWORDS = [
-        'history', 'historical', 'educational', 'science', 'biology',
-        'geography', 'literature', 'movies', 'entertainment', 'sports',
-        'food', 'travel', 'technology', 'nature', 'animals'
+        'history', 'historical', 'educational', 'science', 'biology', 'academic', 'learning',
+        'geography', 'literature', 'movies', 'entertainment', 'sports', 'music', 'bands', 'artists',
+        'food', 'travel', 'technology', 'nature', 'animals', 'medicine', 'healthcare',
+        'religion', 'religious', 'mythology', 'cultural', 'tradition', 'festival',
+        'alcohol', 'beer', 'wine', 'spirits', 'brewing', 'cocktails', 'bartending',
+        'quiz', 'trivia', 'knowledge', 'facts', 'general knowledge', 'cooking', 'culinary'
     ];
 
     static validateTopic(topic, title = '') {
         const fullText = `${topic} ${title}`.toLowerCase().trim();
         
-        // Check for blocked content
+        // Check for blocked content (truly illegal or harmful)
         for (const keyword of this.BLOCKED_KEYWORDS) {
             if (fullText.includes(keyword.toLowerCase())) {
                 return {
                     isValid: false,
                     severity: 'high',
-                    message: 'This topic contains inappropriate content that violates our community guidelines.',
+                    message: 'This topic contains content that violates our community guidelines.',
                     suggestion: 'Try topics like science, history, entertainment, sports, or general knowledge.'
                 };
             }
         }
         
-        // Check for flagged content
+        // Check for flagged content (potentially sensitive but often legitimate)
         const flaggedCount = this.FLAGGED_KEYWORDS.filter(keyword => 
             fullText.includes(keyword.toLowerCase())
         ).length;
@@ -54,8 +60,8 @@ export class ClientContentModerator {
                 return {
                     isValid: false,
                     severity: 'medium',
-                    message: 'This topic may be sensitive or controversial.',
-                    suggestion: 'Consider focusing on educational, historical, or entertainment aspects.'
+                    message: 'This topic may be sensitive. Consider adding educational context.',
+                    suggestion: 'Try adding educational context like "History of..." or "Science of..." to make the topic more appropriate.'
                 };
             }
         }
@@ -83,22 +89,29 @@ export class ClientContentModerator {
             'Music History and Genres',
             'Travel Destinations',
             'Video Games and Gaming',
-            'Famous Inventions'
+            'Famous Inventions',
+            'Beer and Brewing History',
+            'Wine Regions of the World',
+            'Cocktail Recipes and Bartending',
+            'World Religions and Mythology',
+            'Medical Breakthroughs and Healthcare'
         ];
     }
 
     static getContentGuidelines() {
         return [
-            "✅ Educational topics (science, history, literature)",
-            "✅ Entertainment (movies, music, sports, games)",
+            "✅ Educational topics (science, history, literature, medicine)",
+            "✅ Entertainment (movies, music, sports, games, celebrities)",
             "✅ General knowledge and trivia",
             "✅ Nature, animals, and geography",
             "✅ Food, travel, and culture (respectful)",
+            "✅ Alcohol and beverages (beer, wine, cocktails, history)",
+            "✅ Religion and mythology (presented respectfully)",
+            "✅ Historical events and figures",
+            "❌ Instructions for illegal activities",
             "❌ Hate speech or discrimination",
-            "❌ Explicit or inappropriate content",
-            "❌ Violence or illegal activities",
-            "❌ Personal attacks or harassment",
-            "❌ Controversial political topics"
+            "❌ Explicit sexual content",
+            "❌ Personal attacks or harassment"
         ];
     }
 } 

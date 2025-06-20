@@ -744,11 +744,11 @@
     <!-- Navigation Bar -->
     <nav class="navbar">
         <div class="navbar-container">
-            <a href="#" class="navbar-brand">
+                <a href="#" class="navbar-brand">
                 <i class="ph ph-brain"></i>
                 <span>Quizaru</span>
-            </a>
-        </div>
+                </a>
+            </div>
     </nav>
 
     <div class="app-container">
@@ -831,7 +831,7 @@
                                 <button type="button" id="back-to-welcome" class="btn btn-text">← Back</button>
                                                             <button type="submit" id="generate-quiz-btn" class="btn btn-primary" style="color: white !important;">
                                 <span class="btn-text" style="color: white !important;">Generate Quiz with AI</span>
-                            </button>
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -860,9 +860,9 @@
                         <div id="quiz-list" class="quiz-list">
                             <!-- Quiz items will be populated here -->
                         </div>
-                        <div class="form-actions">
+                            <div class="form-actions">
                             <button type="button" id="back-to-welcome-3" class="btn btn-text">← Back</button>
-                        </div>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -880,11 +880,11 @@
                                 <div class="form-group">
                                     <label for="tournament-name">Tournament Name</label>
                                     <input type="text" id="tournament-name" placeholder="Epic Quiz Battle" required>
-                                </div>
+                                    </div>
                                 <div class="form-group">
                                     <label for="tournament-creator">Your Name</label>
                                     <input type="text" id="tournament-creator" placeholder="Tournament Host" required>
-                                </div>
+                                        </div>
                             </div>
                             
                             <div class="tournament-selection">
@@ -896,7 +896,7 @@
                                 </div>
                                 
                                 <div class="selected-section">
-                                    <h3>Selected Quizzes (<span id="selected-quiz-count">0</span>)</h3>
+                                        <h3>Selected Quizzes (<span id="selected-quiz-count">0</span>)</h3>
                                     <div id="selected-quizzes">
                                         <!-- Selected quizzes will appear here -->
                                     </div>
@@ -904,23 +904,23 @@
                                     <div class="tournament-info">
                                         <div class="info-item">
                                             <span>Total Questions:</span>
-                                            <span id="total-tournament-questions">0</span>
-                                        </div>
+                                                <span id="total-tournament-questions">0</span>
+                                            </div>
                                         <div class="info-item">
                                             <span>Max Score:</span>
-                                            <span id="max-tournament-score">0</span>
+                                                <span id="max-tournament-score">0</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
+                                            </div>
+                                            </div>
+                                            
                             <div class="form-actions">
-                                <button type="button" id="back-to-welcome-tournament" class="btn btn-text">← Back</button>
-                                <button type="submit" id="create-tournament-btn" class="btn btn-primary" disabled>
-                                    <i class="ph ph-trophy"></i> Create Tournament
-                                </button>
-                            </div>
-                        </form>
+                                                <button type="button" id="back-to-welcome-tournament" class="btn btn-text">← Back</button>
+                                                <button type="submit" id="create-tournament-btn" class="btn btn-primary" disabled>
+                                                    <i class="ph ph-trophy"></i> Create Tournament
+                                                </button>
+                                            </div>
+                                        </form>
                     </div>
                 </div>
             </div>
@@ -964,25 +964,25 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="quiz-info">
+                            <div class="quiz-info">
                             <h3 id="quiz-title-display">Quiz Title</h3>
                             <p id="quiz-topic-display">Quiz topic description</p>
                             <div class="quiz-meta">
                                 <span><strong id="quiz-question-count">10</strong> questions</span>
                                 <span>Created by <strong id="quiz-creator">Creator</strong></span>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <div class="players-section">
-                            <h3>Players (<span id="player-count">0</span>)</h3>
+                            
+                            <div class="players-section">
+                                <h3>Players (<span id="player-count">0</span>)</h3>
                             <ul id="player-list" class="player-list">
                                 <!-- Players will be listed here -->
                             </ul>
                         </div>
-                        
+                                
                         <div class="lobby-actions">
                             <button id="ready-btn" class="btn btn-outline">Ready to Play</button>
-                            <div id="host-controls" class="host-controls hidden">
+                                    <div id="host-controls" class="host-controls hidden">
                                 <button id="start-quiz-btn" class="btn btn-primary">Start Quiz</button>
                             </div>
                         </div>
@@ -998,13 +998,13 @@
                             <span>Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
                             <span><span id="players-answered">0</span>/<span id="total-players-quiz">1</span> answered</span>
                         </div>
-                    </div>
+                        </div>
                     <div class="card-body">
                         <div class="question-section">
                             <h2 id="question-text">Question text will appear here</h2>
-                            <div id="answer-options" class="answer-options">
+                        <div id="answer-options" class="answer-options">
                                 <!-- Answer options will be populated here -->
-                            </div>
+                        </div>
                         </div>
                         
                         <!-- Inline Results (shown after answering) -->
@@ -1017,11 +1017,11 @@
                             <div class="continue-actions">
                                 <button id="continue-btn" class="btn btn-primary hidden">Next Question</button>
                                 <button id="finish-quiz-btn" class="btn btn-primary hidden">View Final Results</button>
-                            </div>
+                    </div>
                         </div>
                         
                         <!-- Live Leaderboard -->
-                        <div class="live-leaderboard">
+                            <div class="live-leaderboard">
                             <h3>Live Scores</h3>
                             <div id="live-leaderboard-list" class="leaderboard">
                                 <!-- Live scores will be updated here -->
@@ -1156,4 +1156,4 @@
         alert('Please use a modern browser like Chrome, Firefox, Safari, or Edge for the best experience.');
     </script>
 </body>
-</html> 
+</html>

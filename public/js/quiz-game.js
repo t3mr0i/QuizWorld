@@ -661,7 +661,7 @@ class QuizGameClient {
 
         // Initially disable the button
         if (submitBtn) {
-            submitBtn.disabled = true;
+        submitBtn.disabled = true;
             
             // Force white text color on disabled button
             const btnText = submitBtn.querySelector('.btn-text');
@@ -676,15 +676,15 @@ class QuizGameClient {
         // Add event listeners to all required fields
         requiredFields.forEach(field => {
             if (field) {
-                field.addEventListener('input', validateForm);
-                field.addEventListener('blur', validateForm);
+            field.addEventListener('input', validateForm);
+            field.addEventListener('blur', validateForm);
             }
         });
 
         // Also listen to the select field (question count)
         if (questionCountSelect) {
-            questionCountSelect.addEventListener('change', validateForm);
-        }
+        questionCountSelect.addEventListener('change', validateForm);
+    }
 
         // Content guidelines removed - validation handled directly
     }
@@ -1049,16 +1049,16 @@ class QuizGameClient {
         
         try {
             await ErrorHandler.retry(async () => {
-                await this.connectWebSocket();
-                
-                // Send create quiz message
-                this.sendMessage({
-                    type: 'create_quiz',
-                    title,
-                    topic,
-                    questionCount,
-                    playerName: creatorName
-                });
+            await this.connectWebSocket();
+            
+            // Send create quiz message
+            this.sendMessage({
+                type: 'create_quiz',
+                title,
+                topic,
+                questionCount,
+                playerName: creatorName
+            });
             }, 'Create Quiz');
         } catch (error) {
             this.hideLoading();
@@ -1388,68 +1388,68 @@ class QuizGameClient {
 
     async connectWebSocket() {
         return ErrorHandler.retry(async () => {
-            return new Promise((resolve, reject) => {
-                // Use PartyKit host for WebSocket connection
-                const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
-                const host = window.PARTYKIT_HOST;
-                const url = `${protocol}//${host}/party/${this.gameState.roomCode}`;
-                
-                console.log('🔌 Connecting to WebSocket:', url);
-                console.log('🔌 Using host:', host);
-                console.log('🔌 Using protocol:', protocol);
-                
-                if (this.socket) {
-                    console.log('🔌 Closing existing socket');
-                    this.socket.close();
-                }
-                
-                this.socket = new WebSocket(url);
-                
-                // Set a connection timeout
-                const connectionTimeout = setTimeout(() => {
-                    console.error('❌ WebSocket connection timeout');
-                    this.socket.close();
+        return new Promise((resolve, reject) => {
+            // Use PartyKit host for WebSocket connection
+            const protocol = window.PARTYKIT_HOST.includes('localhost') ? 'ws:' : 'wss:';
+            const host = window.PARTYKIT_HOST;
+            const url = `${protocol}//${host}/party/${this.gameState.roomCode}`;
+            
+            console.log('🔌 Connecting to WebSocket:', url);
+            console.log('🔌 Using host:', host);
+            console.log('🔌 Using protocol:', protocol);
+            
+            if (this.socket) {
+                console.log('🔌 Closing existing socket');
+                this.socket.close();
+            }
+            
+            this.socket = new WebSocket(url);
+            
+            // Set a connection timeout
+            const connectionTimeout = setTimeout(() => {
+                console.error('❌ WebSocket connection timeout');
+                this.socket.close();
                     const error = new Error('Connection timeout');
                     error.type = 'websocket';
                     reject(error);
                 }, 10000); // Increased timeout to 10 seconds
-                
-                this.socket.onopen = () => {
-                    console.log('✅ WebSocket connected to room:', this.gameState.roomCode);
-                    clearTimeout(connectionTimeout);
-                    resolve();
-                };
-                
-                this.socket.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        console.log('📨 Received WebSocket message:', data);
-                        this.handleMessage(data);
-                    } catch (error) {
-                        console.error('❌ Error parsing WebSocket message:', error);
+            
+            this.socket.onopen = () => {
+                console.log('✅ WebSocket connected to room:', this.gameState.roomCode);
+                clearTimeout(connectionTimeout);
+                resolve();
+            };
+            
+            this.socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('📨 Received WebSocket message:', data);
+                    this.handleMessage(data);
+                } catch (error) {
+                    console.error('❌ Error parsing WebSocket message:', error);
                         ErrorHandler.showUserError(error, 'Failed to process server message');
-                    }
-                };
-                
-                this.socket.onclose = (event) => {
-                    console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                    clearTimeout(connectionTimeout);
-                    if (event.code !== 1000) { // Not a normal closure
-                        this.showToast('Connection lost', 'error');
+                }
+            };
+            
+            this.socket.onclose = (event) => {
+                console.log('🔌 WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
+                clearTimeout(connectionTimeout);
+                if (event.code !== 1000) { // Not a normal closure
+                    this.showToast('Connection lost', 'error');
                         const error = new Error(`WebSocket closed unexpectedly: ${event.code} ${event.reason}`);
                         error.type = 'websocket';
                         reject(error);
-                    }
-                };
-                
-                this.socket.onerror = (error) => {
-                    console.error('❌ WebSocket error:', error);
-                    clearTimeout(connectionTimeout);
+                }
+            };
+            
+            this.socket.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                clearTimeout(connectionTimeout);
                     const wsError = new Error('WebSocket connection failed');
                     wsError.type = 'websocket';
                     reject(wsError);
-                };
-            });
+            };
+        });
         }, 'WebSocket Connection', 2); // Only 2 retries for WebSocket
     }
 
@@ -1781,7 +1781,7 @@ class QuizGameClient {
             
             // Save highscores when quiz is finished (only once)
             if (!this.gameState.highscoresSaved) {
-                this.saveHighscores(data.playerAnswers);
+            this.saveHighscores(data.playerAnswers);
                 this.gameState.highscoresSaved = true;
             }
             
@@ -1879,8 +1879,8 @@ class QuizGameClient {
             }
             
             return {
-                id,
-                name: data.name,
+            id,
+            name: data.name,
                 score: data.score || 0,
                 percentage: percentage,
                 correctAnswers: correctAnswers
@@ -3072,42 +3072,48 @@ class ClientContentModerator {
         'racist', 'racism', 'nazi', 'hitler', 'supremacist', 'genocide',
         'sexist', 'misogyn', 'homophob', 'transphob', 'terrorist',
         
-        // Sexual content
-        'porn', 'xxx', 'sex', 'nude', 'naked', 'erotic', 'fetish',
+        // Explicit sexual content
+        'hardcore sex', 'nude photos', 'naked pics', 'erotic images', 'fetish porn', 'bdsm porn',
         
-        // Violence and illegal
-        'murder', 'kill', 'death', 'suicide', 'drug deal', 'weapon', 'gun',
+        // Instructions for illegal activities
+        'how to murder', 'how to kill', 'murder methods', 'assassination',
+        'how to make drugs', 'drug manufacturing', 'cocaine production', 'heroin production',
+        'how to make weapons', 'bomb instructions', 'explosive instructions',
+        'how to hack', 'illegal hacking', 'credit card fraud', 'identity theft',
         
         // Personal attacks
-        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully'
+        'doxx', 'harassment', 'stalking', 'threaten', 'cyberbully', 'death threat'
     ];
 
     static FLAGGED_KEYWORDS = [
-        'war', 'conflict', 'politics', 'religion', 'alcohol', 'medical'
+        'controversial', 'political party', 'sensitive topic', 'adult content'
     ];
 
     static POSITIVE_KEYWORDS = [
-        'history', 'historical', 'educational', 'science', 'biology',
-        'geography', 'literature', 'movies', 'entertainment', 'sports',
-        'food', 'travel', 'technology', 'nature', 'animals'
+        'history', 'historical', 'educational', 'science', 'biology', 'academic', 'learning',
+        'geography', 'literature', 'movies', 'entertainment', 'sports', 'music', 'bands', 'artists',
+        'food', 'travel', 'technology', 'nature', 'animals', 'medicine', 'healthcare',
+        'religion', 'religious', 'mythology', 'cultural', 'tradition', 'festival',
+        'alcohol', 'beer', 'wine', 'spirits', 'brewing', 'cocktails', 'bartending',
+        'quiz', 'trivia', 'knowledge', 'facts', 'general knowledge', 'cooking', 'culinary'
     ];
 
     static validateTopic(topic, title = '') {
         const fullText = `${topic} ${title}`.toLowerCase().trim();
         
-        // Check for blocked content
+        // Check for blocked content (truly illegal or harmful)
         for (const keyword of this.BLOCKED_KEYWORDS) {
             if (fullText.includes(keyword.toLowerCase())) {
                 return {
                     isValid: false,
                     severity: 'high',
-                    message: 'This topic contains inappropriate content that violates our community guidelines.',
+                    message: 'This topic contains content that violates our community guidelines.',
                     suggestion: 'Try topics like science, history, entertainment, sports, or general knowledge.'
                 };
             }
         }
         
-        // Check for flagged content
+        // Check for flagged content (potentially sensitive but often legitimate)
         const flaggedCount = this.FLAGGED_KEYWORDS.filter(keyword => 
             fullText.includes(keyword.toLowerCase())
         ).length;
@@ -3121,8 +3127,8 @@ class ClientContentModerator {
                 return {
                     isValid: false,
                     severity: 'medium',
-                    message: 'This topic may be sensitive or controversial.',
-                    suggestion: 'Consider focusing on educational, historical, or entertainment aspects.'
+                    message: 'This topic may be sensitive. Consider adding educational context.',
+                    suggestion: 'Try adding educational context like "History of..." or "Science of..." to make the topic more appropriate.'
                 };
             }
         }
@@ -3150,22 +3156,29 @@ class ClientContentModerator {
             'Music History and Genres',
             'Travel Destinations',
             'Video Games and Gaming',
-            'Famous Inventions'
+            'Famous Inventions',
+            'Beer and Brewing History',
+            'Wine Regions of the World',
+            'Cocktail Recipes and Bartending',
+            'World Religions and Mythology',
+            'Medical Breakthroughs and Healthcare'
         ];
     }
 
     static getContentGuidelines() {
         return [
-            "✅ Educational topics (science, history, literature)",
-            "✅ Entertainment (movies, music, sports, games)",
+            "✅ Educational topics (science, history, literature, medicine)",
+            "✅ Entertainment (movies, music, sports, games, celebrities)",
             "✅ General knowledge and trivia",
             "✅ Nature, animals, and geography",
             "✅ Food, travel, and culture (respectful)",
+            "✅ Alcohol and beverages (beer, wine, cocktails, history)",
+            "✅ Religion and mythology (presented respectfully)",
+            "✅ Historical events and figures",
+            "❌ Instructions for illegal activities",
             "❌ Hate speech or discrimination",
-            "❌ Explicit or inappropriate content",
-            "❌ Violence or illegal activities",
-            "❌ Personal attacks or harassment",
-            "❌ Controversial political topics"
+            "❌ Explicit sexual content",
+            "❌ Personal attacks or harassment"
         ];
     }
 } 
