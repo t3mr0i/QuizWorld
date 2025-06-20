@@ -1242,8 +1242,12 @@ class QuizGameClient {
                 const quizCard = document.createElement('div');
                 quizCard.className = 'tournament-quiz-card';
                 quizCard.dataset.quizId = quiz.id;
+                quizCard.draggable = true;
                 
-                const createdDate = new Date(quiz.createdAt).toLocaleDateString();
+                const createdDate = new Date(quiz.createdAt).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
                 
                 quizCard.innerHTML = `
                     <div class="tournament-quiz-title">${quiz.title || quiz.topic}</div>
@@ -1255,23 +1259,33 @@ class QuizGameClient {
                                 <span>${quiz.questions.length}q</span>
                             </div>
                             <div class="tournament-quiz-stat">
-                                <i class="ph ph-user"></i>
-                                <span>${quiz.createdBy}</span>
+                                <i class="ph ph-calendar"></i>
+                                <span>${createdDate}</span>
                             </div>
-                            ${quiz.language ? `
-                                <div class="tournament-quiz-stat">
-                                    <i class="ph ph-translate"></i>
-                                    <span>${this.getLanguageDisplay(quiz.language)}</span>
-                                </div>
-                            ` : ''}
+                            <div class="tournament-quiz-stat">
+                                <i class="ph ph-translate"></i>
+                                <span>${this.getLanguageDisplay(quiz.language || 'en').split(' ')[0]}</span>
+                            </div>
                         </div>
-                        <div class="tournament-quiz-date">${createdDate}</div>
+                        <div class="tournament-quiz-creator">${quiz.createdBy}</div>
                     </div>
                 `;
                 
-                quizCard.onclick = () => this.toggleQuizSelection(quiz, quizCard);
+                // Add drag and drop handlers
+                this.setupQuizCardDragAndDrop(quizCard, quiz);
+                
+                // Add click handler for selection (non-drag)
+                quizCard.onclick = (e) => {
+                    if (!e.defaultPrevented) {
+                        this.toggleQuizSelection(quiz, quizCard);
+                    }
+                };
+                
                 availableQuizzesContainer.appendChild(quizCard);
             });
+            
+            // Setup drop zone after cards are loaded
+            this.setupDropZone();
             
         } catch (error) {
             console.error('❌ Error loading quizzes for tournament:', error);
@@ -1286,6 +1300,74 @@ class QuizGameClient {
         }
     }
 
+    setupQuizCardDragAndDrop(quizCard, quiz) {
+        quizCard.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify(quiz));
+            e.dataTransfer.effectAllowed = 'copy';
+            quizCard.classList.add('dragging');
+            
+            // Prevent click event when dragging
+            setTimeout(() => e.target.onclick = null, 0);
+        });
+
+        quizCard.addEventListener('dragend', () => {
+            quizCard.classList.remove('dragging');
+            
+            // Restore click handler after drag
+            setTimeout(() => {
+                quizCard.onclick = (e) => {
+                    if (!e.defaultPrevented) {
+                        this.toggleQuizSelection(quiz, quizCard);
+                    }
+                };
+            }, 100);
+        });
+    }
+
+    setupDropZone() {
+        const dropZone = document.getElementById('selected-quizzes');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            if (!dropZone.contains(e.relatedTarget)) {
+                dropZone.classList.remove('drag-over');
+            }
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            
+            try {
+                const quizData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                
+                // Check if already selected
+                if (this.selectedTournamentQuizzes && this.selectedTournamentQuizzes.find(q => q.id === quizData.id)) {
+                    this.showToast('Quiz already added to tournament', 'info');
+                    return;
+                }
+                
+                this.addQuizToTournament(quizData);
+                
+                // Update the visual state of the source card
+                const sourceCard = document.querySelector(`[data-quiz-id="${quizData.id}"]`);
+                if (sourceCard) {
+                    sourceCard.classList.add('selected');
+                }
+                
+                this.showToast(`Added "${quizData.title || quizData.topic}" to tournament! 🎯`, 'success');
+            } catch (error) {
+                console.error('Error handling drop:', error);
+                this.showToast('Error adding quiz to tournament', 'error');
+            }
+        });
+    }
+
     toggleQuizSelection(quiz, element) {
         const isSelected = element.classList.contains('selected');
         
@@ -1293,10 +1375,12 @@ class QuizGameClient {
             // Remove from selection
             element.classList.remove('selected');
             this.removeQuizFromTournament(quiz.id);
+            this.showToast(`Removed "${quiz.title || quiz.topic}" from tournament`, 'info');
         } else {
             // Add to selection
             element.classList.add('selected');
             this.addQuizToTournament(quiz);
+            this.showToast(`Added "${quiz.title || quiz.topic}" to tournament! 🎯`, 'success');
         }
         
         // Add smooth transition effect
@@ -1368,22 +1452,45 @@ class QuizGameClient {
             return;
         }
         
-        selectedContainer.innerHTML = '';
+        selectedContainer.innerHTML = '<div class="selected-quiz-grid"></div>';
+        const gridContainer = selectedContainer.querySelector('.selected-quiz-grid');
         
         this.selectedTournamentQuizzes.forEach((quiz, index) => {
-            const quizItem = document.createElement('div');
-            quizItem.className = 'selected-quiz-item';
-            quizItem.style.animationDelay = `${index * 0.1}s`;
+            const quizCard = document.createElement('div');
+            quizCard.className = 'tournament-quiz-card selected';
+            quizCard.style.animationDelay = `${index * 0.1}s`;
+            quizCard.style.maxWidth = '200px';
+            quizCard.style.position = 'relative';
             
-            quizItem.innerHTML = `
-                <div class="selected-quiz-info">
-                    <div class="selected-quiz-title">${quiz.title || quiz.topic}</div>
-                    <div class="selected-quiz-details">${quiz.questions.length} questions • by ${quiz.createdBy}${quiz.language ? ` • ${this.getLanguageDisplay(quiz.language)}` : ''}</div>
+            const createdDate = new Date(quiz.createdAt).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric' 
+            });
+            
+            quizCard.innerHTML = `
+                <div class="tournament-quiz-title">${quiz.title || quiz.topic}</div>
+                <div class="tournament-quiz-topic">${quiz.topic}</div>
+                <div class="tournament-quiz-meta">
+                    <div class="tournament-quiz-stats">
+                        <div class="tournament-quiz-stat">
+                            <i class="ph ph-note"></i>
+                            <span>${quiz.questions.length}q</span>
+                        </div>
+                        <div class="tournament-quiz-stat">
+                            <i class="ph ph-calendar"></i>
+                            <span>${createdDate}</span>
+                        </div>
+                        <div class="tournament-quiz-stat">
+                            <i class="ph ph-translate"></i>
+                            <span>${this.getLanguageDisplay(quiz.language || 'en').split(' ')[0]}</span>
+                        </div>
+                    </div>
+                    <div class="tournament-quiz-creator">${quiz.createdBy}</div>
                 </div>
-                <button class="remove-quiz-btn" onclick="window.quizGame.removeQuizFromTournament('${quiz.id}')" title="Remove quiz">×</button>
+                <button class="remove-quiz-btn" onclick="window.quizGame.removeQuizFromTournament('${quiz.id}')" title="Remove quiz" style="position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; background: #dc3545; color: white; border: none; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 10;">×</button>
             `;
             
-            selectedContainer.appendChild(quizItem);
+            gridContainer.appendChild(quizCard);
         });
     }
 

@@ -810,9 +810,9 @@
 
         .tournament-quiz-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 16px;
-          max-height: 400px;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
+          max-height: 500px;
           overflow-y: auto;
           padding: 16px;
           background: rgba(255, 255, 255, 0.3);
@@ -821,19 +821,34 @@
         }
 
         .tournament-quiz-card {
-          padding: 16px;
+          max-width: 220px;
+          max-height: 140px;
+          padding: 12px;
           background: rgba(255, 255, 255, 0.9);
           border: 2px solid var(--kb-black);
           border-radius: 6px;
-          cursor: pointer;
+          cursor: grab;
           transition: all 0.25s ease;
           position: relative;
+          user-select: none;
+          overflow: hidden;
+        }
+
+        .tournament-quiz-card:active {
+          cursor: grabbing;
         }
 
         .tournament-quiz-card:hover {
           transform: translateY(-2px);
           box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.2);
           background: rgba(255, 255, 255, 1);
+        }
+
+        .tournament-quiz-card.dragging {
+          opacity: 0.8;
+          transform: rotate(5deg);
+          z-index: 1000;
+          box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.3);
         }
 
         .tournament-quiz-card.selected {
@@ -845,10 +860,10 @@
         .tournament-quiz-card.selected::after {
           content: '✓';
           position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 24px;
-          height: 24px;
+          top: 6px;
+          right: 6px;
+          width: 20px;
+          height: 20px;
           background: var(--teen-orange);
           color: white;
           border-radius: 50%;
@@ -856,51 +871,88 @@
           align-items: center;
           justify-content: center;
           font-weight: bold;
-          font-size: 14px;
+          font-size: 12px;
         }
 
         .tournament-quiz-title {
           font-weight: 700;
           color: var(--kb-black);
           margin-bottom: 4px;
-          font-size: 16px;
+          font-size: 14px;
+          line-height: 1.2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .tournament-quiz-topic {
           color: var(--kb-grey);
-          font-size: 14px;
-          margin-bottom: 8px;
+          font-size: 12px;
+          margin-bottom: 6px;
           line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
 
         .tournament-quiz-meta {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: 12px;
+          font-size: 11px;
           color: var(--kb-grey);
-          margin-top: 8px;
-          padding-top: 8px;
+          margin-top: 6px;
+          padding-top: 6px;
           border-top: 1px solid rgba(126, 129, 135, 0.2);
         }
 
         .tournament-quiz-stats {
           display: flex;
-          gap: 12px;
+          gap: 8px;
         }
 
         .tournament-quiz-stat {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 2px;
+          font-size: 10px;
+        }
+
+        .tournament-quiz-stat i {
+          font-size: 10px;
+        }
+
+        .tournament-quiz-creator {
+          font-size: 11px;
+          color: var(--kb-grey);
+          font-weight: 500;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .selected-quiz-list {
-          min-height: 120px;
+          min-height: 180px;
           padding: 16px;
           background: rgba(210, 255, 0, 0.05);
           border: 2px dashed var(--neon-lime);
           border-radius: 8px;
+          transition: all 0.3s ease;
+        }
+
+        .selected-quiz-list.drag-over {
+          background: rgba(210, 255, 0, 0.15);
+          border-color: var(--neon-lime);
+          border-style: solid;
+          transform: scale(1.02);
+        }
+
+        .selected-quiz-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
         }
 
         .empty-selection {
