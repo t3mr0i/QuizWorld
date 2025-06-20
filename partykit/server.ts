@@ -17,6 +17,7 @@ interface Quiz {
   createdBy: string;
   createdAt: Date;
   isPublic: boolean;
+  language?: string;
 }
 
 interface Player {
@@ -267,7 +268,7 @@ class AIService {
     throw new Error(errorMessage);
   }
 
-  async generateQuiz(topic: string, questionCount: number = 10): Promise<Question[]> {
+  async generateQuiz(topic: string, questionCount: number = 10, language: string = 'en'): Promise<Question[]> {
     console.log(`🤖 Starting AI quiz generation for topic: "${topic}" (${questionCount} questions)`);
     
     try {
@@ -294,6 +295,29 @@ class AIService {
                  // Step 2: Add message with content moderation and generation prompt
          await this.retryableRequest(async () => {
            const moderationPrompt = ContentModerator.generateAIModerationPrompt(topic);
+           
+           // Determine language instructions
+           let languageInstruction = '';
+           if (language && language !== 'en') {
+             const languageMap: Record<string, string> = {
+               'es': 'Spanish',
+               'fr': 'French', 
+               'de': 'German',
+               'it': 'Italian',
+               'nl': 'Dutch',
+               'pt': 'Portuguese',
+               'ja': 'Japanese',
+               'ko': 'Korean',
+               'zh': 'Chinese',
+               'ru': 'Russian',
+               'ar': 'Arabic',
+               'hi': 'Hindi'
+             };
+             
+             const languageName = languageMap[language] || language;
+             languageInstruction = `\n\nIMPORTANT: Generate ALL content (questions, options, explanations) in ${languageName}. Use proper grammar and natural language for native speakers.`;
+           }
+           
            const generationPrompt = `${moderationPrompt}
 
 Generate a ${questionCount}-question quiz about "${topic}". Each question should:
@@ -301,7 +325,7 @@ Generate a ${questionCount}-question quiz about "${topic}". Each question should
 2. Be educational and appropriate for all audiences
 3. Focus on factual, verifiable information
 4. Avoid controversial or sensitive topics
-5. Be engaging and fun to answer
+5. Be engaging and fun to answer${languageInstruction}
 
 Return ONLY valid JSON in this exact format:
 {
@@ -498,9 +522,9 @@ Return ONLY valid JSON in this exact format:
 }
 
 // Factory function to get AI service instance
-async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
+async function generateQuizWithOpenAI(topic: string, questionCount: number = 10, language: string = 'en'): Promise<Question[]> {
   const aiService = AIService.getInstance();
-  return await aiService.generateQuiz(topic, questionCount);
+  return await aiService.generateQuiz(topic, questionCount, language);
 }
 
 // Content Moderation System
@@ -774,9 +798,9 @@ export default class QuizaruServer implements Party.Server {
 
   private async handleCreateQuiz(data: any, sender: Party.Connection) {
     try {
-      const { topic, questionCount = 10, title, playerName } = data;
+      const { topic, questionCount = 10, title, playerName, language = 'en' } = data;
       
-      console.log(`🎯 Creating quiz: "${title}" about "${topic}"`);
+      console.log(`🎯 Creating quiz: "${title}" about "${topic}" in ${language}`);
       
       // Moderate content
       const moderationResult = ContentModerator.moderateContent(topic, title);
@@ -791,7 +815,7 @@ export default class QuizaruServer implements Party.Server {
       }
       
       // Generate questions using AI
-      const questions = await generateQuizWithOpenAI(topic, questionCount);
+      const questions = await generateQuizWithOpenAI(topic, questionCount, language);
       
       // Create quiz object
       const quiz: Quiz = {
@@ -801,7 +825,8 @@ export default class QuizaruServer implements Party.Server {
         questions,
         createdBy: playerName || 'Anonymous',
         createdAt: new Date(),
-        isPublic: true
+        isPublic: true,
+        language
       };
       
       // Store quiz in memory
@@ -1222,7 +1247,10 @@ export default class QuizaruServer implements Party.Server {
           title: quiz.title,
           topic: quiz.topic,
           questionCount: quiz.questions.length,
-          createdAt: quiz.createdAt
+          createdAt: quiz.createdAt,
+          createdBy: quiz.createdBy,
+          language: quiz.language,
+          questions: quiz.questions // Include questions for compatibility
         }));
       
       return new Response(JSON.stringify(publicQuizzes), {

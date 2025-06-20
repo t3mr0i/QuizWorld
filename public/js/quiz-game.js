@@ -539,6 +539,9 @@ class QuizGameClient {
         document.getElementById('create-quiz-form').onsubmit = (e) => this.handleCreateQuiz(e);
         document.getElementById('back-to-welcome').onclick = () => this.navigateBack();
         
+        // Language selection handling
+        document.getElementById('quiz-language').onchange = () => this.handleLanguageSelection();
+        
         // Create tournament screen
         document.getElementById('tournament-form').onsubmit = (e) => this.handleCreateTournament(e);
         document.getElementById('back-to-welcome-tournament').onclick = () => this.navigateBack();
@@ -590,6 +593,7 @@ class QuizGameClient {
         const creatorField = document.getElementById('creator-name');
         const questionCountSelect = document.getElementById('question-count');
         
+        const customLanguageField = document.getElementById('custom-language');
         const requiredFields = [titleField, topicField, creatorField];
 
         // Create content validation elements
@@ -597,7 +601,11 @@ class QuizGameClient {
 
         // Function to check if all required fields are filled and content is appropriate
         const validateForm = () => {
-            const allFieldsFilled = requiredFields.every(field => field && field.value.trim() !== '');
+            const languageSelect = document.getElementById('quiz-language');
+            const isCustomLanguage = languageSelect && languageSelect.value === 'custom';
+            const customLanguageRequired = isCustomLanguage && (!customLanguageField || customLanguageField.value.trim() === '');
+            
+            const allFieldsFilled = requiredFields.every(field => field && field.value.trim() !== '') && !customLanguageRequired;
             
             // Content moderation validation
             let contentValid = true;
@@ -685,6 +693,16 @@ class QuizGameClient {
         if (questionCountSelect) {
         questionCountSelect.addEventListener('change', validateForm);
     }
+
+        // Add language field listeners
+        const languageSelect = document.getElementById('quiz-language');
+        if (languageSelect) {
+            languageSelect.addEventListener('change', validateForm);
+        }
+        if (customLanguageField) {
+            customLanguageField.addEventListener('input', validateForm);
+            customLanguageField.addEventListener('blur', validateForm);
+        }
 
         // Content guidelines removed - validation handled directly
     }
@@ -785,6 +803,21 @@ class QuizGameClient {
 
     // Content guidelines removed - validation is now handled directly through button state
     // showContentGuidelines() method no longer needed
+
+    handleLanguageSelection() {
+        const languageSelect = document.getElementById('quiz-language');
+        const customLanguageGroup = document.getElementById('custom-language-group');
+        const customLanguageInput = document.getElementById('custom-language');
+        
+        if (languageSelect.value === 'custom') {
+            customLanguageGroup.style.display = 'block';
+            customLanguageInput.required = true;
+        } else {
+            customLanguageGroup.style.display = 'none';
+            customLanguageInput.required = false;
+            customLanguageInput.value = '';
+        }
+    }
 
     showScreen(screenName, addToHistory = true) {
         // Hide all screens
@@ -1018,6 +1051,18 @@ class QuizGameClient {
         const topic = document.getElementById('quiz-topic').value.trim();
         const questionCount = parseInt(document.getElementById('question-count').value);
         const creatorName = document.getElementById('creator-name').value.trim();
+        const languageSelect = document.getElementById('quiz-language').value;
+        const customLanguage = document.getElementById('custom-language').value.trim();
+        
+        // Determine the language to use
+        let language = languageSelect;
+        if (languageSelect === 'custom') {
+            if (!customLanguage) {
+                this.showToast('Please specify a custom language', 'error');
+                return;
+            }
+            language = customLanguage;
+        }
         
         if (!title || !topic || !creatorName) {
             this.showToast('Please fill in all fields', 'error');
@@ -1057,7 +1102,8 @@ class QuizGameClient {
                 title,
                 topic,
                 questionCount,
-                playerName: creatorName
+                playerName: creatorName,
+                language
             });
             }, 'Create Quiz');
         } catch (error) {
@@ -1163,6 +1209,7 @@ class QuizGameClient {
                     <div class="selectable-quiz-stats">
                         <span>${quiz.questions.length} questions</span>
                         <span>by ${quiz.createdBy}</span>
+                        ${quiz.language ? `<span>${this.getLanguageDisplay(quiz.language)}</span>` : ''}
                     </div>
                 `;
                 
@@ -1252,7 +1299,7 @@ class QuizGameClient {
             quizItem.innerHTML = `
                 <div class="selected-quiz-info">
                     <div class="selected-quiz-title">${quiz.title || quiz.topic}</div>
-                    <div class="selected-quiz-details">${quiz.questions.length} questions • by ${quiz.createdBy}</div>
+                    <div class="selected-quiz-details">${quiz.questions.length} questions • by ${quiz.createdBy}${quiz.language ? ` • ${this.getLanguageDisplay(quiz.language)}` : ''}</div>
                 </div>
                 <button class="remove-quiz-btn" onclick="window.quizGame.removeQuizFromTournament('${quiz.id}')" title="Remove quiz">×</button>
             `;
@@ -2633,6 +2680,12 @@ class QuizGameClient {
                         <span><i class="ph ph-calendar"></i></span>
                         <span>${createdDate}</span>
                     </div>
+                    ${quiz.language ? `
+                        <div class="quiz-stat">
+                            <span><i class="ph ph-translate"></i></span>
+                            <span>${this.getLanguageDisplay(quiz.language)}</span>
+                        </div>
+                    ` : ''}
                     ${quiz.averageScore ? `
                         <div class="quiz-stat">
                             <span><i class="ph ph-star"></i></span>
@@ -2648,6 +2701,26 @@ class QuizGameClient {
             
             quizList.appendChild(quizItem);
         });
+    }
+
+    getLanguageDisplay(languageCode) {
+        const languageMap = {
+            'en': '🇺🇸 English',
+            'es': '🇪🇸 Español',
+            'fr': '🇫🇷 Français',
+            'de': '🇩🇪 Deutsch',
+            'it': '🇮🇹 Italiano',
+            'nl': '🇳🇱 Nederlands',
+            'pt': '🇵🇹 Português',
+            'ja': '🇯🇵 日本語',
+            'ko': '🇰🇷 한국어',
+            'zh': '🇨🇳 中文',
+            'ru': '🇷🇺 Русский',
+            'ar': '🇸🇦 العربية',
+            'hi': '🇮🇳 हिन्दी'
+        };
+        
+        return languageMap[languageCode] || `🌐 ${languageCode}`;
     }
 
     async playQuiz(quizId) {
