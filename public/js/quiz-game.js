@@ -2177,6 +2177,12 @@ class QuizGameClient {
             this.gameStartTime = Date.now();
         }
         
+        // Update play count for this quiz
+        if (data.session?.quiz?.id) {
+            this.quizDatabase.updateQuizStats(data.session.quiz.id, 0, data.session.quiz.questions.length)
+                .catch(error => console.warn('Failed to update play count:', error));
+        }
+        
         this.updateQuizDisplay();
         this.showScreen('quiz');
     }
@@ -2295,6 +2301,13 @@ class QuizGameClient {
         document.getElementById('total-questions').textContent = session.quiz.questions.length;
         document.getElementById('question-text').textContent = currentQuestion.question;
         
+        // Update progress bar
+        const progressPercentage = ((currentQuestionIndex + 1) / session.quiz.questions.length) * 100;
+        const progressFill = document.getElementById('question-progress-fill');
+        if (progressFill) {
+            progressFill.style.width = `${progressPercentage}%`;
+        }
+        
         // Update answer options
         const optionsContainer = document.getElementById('answer-options');
         optionsContainer.innerHTML = '';
@@ -2313,8 +2326,43 @@ class QuizGameClient {
         document.getElementById('players-answered').textContent = answeredCount;
         document.getElementById('total-players-quiz').textContent = players.length;
         
+        // Update answer status indicator
+        this.updateAnswerStatus(answeredCount, players.length);
+        
         // Update live leaderboard
         this.updateLiveLeaderboard();
+    }
+
+    updateAnswerStatus(answeredCount, totalCount) {
+        const statusElement = document.getElementById('answer-status');
+        if (!statusElement) return;
+        
+        const statusText = statusElement.querySelector('.status-text');
+        if (!statusText) return;
+        
+        // Remove existing classes
+        statusElement.classList.remove('waiting', 'answered', 'complete');
+        
+        if (answeredCount === 0) {
+            statusElement.classList.add('waiting');
+            statusText.innerHTML = `
+                <span class="status-pulse"></span>
+                Waiting for answers...
+            `;
+        } else if (answeredCount < totalCount) {
+            statusElement.classList.add('answered');
+            const remaining = totalCount - answeredCount;
+            statusText.innerHTML = `
+                <i class="ph ph-clock"></i>
+                ${remaining} player${remaining !== 1 ? 's' : ''} left
+            `;
+        } else {
+            statusElement.classList.add('complete');
+            statusText.innerHTML = `
+                <span class="status-checkmark">✓</span>
+                All players answered!
+            `;
+        }
     }
 
     updateLiveLeaderboard() {
@@ -2330,6 +2378,19 @@ class QuizGameClient {
         
         // Convert players object to array and sort by score
         const players = Object.values(session.players).sort((a, b) => b.score - a.score);
+        
+        // Update leaderboard status
+        const statusElement = document.getElementById('leaderboard-status');
+        if (statusElement) {
+            const answeredCount = players.filter(p => p.hasAnswered).length;
+            if (answeredCount === players.length && players.length > 1) {
+                statusElement.textContent = '(All answered!)';
+            } else if (answeredCount > 0) {
+                statusElement.textContent = `(${answeredCount}/${players.length} answered)`;
+            } else {
+                statusElement.textContent = '';
+            }
+        }
         
         // Clear existing leaderboard
         leaderboardContainer.innerHTML = '';
@@ -2348,10 +2409,18 @@ class QuizGameClient {
                 scoreItem.classList.add('current-player');
             }
             
+            // Create enhanced player display
+            const isCurrentPlayer = player.name === this.gameState.playerName;
+            const rankDisplay = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            
             scoreItem.innerHTML = `
-                <span class="live-score-rank">${index + 1}</span>
-                <span class="live-score-name">${player.name}</span>
-                <span class="live-score-points">${player.score}</span>
+                <div class="player-rank">${rankDisplay}</div>
+                <div class="player-info">
+                    <span class="player-name">${player.name}</span>
+                    ${isCurrentPlayer ? '<span class="player-badge you">YOU</span>' : ''}
+                    ${player.hasAnswered ? '<i class="ph ph-check" style="color: var(--neon-lime); margin-left: 8px;"></i>' : ''}
+                </div>
+                <div class="player-score">${player.score}</div>
             `;
             
             leaderboardContainer.appendChild(scoreItem);
@@ -2373,7 +2442,7 @@ class QuizGameClient {
             if (selectedOption) {
                 selectedOption.classList.add('selected');
                 // Immediately show visual feedback for selection
-                selectedOption.style.backgroundColor = 'var(--accent-color)';
+                selectedOption.style.backgroundColor = 'var(--teen-orange)';
                 selectedOption.style.color = 'white';
             }
         }
@@ -2384,8 +2453,23 @@ class QuizGameClient {
             answerIndex
         });
         
+        // Update status immediately to show user has answered
+        const currentPlayer = this.getCurrentPlayer();
+        if (currentPlayer) {
+            currentPlayer.hasAnswered = true;
+            this.updateLiveLeaderboard();
+            
+            // Update answer status
+            const session = this.gameState.currentSession;
+            if (session) {
+                const players = Object.values(session.players || {});
+                const answeredCount = players.filter(p => p.hasAnswered).length;
+                this.updateAnswerStatus(answeredCount, players.length);
+            }
+        }
+        
         if (answerIndex >= 0) {
-            this.showToast('Answer submitted!', 'success');
+            this.showToast('Answer submitted! 🎯', 'success');
         } else {
             this.showToast('Time expired - no answer submitted', 'info');
         }
@@ -2723,6 +2807,17 @@ class QuizGameClient {
                 quizzes = await this.quizDatabase.getAllQuizzes();
             }
             
+            // Load highscores count for each quiz
+            for (const quiz of quizzes) {
+                try {
+                    const highscores = await this.quizDatabase.getHighscores(quiz.id, 1);
+                    quiz.highscoreCount = highscores.length > 0 ? (await this.quizDatabase.getHighscores(quiz.id, 100)).length : 0;
+                } catch (error) {
+                    console.warn(`Failed to load highscores for quiz ${quiz.id}:`, error);
+                    quiz.highscoreCount = 0;
+                }
+            }
+            
             console.log(`📚 Loaded ${quizzes.length} quizzes:`, quizzes);
             this.displayQuizzes(quizzes);
         } catch (error) {
@@ -2798,12 +2893,14 @@ class QuizGameClient {
                         <span><i class="ph ph-calendar"></i></span>
                         <span>${createdDate}</span>
                     </div>
-                    ${quiz.language ? `
-                        <div class="quiz-stat">
-                            <span><i class="ph ph-translate"></i></span>
-                            <span>${this.getLanguageDisplay(quiz.language)}</span>
-                        </div>
-                    ` : ''}
+                    <div class="quiz-stat">
+                        <span><i class="ph ph-translate"></i></span>
+                        <span>${this.getLanguageDisplay(quiz.language || 'en')}</span>
+                    </div>
+                    <div class="quiz-stat">
+                        <span><i class="ph ph-trophy"></i></span>
+                        <span>${quiz.highscoreCount || 0} scores</span>
+                    </div>
                     ${quiz.averageScore ? `
                         <div class="quiz-stat">
                             <span><i class="ph ph-star"></i></span>
@@ -2967,6 +3064,7 @@ class QuizGameClient {
         // Create modal
         const modal = document.createElement('div');
         modal.className = 'highscores-modal';
+        modal.tabIndex = -1; // Make it focusable
         modal.onclick = (e) => {
             if (e.target === modal) {
                 this.closeHighscoresModal(modal);
@@ -3009,10 +3107,11 @@ class QuizGameClient {
         
         document.body.appendChild(modal);
         
-        // Focus the modal for better accessibility
+        // Trigger animation after a brief delay
         setTimeout(() => {
+            modal.classList.add('show');
             modal.focus();
-        }, 100);
+        }, 50);
     }
 
     closeHighscoresModal(modal) {
@@ -3021,7 +3120,14 @@ class QuizGameClient {
             if (modal._escapeHandler) {
                 document.removeEventListener('keydown', modal._escapeHandler);
             }
-            document.body.removeChild(modal);
+            
+            // Animate out
+            modal.classList.remove('show');
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+            }, 300);
         }
     }
 

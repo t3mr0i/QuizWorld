@@ -1013,6 +1013,412 @@
           margin-bottom: 16px;
         }
 
+        /* Quiz Interface Enhancements */
+        .question-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          gap: 24px;
+        }
+
+        .question-progress {
+          flex: 1;
+        }
+
+        .question-counter {
+          font-family: var(--font-display);
+          font-weight: 700;
+          color: var(--kb-black);
+          margin-bottom: 8px;
+          display: block;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 8px;
+          background: rgba(126, 129, 135, 0.2);
+          border-radius: 4px;
+          overflow: hidden;
+          border: 1px solid var(--kb-black);
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: linear-gradient(90deg, var(--teen-orange), var(--electric-cyan));
+          border-radius: 3px;
+          transition: width 0.5s ease;
+          width: 10%;
+        }
+
+        .player-status {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 8px;
+        }
+
+        .answer-counter {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          color: var(--kb-black);
+        }
+
+        .answer-counter i {
+          font-size: 16px;
+          color: var(--teen-orange);
+        }
+
+        .answer-status-indicator {
+          padding: 6px 12px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.3s ease;
+        }
+
+        .answer-status-indicator.waiting {
+          background: rgba(255, 70, 0, 0.1);
+          color: var(--teen-orange);
+          border: 1px solid var(--teen-orange);
+        }
+
+        .answer-status-indicator.answered {
+          background: rgba(210, 255, 0, 0.2);
+          color: var(--kb-black);
+          border: 1px solid var(--neon-lime);
+        }
+
+        .answer-status-indicator.complete {
+          background: rgba(0, 249, 255, 0.2);
+          color: var(--kb-black);
+          border: 1px solid var(--electric-cyan);
+        }
+
+        .status-text {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .status-pulse {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--teen-orange);
+          animation: pulse 2s infinite;
+        }
+
+        .status-checkmark {
+          color: var(--neon-lime);
+          font-weight: bold;
+        }
+
+        @keyframes pulse {
+          0% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.5;
+            transform: scale(1.2);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        /* Live Scores Enhancement */
+        .live-leaderboard {
+          margin-top: 24px;
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.8);
+          border: 2px solid var(--kb-black);
+          border-radius: 8px;
+        }
+
+        .live-leaderboard h3 {
+          margin: 0 0 16px 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--kb-black);
+        }
+
+        .live-score-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          margin-bottom: 8px;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 6px;
+          border: 1px solid rgba(126, 129, 135, 0.2);
+          transition: all 0.3s ease;
+        }
+
+        .live-score-item.current-player {
+          border: 2px solid var(--teen-orange);
+          background: rgba(255, 70, 0, 0.1);
+          transform: scale(1.02);
+        }
+
+        .live-score-item.first-place {
+          background: linear-gradient(135deg, #ffd700, #ffed4e);
+          border-color: #ffd700;
+        }
+
+        .live-score-item.second-place {
+          background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+          border-color: #c0c0c0;
+        }
+
+        .live-score-item.third-place {
+          background: linear-gradient(135deg, #cd7f32, #daa520);
+          border-color: #cd7f32;
+        }
+
+        .player-rank {
+          font-weight: 700;
+          font-family: var(--font-display);
+          color: var(--kb-black);
+          margin-right: 12px;
+        }
+
+        .player-info {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .player-name {
+          font-weight: 600;
+          color: var(--kb-black);
+        }
+
+        .player-badge {
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .player-badge.you {
+          background: var(--teen-orange);
+          color: white;
+        }
+
+        .player-score {
+          font-weight: 700;
+          font-family: var(--font-display);
+          color: var(--kb-black);
+        }
+
+        .leaderboard-status {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--kb-grey);
+          margin-left: 12px;
+        }
+
+        /* Responsive quiz interface */
+        @media (max-width: 768px) {
+          .question-info {
+            flex-direction: column;
+            gap: 16px;
+          }
+          
+          .player-status {
+            align-items: center;
+            width: 100%;
+          }
+          
+          .answer-counter {
+            justify-content: center;
+          }
+        }
+
+        /* Highscores Modal Styles */
+        .highscores-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .highscores-modal:focus {
+          outline: none;
+        }
+
+        .highscores-modal.show {
+          opacity: 1;
+        }
+
+        .highscores-content {
+          background: white;
+          border: 3px solid var(--kb-black);
+          border-radius: 12px;
+          max-width: 600px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+          animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .highscores-header {
+          padding: 24px 32px;
+          border-bottom: 2px solid var(--kb-black);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: linear-gradient(135deg, rgba(255, 70, 0, 0.1), rgba(0, 249, 255, 0.1));
+        }
+
+        .highscores-header h3 {
+          margin: 0;
+          font-family: var(--font-display);
+          font-weight: 900;
+          color: var(--kb-black);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .highscores-header h3::before {
+          content: '🏆';
+          font-size: 1.2em;
+        }
+
+        .close-btn {
+          width: 32px;
+          height: 32px;
+          border: 2px solid var(--kb-black);
+          background: white;
+          font-size: 20px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+        }
+
+        .close-btn:hover {
+          background: var(--teen-orange);
+          color: white;
+          transform: scale(1.1);
+        }
+
+        .highscore-list {
+          list-style: none;
+          padding: 24px 32px;
+          margin: 0;
+        }
+
+        .highscore-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 20px;
+          margin-bottom: 12px;
+          background: rgba(255, 255, 255, 0.8);
+          border: 2px solid var(--kb-black);
+          border-radius: 8px;
+          transition: all 0.2s ease;
+        }
+
+        .highscore-item:hover {
+          transform: translateY(-2px);
+          box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.1);
+        }
+
+        .highscore-item:first-child {
+          background: linear-gradient(135deg, #ffd700, #ffed4e);
+          border-color: #ffd700;
+        }
+
+        .highscore-item:nth-child(2) {
+          background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+          border-color: #c0c0c0;
+        }
+
+        .highscore-item:nth-child(3) {
+          background: linear-gradient(135deg, #cd7f32, #daa520);
+          border-color: #cd7f32;
+        }
+
+        .highscore-rank {
+          font-family: var(--font-display);
+          font-weight: 900;
+          color: var(--kb-black);
+          min-width: 40px;
+        }
+
+        .highscore-rank::before {
+          content: '';
+        }
+
+        .highscore-item:first-child .highscore-rank::before {
+          content: '🥇 ';
+        }
+
+        .highscore-item:nth-child(2) .highscore-rank::before {
+          content: '🥈 ';
+        }
+
+        .highscore-item:nth-child(3) .highscore-rank::before {
+          content: '🥉 ';
+        }
+
+        .highscore-name {
+          flex: 1;
+          font-weight: 600;
+          color: var(--kb-black);
+          margin: 0 16px;
+        }
+
+        .highscore-score {
+          font-family: var(--font-display);
+          font-weight: 700;
+          color: var(--kb-black);
+          text-align: right;
+        }
+
+        /* Empty state for highscores */
+        .highscore-item:only-child {
+          text-align: center;
+          color: var(--kb-grey);
+          font-style: italic;
+          background: rgba(126, 129, 135, 0.1);
+          border-color: var(--kb-light-grey);
+        }
+
         /* Responsive tournament design */
         @media (max-width: 768px) {
           .tournament-stats {
@@ -1031,6 +1437,26 @@
           
           .stat-card {
             justify-content: center;
+          }
+
+          .highscores-content {
+            width: 95%;
+            margin: 20px;
+          }
+
+          .highscores-header,
+          .highscore-list {
+            padding: 16px 20px;
+          }
+
+          .highscore-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 8px;
+          }
+
+          .highscore-name {
+            margin: 0;
           }
         }
 
@@ -1414,8 +1840,21 @@
                 <div class="card">
                     <div class="card-header">
                         <div class="question-info">
-                            <span>Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
-                            <span><span id="players-answered">0</span>/<span id="total-players-quiz">1</span> answered</span>
+                            <div class="question-progress">
+                                <span class="question-counter">Question <span id="current-question-num">1</span> of <span id="total-questions">10</span></span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="question-progress-fill"></div>
+                                </div>
+                            </div>
+                            <div class="player-status">
+                                <div class="answer-counter">
+                                    <i class="ph ph-users"></i>
+                                    <span><span id="players-answered">0</span>/<span id="total-players-quiz">1</span> answered</span>
+                                </div>
+                                <div class="answer-status-indicator" id="answer-status">
+                                    <span class="status-text">Waiting for answers...</span>
+                                </div>
+                            </div>
                         </div>
                         </div>
                     <div class="card-body">
@@ -1441,7 +1880,11 @@
                         
                         <!-- Live Leaderboard -->
                             <div class="live-leaderboard">
-                            <h3>Live Scores</h3>
+                            <h3>
+                                <i class="ph ph-trophy"></i>
+                                Live Scores
+                                <span id="leaderboard-status" class="leaderboard-status"></span>
+                            </h3>
                             <div id="live-leaderboard-list" class="leaderboard">
                                 <!-- Live scores will be updated here -->
                             </div>
