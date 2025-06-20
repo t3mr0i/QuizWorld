@@ -437,11 +437,57 @@ class QuizGameClient {
         this.navigationStack = ['welcome'];
         this.isNavigatingBack = false;
         
+        // User preferences
+        this.userPreferences = this.loadUserPreferences();
+        
         // Mark as initialized and store reference
         window.quizGameInitialized = true;
         window.quizGame = this;
         
         this.init();
+    }
+
+    loadUserPreferences() {
+        try {
+            const saved = localStorage.getItem('quizaruPreferences');
+            return saved ? JSON.parse(saved) : {
+                playerName: '',
+                language: 'en',
+                questionCount: '10',
+                soundEnabled: true,
+                autoProgress: false,
+                stats: {
+                    totalPlays: 0,
+                    highScore: 0,
+                    totalScore: 0,
+                    quizzesPlayed: []
+                }
+            };
+        } catch (error) {
+            console.warn('Failed to load preferences:', error);
+            return {
+                playerName: '',
+                language: 'en',
+                questionCount: '10',
+                soundEnabled: true,
+                autoProgress: false,
+                stats: {
+                    totalPlays: 0,
+                    highScore: 0,
+                    totalScore: 0,
+                    quizzesPlayed: []
+                }
+            };
+        }
+    }
+
+    saveUserPreference(key, value) {
+        this.userPreferences[key] = value;
+        try {
+            localStorage.setItem('quizaruPreferences', JSON.stringify(this.userPreferences));
+        } catch (error) {
+            console.warn('Failed to save preferences:', error);
+        }
     }
 
     async init() {
@@ -454,6 +500,9 @@ class QuizGameClient {
         this.verifyModalElements();
         
         this.setupEventListeners();
+        
+        // Apply saved preferences to forms
+        this.applyPreferences();
         
         // Check URL parameters for initial navigation
         const urlParams = new URLSearchParams(window.location.search);
@@ -477,9 +526,68 @@ class QuizGameClient {
             }
         } else {
             this.showScreen('welcome');
+            this.displayUserStats();
         }
         
         console.log('✅ Quizaru initialized successfully');
+    }
+
+    displayUserStats() {
+        // Initialize stats if not present
+        if (!this.userPreferences.stats) {
+            this.userPreferences.stats = {
+                totalPlays: 0,
+                highScore: 0,
+                totalScore: 0,
+                quizzesPlayed: []
+            };
+        }
+        
+        const stats = this.userPreferences.stats;
+        
+        // Only show stats if user has played at least one quiz
+        if (stats.totalPlays > 0) {
+            const statsContainer = document.getElementById('quick-stats');
+            if (statsContainer) {
+                statsContainer.classList.remove('hidden');
+                
+                // Update stats display
+                document.getElementById('total-plays').textContent = stats.totalPlays;
+                document.getElementById('high-score').textContent = stats.highScore + '%';
+                document.getElementById('favorite-language').textContent = 
+                    this.getLanguageDisplay(this.userPreferences.language || 'en').split(' ')[0];
+            }
+        }
+    }
+
+    applyPreferences() {
+        // Apply saved player name
+        if (this.userPreferences.playerName) {
+            const creatorField = document.getElementById('creator-name');
+            const playerField = document.getElementById('player-name');
+            const tournamentCreatorField = document.getElementById('tournament-creator');
+            
+            if (creatorField) creatorField.value = this.userPreferences.playerName;
+            if (playerField) playerField.value = this.userPreferences.playerName;
+            if (tournamentCreatorField) tournamentCreatorField.value = this.userPreferences.playerName;
+        }
+        
+        // Apply saved language preference
+        if (this.userPreferences.language) {
+            const languageSelect = document.getElementById('quiz-language');
+            if (languageSelect) {
+                languageSelect.value = this.userPreferences.language;
+                this.handleLanguageSelection();
+            }
+        }
+        
+        // Apply saved question count
+        if (this.userPreferences.questionCount) {
+            const questionSelect = document.getElementById('question-count');
+            if (questionSelect) {
+                questionSelect.value = this.userPreferences.questionCount;
+            }
+        }
     }
 
     initializeBrowserHistory() {
@@ -598,6 +706,77 @@ class QuizGameClient {
         // Final results screen
         document.getElementById('play-again-btn').onclick = () => this.playAgain();
         document.getElementById('new-quiz-btn').onclick = () => this.goToHomeScreen();
+        
+        // Keyboard shortcuts
+        this.setupKeyboardShortcuts();
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ignore if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            // Quiz answer shortcuts (1-4 keys)
+            if (this.currentScreen === 'quiz' && /^[1-4]$/.test(e.key)) {
+                const answerIndex = parseInt(e.key) - 1;
+                const answerButtons = document.querySelectorAll('.answer-option:not(:disabled)');
+                if (answerButtons[answerIndex]) {
+                    answerButtons[answerIndex].click();
+                }
+            }
+
+            // Navigation shortcuts
+            switch(e.key) {
+                case 'Escape':
+                    // Close modals or go back
+                    const modals = document.querySelectorAll('.modal-overlay:not(.hidden), .highscores-modal');
+                    if (modals.length > 0) {
+                        // Modal is open, let it handle escape
+                        return;
+                    }
+                    if (this.canNavigateBack()) {
+                        this.navigateBack();
+                    }
+                    break;
+                
+                case 'Enter':
+                    // Progress through quiz
+                    if (this.currentScreen === 'quiz') {
+                        const continueBtn = document.getElementById('continue-btn');
+                        const finishBtn = document.getElementById('finish-quiz-btn');
+                        if (continueBtn && !continueBtn.classList.contains('hidden')) {
+                            continueBtn.click();
+                        } else if (finishBtn && !finishBtn.classList.contains('hidden')) {
+                            finishBtn.click();
+                        }
+                    }
+                    break;
+                
+                case 'r':
+                case 'R':
+                    // Ready toggle in lobby
+                    if (this.currentScreen === 'lobby') {
+                        const readyBtn = document.getElementById('ready-btn');
+                        if (readyBtn && readyBtn.style.display !== 'none') {
+                            readyBtn.click();
+                        }
+                    }
+                    break;
+                
+                case 's':
+                case 'S':
+                    // Start quiz (host only)
+                    if (this.currentScreen === 'lobby' && this.isHost()) {
+                        const startBtn = document.getElementById('start-quiz-btn');
+                        if (startBtn && !startBtn.disabled) {
+                            startBtn.click();
+                        }
+                    }
+                    break;
+            }
+        });
     }
 
     setupCreateQuizValidation() {
@@ -706,8 +885,18 @@ class QuizGameClient {
 
         // Also listen to the select field (question count)
         if (questionCountSelect) {
-        questionCountSelect.addEventListener('change', validateForm);
-    }
+            questionCountSelect.addEventListener('change', (e) => {
+                validateForm();
+                this.saveUserPreference('questionCount', e.target.value);
+            });
+        }
+        
+        // Save preferences on blur
+        creatorField?.addEventListener('blur', (e) => {
+            if (e.target.value.trim()) {
+                this.saveUserPreference('playerName', e.target.value.trim());
+            }
+        });
 
         // Add language field listeners
         const languageSelect = document.getElementById('quiz-language');
@@ -831,6 +1020,8 @@ class QuizGameClient {
             customLanguageGroup.style.display = 'none';
             customLanguageInput.required = false;
             customLanguageInput.value = '';
+            // Save language preference
+            this.saveUserPreference('language', languageSelect.value);
         }
     }
 
@@ -2766,6 +2957,12 @@ class QuizGameClient {
                     totalQuestions,
                     totalTimeSpent
                 );
+                
+                // Update user stats if this is the current player
+                if (playerData.name === this.gameState.playerName) {
+                    const percentageScore = Math.round((playerData.score / totalQuestions) * 100);
+                    this.updateUserStats(percentageScore, session.quiz.id);
+                }
             }
             
             // Update session statistics to track total players who played this session
@@ -2794,6 +2991,36 @@ class QuizGameClient {
         } catch (error) {
             console.error('❌ Error saving session stats:', error);
         }
+    }
+
+    updateUserStats(score, quizId) {
+        if (!this.userPreferences.stats) {
+            this.userPreferences.stats = {
+                totalPlays: 0,
+                highScore: 0,
+                totalScore: 0,
+                quizzesPlayed: []
+            };
+        }
+        
+        const stats = this.userPreferences.stats;
+        
+        // Update stats
+        stats.totalPlays++;
+        stats.totalScore += score;
+        if (score > stats.highScore) {
+            stats.highScore = score;
+        }
+        
+        // Track played quizzes (avoid duplicates)
+        if (!stats.quizzesPlayed.includes(quizId)) {
+            stats.quizzesPlayed.push(quizId);
+        }
+        
+        // Save updated preferences
+        this.saveUserPreference('stats', stats);
+        
+        console.log('📊 Updated user stats:', stats);
     }
 
     showLoading(message, submessage = '') {
@@ -2901,7 +3128,9 @@ class QuizGameClient {
     async loadQuizzes(filter = 'recent') {
         console.log(`🔍 Loading quizzes with filter: ${filter}`);
         const quizList = document.getElementById('quiz-list');
-        quizList.innerHTML = '<div class="loading-quizzes"><div class="loading-spinner"></div><p>Loading quizzes...</p></div>';
+        
+        // Show skeleton loading
+        this.showQuizSkeletons(quizList, 5);
         
         try {
             let quizzes = [];
@@ -2914,22 +3143,62 @@ class QuizGameClient {
                 quizzes = await this.quizDatabase.getAllQuizzes();
             }
             
-            // Load highscores count for each quiz
-            for (const quiz of quizzes) {
+            // Optimize highscore loading - only load for visible quizzes
+            const visibleQuizzes = quizzes.slice(0, 10);
+            const highscorePromises = visibleQuizzes.map(async (quiz) => {
                 try {
                     const highscores = await this.quizDatabase.getHighscores(quiz.id, 1);
-                    quiz.highscoreCount = highscores.length > 0 ? (await this.quizDatabase.getHighscores(quiz.id, 100)).length : 0;
+                    quiz.highscoreCount = highscores.length;
                 } catch (error) {
-                    console.warn(`Failed to load highscores for quiz ${quiz.id}:`, error);
                     quiz.highscoreCount = 0;
                 }
-            }
+            });
+            
+            // Load highscores in parallel
+            await Promise.all(highscorePromises);
+            
+            // Set placeholder count for remaining quizzes
+            quizzes.slice(10).forEach(quiz => {
+                quiz.highscoreCount = '...';
+            });
             
             console.log(`📚 Loaded ${quizzes.length} quizzes:`, quizzes);
             this.displayQuizzes(quizzes);
+            
+            // Lazy load remaining highscore counts
+            this.lazyLoadHighscores(quizzes.slice(10));
         } catch (error) {
             console.error('❌ Error loading quizzes:', error);
             quizList.innerHTML = '<div class="loading-quizzes"><p>Error loading quizzes. Please try again.</p></div>';
+        }
+    }
+
+    showQuizSkeletons(container, count = 5) {
+        const skeletons = Array(count).fill(0).map(() => `
+            <div class="skeleton-card">
+                <div class="skeleton skeleton-text title"></div>
+                <div class="skeleton skeleton-text description"></div>
+                <div class="skeleton skeleton-text short"></div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = skeletons;
+    }
+
+    async lazyLoadHighscores(quizzes) {
+        for (const quiz of quizzes) {
+            try {
+                const highscores = await this.quizDatabase.getHighscores(quiz.id, 1);
+                quiz.highscoreCount = highscores.length;
+                
+                // Update the display if the quiz is still visible
+                const quizElement = document.querySelector(`[data-quiz-id="${quiz.id}"] .quiz-stat:has(.ph-trophy) span:last-child`);
+                if (quizElement) {
+                    quizElement.textContent = `${quiz.highscoreCount} scores`;
+                }
+            } catch (error) {
+                console.warn(`Failed to lazy load highscores for quiz ${quiz.id}`);
+            }
         }
     }
 
@@ -2971,58 +3240,107 @@ class QuizGameClient {
             return;
         }
         
+        // Add smart recommendations based on user's preferred language
+        const recommendedQuizzes = this.getRecommendedQuizzes(quizzes);
+        
         quizList.innerHTML = '';
         
-        quizzes.forEach(quiz => {
-            const quizItem = document.createElement('div');
-            quizItem.className = 'quiz-item';
-            
-            const createdDate = new Date(quiz.createdAt).toLocaleDateString();
-            
-            quizItem.innerHTML = `
-                <div class="quiz-item-header">
-                    <div>
-                        <h4 class="quiz-item-title">${quiz.title || quiz.topic}</h4>
-                        <p class="quiz-item-topic">${quiz.topic}</p>
-                        <p class="quiz-item-creator">Created by ${quiz.createdBy}</p>
-                    </div>
-                </div>
-                <div class="quiz-item-stats">
-                    <div class="quiz-stat">
-                        <span><i class="ph ph-note"></i></span>
-                        <span>${quiz.questions.length} questions</span>
-                    </div>
-                    <div class="quiz-stat">
-                        <span><i class="ph ph-game-controller"></i></span>
-                        <span>${quiz.playCount || 0} plays</span>
-                    </div>
-                    <div class="quiz-stat">
-                        <span><i class="ph ph-calendar"></i></span>
-                        <span>${createdDate}</span>
-                    </div>
-                    <div class="quiz-stat">
-                        <span><i class="ph ph-translate"></i></span>
-                        <span>${this.getLanguageDisplay(quiz.language || 'en')}</span>
-                    </div>
-                    <div class="quiz-stat">
-                        <span><i class="ph ph-trophy"></i></span>
-                        <span>${quiz.highscoreCount || 0} scores</span>
-                    </div>
-                    ${quiz.averageScore ? `
-                        <div class="quiz-stat">
-                            <span><i class="ph ph-star"></i></span>
-                            <span>${quiz.averageScore}% avg</span>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="quiz-item-actions">
-                    <button class="btn btn-primary" onclick="window.quizGame.playQuiz('${quiz.id}')">Play Quiz</button>
-                                            <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.title || quiz.topic}')">View Highscores</button>
-                </div>
+        // Display recommended quizzes first if any
+        if (recommendedQuizzes.length > 0 && this.currentFilter === 'recent') {
+            const recommendationSection = document.createElement('div');
+            recommendationSection.className = 'recommendation-section';
+            recommendationSection.innerHTML = `
+                <h4 class="recommendation-header">
+                    <i class="ph ph-sparkle"></i> Recommended for You
+                </h4>
             `;
             
-            quizList.appendChild(quizItem);
+            recommendedQuizzes.forEach(quiz => {
+                recommendationSection.appendChild(this.createQuizItem(quiz, true));
+            });
+            
+            quizList.appendChild(recommendationSection);
+            
+            // Add separator
+            const separator = document.createElement('div');
+            separator.className = 'section-separator';
+            separator.innerHTML = '<h4>All Quizzes</h4>';
+            quizList.appendChild(separator);
+        }
+        
+        // Display all quizzes
+        quizzes.forEach(quiz => {
+            quizList.appendChild(this.createQuizItem(quiz, false));
         });
+    }
+
+    createQuizItem(quiz, isRecommended = false) {
+        const quizItem = document.createElement('div');
+        quizItem.className = isRecommended ? 'quiz-item recommended' : 'quiz-item';
+        quizItem.dataset.quizId = quiz.id;
+        
+        const createdDate = new Date(quiz.createdAt).toLocaleDateString();
+        
+        quizItem.innerHTML = `
+            <div class="quiz-item-header">
+                <div>
+                    <h4 class="quiz-item-title">
+                        ${quiz.title || quiz.topic}
+                        ${isRecommended ? '<span class="recommendation-badge">Recommended</span>' : ''}
+                    </h4>
+                    <p class="quiz-item-topic">${quiz.topic}</p>
+                    <p class="quiz-item-creator">Created by ${quiz.createdBy}</p>
+                </div>
+            </div>
+            <div class="quiz-item-stats">
+                <div class="quiz-stat">
+                    <span><i class="ph ph-note"></i></span>
+                    <span>${quiz.questions.length} questions</span>
+                </div>
+                <div class="quiz-stat">
+                    <span><i class="ph ph-game-controller"></i></span>
+                    <span>${quiz.playCount || 0} plays</span>
+                </div>
+                <div class="quiz-stat">
+                    <span><i class="ph ph-calendar"></i></span>
+                    <span>${createdDate}</span>
+                </div>
+                <div class="quiz-stat">
+                    <span><i class="ph ph-translate"></i></span>
+                    <span>${this.getLanguageDisplay(quiz.language || 'en')}</span>
+                </div>
+                <div class="quiz-stat">
+                    <span><i class="ph ph-trophy"></i></span>
+                    <span>${quiz.highscoreCount || 0} scores</span>
+                </div>
+                ${quiz.averageScore ? `
+                    <div class="quiz-stat">
+                        <span><i class="ph ph-star"></i></span>
+                        <span>${quiz.averageScore}% avg</span>
+                    </div>
+                ` : ''}
+            </div>
+            <div class="quiz-item-actions">
+                <button class="btn btn-primary" onclick="window.quizGame.playQuiz('${quiz.id}')">Play Quiz</button>
+                <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.title || quiz.topic}')">View Highscores</button>
+            </div>
+        `;
+        
+        return quizItem;
+    }
+
+    getRecommendedQuizzes(quizzes) {
+        // Only recommend if user has a language preference
+        if (!this.userPreferences.language || this.userPreferences.language === 'en') {
+            return [];
+        }
+        
+        // Find quizzes matching user's language preference
+        const languageMatches = quizzes.filter(quiz => 
+            quiz.language === this.userPreferences.language
+        ).slice(0, 3);
+        
+        return languageMatches;
     }
 
     getLanguageDisplay(languageCode) {
