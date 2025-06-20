@@ -314,26 +314,34 @@ class QuizDatabase {
     }
 
     async getAllQuizzes() {
+        console.log('🔍 QuizDatabase: Getting all quizzes...');
         if (!await this.waitForFirebase()) {
-            console.warn('Firebase not available, returning empty quiz list');
+            console.warn('⚠️ Firebase not available, returning empty quiz list');
             return [];
         }
         
         try {
             const quizzesRef = ref(this.db, 'quizzes');
+            console.log('📍 Firebase reference created for path: quizzes');
             const snapshot = await get(quizzesRef);
+            console.log('📊 Firebase snapshot received, exists:', snapshot.exists());
             
             if (snapshot.exists()) {
                 const quizzes = [];
                 snapshot.forEach((childSnapshot) => {
-                    quizzes.push(childSnapshot.val());
+                    const quiz = childSnapshot.val();
+                    console.log('📝 Found quiz:', quiz.id || 'no-id', quiz.title || quiz.topic);
+                    quizzes.push(quiz);
                 });
-                return quizzes.sort((a, b) => b.createdAt - a.createdAt);
+                const sortedQuizzes = quizzes.sort((a, b) => b.createdAt - a.createdAt);
+                console.log(`✅ Returning ${sortedQuizzes.length} sorted quizzes`);
+                return sortedQuizzes;
             } else {
+                console.log('📭 No quizzes found in Firebase database');
                 return [];
             }
         } catch (error) {
-            console.error('Error getting all quizzes:', error);
+            console.error('❌ Error getting all quizzes from Firebase:', error);
             return [];
         }
     }
@@ -459,7 +467,14 @@ class QuizGameClient {
         if (roomCode) {
             this.showJoinInterface(roomCode);
         } else if (screenParam && this.isValidScreen(screenParam)) {
-            this.showScreen(screenParam);
+            // Special handling for specific screens that need data loading
+            if (screenParam === 'browse-quizzes') {
+                await this.showBrowseQuizzes();
+            } else if (screenParam === 'create-tournament') {
+                await this.showCreateTournament();
+            } else {
+                this.showScreen(screenParam);
+            }
         } else {
             this.showScreen('welcome');
         }
@@ -841,13 +856,29 @@ class QuizGameClient {
                 this.pushToHistory(screenName, previousScreen);
             }
             
-            // Reset form validation when showing create quiz screen
+            // Handle screen-specific initialization
             if (screenName === 'create-quiz') {
                 setTimeout(() => {
                     const submitBtn = document.getElementById('generate-quiz-btn');
                     if (submitBtn) {
                         submitBtn.disabled = true;
                     }
+                }, 0);
+            } else if (screenName === 'browse-quizzes') {
+                // Load quizzes when navigating to browse screen
+                setTimeout(() => {
+                    this.currentFilter = 'recent';
+                    this.setupBrowseQuizzesFilters();
+                    this.loadQuizzes('recent').catch(error => {
+                        console.error('Error loading quizzes on screen show:', error);
+                    });
+                }, 0);
+            } else if (screenName === 'create-tournament') {
+                // Load available quizzes for tournament creation
+                setTimeout(() => {
+                    this.loadAvailableQuizzesForTournament().catch(error => {
+                        console.error('Error loading tournament quizzes on screen show:', error);
+                    });
                 }, 0);
             }
             
@@ -1172,11 +1203,12 @@ class QuizGameClient {
 
     async loadAvailableQuizzesForTournament() {
         const availableQuizzesContainer = document.getElementById('available-quizzes');
+        const availableCountElement = document.getElementById('available-quiz-count');
         
         try {
             // Show loading state
             availableQuizzesContainer.innerHTML = `
-                <div class="loading-quizzes">
+                <div class="tournament-loading">
                     <div class="loading-spinner"></div>
                     <p>Loading available quizzes...</p>
                 </div>
@@ -1185,44 +1217,70 @@ class QuizGameClient {
             // Get all quizzes from Firebase
             const quizzes = await this.quizDatabase.getAllQuizzes();
             
+            // Update quiz counter
+            if (availableCountElement) {
+                availableCountElement.textContent = quizzes.length;
+            }
+            
             if (quizzes.length === 0) {
                 availableQuizzesContainer.innerHTML = `
-                    <div class="no-quizzes">
-                        <p>No quizzes available. Create some quizzes first!</p>
-                        <button class="btn btn-primary" onclick="window.quizGame.showScreen('create-quiz')">Create Quiz</button>
+                    <div class="tournament-loading">
+                        <i class="ph ph-plus-circle" style="font-size: 48px; color: var(--kb-light-grey); margin-bottom: 12px;"></i>
+                        <p>No quizzes available</p>
+                        <small>Create some quizzes first to build tournaments</small>
+                        <button class="btn btn-primary" onclick="window.quizGame.showScreen('create-quiz')" style="margin-top: 16px;">Create Your First Quiz</button>
                     </div>
                 `;
                 return;
             }
             
-            // Display quizzes
-            availableQuizzesContainer.innerHTML = '<h4>Available Quizzes</h4>';
+            // Clear container
+            availableQuizzesContainer.innerHTML = '';
             
+            // Display quizzes as cards
             quizzes.forEach(quiz => {
-                const quizElement = document.createElement('div');
-                quizElement.className = 'selectable-quiz';
-                quizElement.dataset.quizId = quiz.id;
+                const quizCard = document.createElement('div');
+                quizCard.className = 'tournament-quiz-card';
+                quizCard.dataset.quizId = quiz.id;
                 
-                quizElement.innerHTML = `
-                    <div class="selectable-quiz-title">${quiz.title || quiz.topic}</div>
-                    <div class="selectable-quiz-topic">${quiz.topic}</div>
-                    <div class="selectable-quiz-stats">
-                        <span>${quiz.questions.length} questions</span>
-                        <span>by ${quiz.createdBy}</span>
-                        ${quiz.language ? `<span>${this.getLanguageDisplay(quiz.language)}</span>` : ''}
+                const createdDate = new Date(quiz.createdAt).toLocaleDateString();
+                
+                quizCard.innerHTML = `
+                    <div class="tournament-quiz-title">${quiz.title || quiz.topic}</div>
+                    <div class="tournament-quiz-topic">${quiz.topic}</div>
+                    <div class="tournament-quiz-meta">
+                        <div class="tournament-quiz-stats">
+                            <div class="tournament-quiz-stat">
+                                <i class="ph ph-note"></i>
+                                <span>${quiz.questions.length}q</span>
+                            </div>
+                            <div class="tournament-quiz-stat">
+                                <i class="ph ph-user"></i>
+                                <span>${quiz.createdBy}</span>
+                            </div>
+                            ${quiz.language ? `
+                                <div class="tournament-quiz-stat">
+                                    <i class="ph ph-translate"></i>
+                                    <span>${this.getLanguageDisplay(quiz.language)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="tournament-quiz-date">${createdDate}</div>
                     </div>
                 `;
                 
-                quizElement.onclick = () => this.toggleQuizSelection(quiz, quizElement);
-                availableQuizzesContainer.appendChild(quizElement);
+                quizCard.onclick = () => this.toggleQuizSelection(quiz, quizCard);
+                availableQuizzesContainer.appendChild(quizCard);
             });
             
         } catch (error) {
             console.error('❌ Error loading quizzes for tournament:', error);
             availableQuizzesContainer.innerHTML = `
-                <div class="error-loading">
-                    <p>Failed to load quizzes. Please try again.</p>
-                    <button class="btn btn-outline" onclick="window.quizGame.loadAvailableQuizzesForTournament()">Retry</button>
+                <div class="tournament-loading">
+                    <i class="ph ph-warning-circle" style="font-size: 48px; color: var(--teen-orange); margin-bottom: 12px;"></i>
+                    <p>Failed to load quizzes</p>
+                    <small>Please check your connection and try again</small>
+                    <button class="btn btn-outline" onclick="window.quizGame.loadAvailableQuizzesForTournament()" style="margin-top: 16px;">Retry</button>
                 </div>
             `;
         }
@@ -1240,6 +1298,9 @@ class QuizGameClient {
             element.classList.add('selected');
             this.addQuizToTournament(quiz);
         }
+        
+        // Add smooth transition effect
+        element.style.transition = 'all 0.3s ease';
     }
 
     addQuizToTournament(quiz) {
@@ -1277,24 +1338,42 @@ class QuizGameClient {
     updateSelectedQuizzesDisplay() {
         const selectedContainer = document.getElementById('selected-quizzes');
         const selectedCount = document.getElementById('selected-quiz-count');
+        const selectionStatus = document.getElementById('selection-status');
+        
+        const count = this.selectedTournamentQuizzes ? this.selectedTournamentQuizzes.length : 0;
+        selectedCount.textContent = count;
+        
+        // Update selection status message
+        if (selectionStatus) {
+            if (count === 0) {
+                selectionStatus.textContent = 'Select at least 2 quizzes to create tournament';
+                selectionStatus.style.color = 'var(--kb-grey)';
+            } else if (count === 1) {
+                selectionStatus.textContent = 'Select 1 more quiz to continue';
+                selectionStatus.style.color = 'var(--teen-orange)';
+            } else {
+                selectionStatus.textContent = `${count} quizzes selected - ready to create tournament!`;
+                selectionStatus.style.color = 'var(--neon-lime)';
+            }
+        }
         
         if (!this.selectedTournamentQuizzes || this.selectedTournamentQuizzes.length === 0) {
             selectedContainer.innerHTML = `
                 <div class="empty-selection">
                     <i class="ph ph-selection-plus"></i>
-                    <p>Select quizzes from the left to add them to your tournament</p>
+                    <p>No quizzes selected yet</p>
+                    <small>Click on quiz cards above to add them to your tournament</small>
                 </div>
             `;
-            selectedCount.textContent = '0';
             return;
         }
         
-        selectedCount.textContent = this.selectedTournamentQuizzes.length;
         selectedContainer.innerHTML = '';
         
-        this.selectedTournamentQuizzes.forEach(quiz => {
+        this.selectedTournamentQuizzes.forEach((quiz, index) => {
             const quizItem = document.createElement('div');
             quizItem.className = 'selected-quiz-item';
+            quizItem.style.animationDelay = `${index * 0.1}s`;
             
             quizItem.innerHTML = `
                 <div class="selected-quiz-info">
@@ -1327,14 +1406,29 @@ class QuizGameClient {
 
     updateCreateTournamentButton() {
         const createBtn = document.getElementById('create-tournament-btn');
-        const hasQuizzes = this.selectedTournamentQuizzes && this.selectedTournamentQuizzes.length >= 2;
+        const btnText = document.getElementById('tournament-btn-text');
+        const count = this.selectedTournamentQuizzes ? this.selectedTournamentQuizzes.length : 0;
+        const hasEnoughQuizzes = count >= 2;
         
-        createBtn.disabled = !hasQuizzes;
+        createBtn.disabled = !hasEnoughQuizzes;
         
-        if (hasQuizzes) {
-            createBtn.innerHTML = `<i class="ph ph-trophy"></i> Create Tournament (${this.selectedTournamentQuizzes.length} quizzes)`;
+        if (btnText) {
+            if (count === 0) {
+                btnText.textContent = 'Select 2+ Quizzes to Continue';
+            } else if (count === 1) {
+                btnText.textContent = 'Select 1 More Quiz';
+            } else {
+                btnText.textContent = `Create Tournament (${count} quizzes)`;
+            }
+        }
+        
+        // Add visual feedback
+        if (hasEnoughQuizzes) {
+            createBtn.classList.remove('btn-disabled');
+            createBtn.classList.add('btn-primary');
         } else {
-            createBtn.innerHTML = `<i class="ph ph-trophy"></i> Select at least 2 quizzes`;
+            createBtn.classList.add('btn-disabled');
+            createBtn.classList.remove('btn-primary');
         }
     }
 
@@ -2588,10 +2682,33 @@ class QuizGameClient {
     async showBrowseQuizzes() {
         this.showScreen('browse-quizzes');
         this.currentFilter = 'recent';
+        this.setupBrowseQuizzesFilters();
         await this.loadQuizzes('recent');
     }
 
+    setupBrowseQuizzesFilters() {
+        // Set up filter tab event listeners
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.onclick = () => {
+                const filter = btn.dataset.filter;
+                if (filter) {
+                    this.filterQuizzes(filter);
+                }
+            };
+        });
+
+        // Ensure the recent tab is active
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        const recentTab = document.querySelector('[data-filter="recent"]');
+        if (recentTab) {
+            recentTab.classList.add('active');
+        }
+    }
+
     async loadQuizzes(filter = 'recent') {
+        console.log(`🔍 Loading quizzes with filter: ${filter}`);
         const quizList = document.getElementById('quiz-list');
         quizList.innerHTML = '<div class="loading-quizzes"><div class="loading-spinner"></div><p>Loading quizzes...</p></div>';
         
@@ -2606,9 +2723,10 @@ class QuizGameClient {
                 quizzes = await this.quizDatabase.getAllQuizzes();
             }
             
+            console.log(`📚 Loaded ${quizzes.length} quizzes:`, quizzes);
             this.displayQuizzes(quizzes);
         } catch (error) {
-            console.error('Error loading quizzes:', error);
+            console.error('❌ Error loading quizzes:', error);
             quizList.innerHTML = '<div class="loading-quizzes"><p>Error loading quizzes. Please try again.</p></div>';
         }
     }
