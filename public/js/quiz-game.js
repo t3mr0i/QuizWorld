@@ -258,6 +258,7 @@ class QuizGameClient {
         this.gameStartTime = null;
         this.startQuizTimeout = null;
         this.playQuizTimeout = null;
+        this.lastQuestionIndex = -1;
         
         // Browser history management
         this.navigationStack = ['welcome'];
@@ -1721,6 +1722,20 @@ class QuizGameClient {
         document.getElementById('current-question-num').textContent = currentQuestionIndex + 1;
         document.getElementById('total-questions').textContent = session.quiz.questions.length;
         document.getElementById('question-text').textContent = currentQuestion.question;
+
+        const currentPlayer = this.getCurrentPlayer();
+        const currentPlayerId = currentPlayer?.id;
+        const playerAnswers = currentPlayerId && session.answers ? session.answers[currentPlayerId] : undefined;
+        const selectedAnswerIndex = typeof playerAnswers?.[currentQuestionIndex] === 'number'
+            ? playerAnswers[currentQuestionIndex]
+            : (typeof currentPlayer?.currentAnswer === 'number' ? currentPlayer.currentAnswer : undefined);
+        const hasAnswered = Boolean(currentPlayer?.hasAnswered);
+
+        const isNewQuestion = this.lastQuestionIndex !== currentQuestionIndex;
+        if (isNewQuestion) {
+            this.lastQuestionIndex = currentQuestionIndex;
+            this.gameState.previousScore = currentPlayer ? currentPlayer.score : 0;
+        }
         
         // Update answer options
         const optionsContainer = document.getElementById('answer-options');
@@ -1730,7 +1745,18 @@ class QuizGameClient {
             const button = document.createElement('button');
             button.className = 'answer-option';
             button.textContent = option;
-            button.onclick = () => this.selectAnswer(index);
+
+            if (!hasAnswered) {
+                button.onclick = () => this.selectAnswer(index);
+            } else {
+                button.disabled = true;
+            }
+
+            if (selectedAnswerIndex === index) {
+                button.classList.add('selected');
+                button.disabled = true;
+            }
+
             optionsContainer.appendChild(button);
         });
         
@@ -1774,10 +1800,16 @@ class QuizGameClient {
             if (player.name === this.gameState.playerName) {
                 scoreItem.classList.add('current-player');
             }
+
+            const statusClass = player.hasAnswered ? 'answered' : 'pending';
+            const statusLabel = player.hasAnswered ? 'Answer submitted' : 'Waiting to answer';
             
             scoreItem.innerHTML = `
                 <span class="live-score-rank">${index + 1}</span>
-                <span class="live-score-name">${player.name}</span>
+                <span class="live-score-name">
+                    <span class="live-score-status ${statusClass}" title="${statusLabel}" aria-label="${statusLabel}"></span>
+                    ${player.name}
+                </span>
                 <span class="live-score-points">${player.score}</span>
             `;
             
@@ -1787,6 +1819,12 @@ class QuizGameClient {
 
     selectAnswer(answerIndex) {
         console.log('📝 Selecting answer:', answerIndex);
+
+        const currentPlayer = this.getCurrentPlayer();
+        if (currentPlayer?.hasAnswered) {
+            console.log('⚠️ Answer already submitted - ignoring duplicate click');
+            return;
+        }
         
         // Disable all options
         document.querySelectorAll('.answer-option').forEach(btn => {

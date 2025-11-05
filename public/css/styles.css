@@ -711,11 +711,32 @@ small {
 }
 
 .live-score-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   flex: 1;
   margin: 0 var(--spacing-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.live-score-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--kb-black);
+  flex-shrink: 0;
+}
+
+.live-score-status.pending {
+  background: var(--bg-color-secondary);
+  opacity: 0.6;
+}
+
+.live-score-status.answered {
+  background: var(--secondary-accent-color-2);
+  box-shadow: 0 0 0 2px rgba(70, 217, 193, 0.4);
 }
 
 .live-score-points {
@@ -801,6 +822,10 @@ small {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+.answer-option.selected:disabled {
+  opacity: 1;
 }
 
 .question-status {

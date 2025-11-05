@@ -51,6 +51,7 @@ interface QuizSession {
 // Store for quiz sessions by room ID
 const quizSessions: Record<string, QuizSession> = {};
 const quizDatabase: Record<string, Quiz> = {}; // Simple in-memory storage
+const POINTS_PER_CORRECT_ANSWER = 100;
 
 // MIME types for static files
 const MIME_TYPES: Record<string, string> = {
@@ -530,17 +531,9 @@ export default class QuizaruServer implements Party.Server {
     player.hasAnswered = true;
     player.currentAnswer = answerIndex;
 
-    // Calculate score: Fixed 100 points per correct answer (no time bonus)
     const currentQuestion = this.session.quiz.questions[this.session.currentQuestionIndex];
-    if (answerIndex === currentQuestion.correctAnswer) {
-      const POINTS_PER_CORRECT_ANSWER = 100;
-      player.score += POINTS_PER_CORRECT_ANSWER;
-      console.log(`✅ ${player.name} earned ${POINTS_PER_CORRECT_ANSWER} points for correct answer`);
-    } else {
-      console.log(`❌ ${player.name} earned 0 points for incorrect answer`);
-    }
-
-    console.log(`📝 ${player.name} answered question ${this.session.currentQuestionIndex}`);
+    const isCorrect = answerIndex === currentQuestion.correctAnswer;
+    console.log(`📝 ${player.name} answered question ${this.session.currentQuestionIndex} (${isCorrect ? '✅ correct' : '❌ incorrect'})`);
     
     this.broadcastSessionUpdate();
     
@@ -689,11 +682,23 @@ export default class QuizaruServer implements Party.Server {
     if (!this.session) return;
     
     this.session.gameState = 'results';
+
+    const currentQuestion = this.session.quiz.questions[this.session.currentQuestionIndex];
+
+    Object.values(this.session.players).forEach(player => {
+      const answer = player.currentAnswer;
+      if (answer === currentQuestion.correctAnswer) {
+        player.score += POINTS_PER_CORRECT_ANSWER;
+        console.log(`✅ ${player.name} earned ${POINTS_PER_CORRECT_ANSWER} points for correct answer`);
+      } else {
+        console.log(`❌ ${player.name} earned 0 points for incorrect answer`);
+      }
+    });
     
     // Broadcast results
     this.party.broadcast(JSON.stringify({
       type: 'question_results',
-      currentQuestion: this.session.quiz.questions[this.session.currentQuestionIndex],
+      currentQuestion,
       playerAnswers: Object.fromEntries(
         Object.entries(this.session.players).map(([id, player]) => [
           id, 
@@ -705,6 +710,8 @@ export default class QuizaruServer implements Party.Server {
         ])
       )
     }));
+
+    this.broadcastSessionUpdate();
   }
 
   private broadcastSessionUpdate() {

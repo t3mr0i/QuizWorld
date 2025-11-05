@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": true,
+    "quizzes": {
+      ".read": true,
+      "$quizId": {
+        ".write": "!data.exists() || (data.exists() && newData.child('title').val() == data.child('title').val() && newData.child('topic').val() == data.child('topic').val() && newData.child('questions').val() == data.child('questions').val() && ((!newData.child('createdBy').exists() && !data.child('createdBy').exists()) || newData.child('createdBy').val() == data.child('createdBy').val()) && newData.child('createdAt').val() == data.child('createdAt').val() && newData.child('playCount').isNumber() && newData.child('averageScore').isNumber())",
+        ".validate": "newData.hasChildren(['id', 'title', 'topic', 'questions', 'createdAt', 'playCount', 'averageScore']) && newData.child('id').isString() && newData.child('id').val() == $quizId && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('topic').isString() && newData.child('topic').val().length > 0 && (!newData.child('createdBy').exists() || newData.child('createdBy').isString()) && newData.child('createdAt').isNumber() && newData.child('playCount').isNumber() && newData.child('playCount').val() >= 0 && newData.child('averageScore').isNumber() && newData.child('averageScore').val() >= 0 && newData.child('averageScore').val() <= 100",
+        "questions": {
+          ".validate": "newData.hasChildren(['0']) && !newData.child('50').exists()",
+          "$index": {
+            ".validate": "newData.hasChildren(['id', 'question', 'options', 'correctAnswer']) && newData.child('id').isString() && newData.child('question').isString() && newData.child('question').val().length > 0 && newData.child('options').hasChildren(['0', '1']) && !newData.child('options').child('8').exists() && newData.child('correctAnswer').isNumber() && newData.child('correctAnswer').val() >= 0 && newData.child('correctAnswer').val() <= 7 && (!newData.child('explanation').exists() || newData.child('explanation').isString())",
+            "options": {
+              "$optionIndex": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+              }
+            }
+          }
+        },
+        "playCount": {
+          ".write": "data.parent().exists() || !data.exists()",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() >= data.val())"
+        },
+        "averageScore": {
+          ".write": "data.parent().exists() || !data.exists()",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+        }
+      }
+    },
+    "highscores": {
+      ".read": true,
+      "$quizId": {
+        "$scoreId": {
+          ".write": "!data.exists()",
+          ".validate": "newData.hasChildren(['playerName', 'score', 'correctAnswers', 'totalQuestions', 'percentage', 'timeSpent', 'timestamp']) && newData.child('playerName').isString() && newData.child('playerName').val().length > 0 && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('correctAnswers').isNumber() && newData.child('correctAnswers').val() >= 0 && newData.child('totalQuestions').isNumber() && newData.child('totalQuestions').val() > 0 && newData.child('percentage').isNumber() && newData.child('percentage').val() >= 0 && newData.child('percentage').val() <= 100 && newData.child('timeSpent').isNumber() && newData.child('timeSpent').val() >= 0 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() > 0"
+        }
+      }
+    },
+    "sessionStats": {
+      ".read": true,
+      "$quizId": {
+        "$sessionId": {
+          ".write": "!data.exists()",
+          ".validate": "newData.hasChildren(['playerCount', 'timestamp', 'sessionId']) && newData.child('playerCount').isNumber() && newData.child('playerCount').val() > 0 && newData.child('timestamp').isNumber() && newData.child('timestamp').val() > 0 && newData.child('sessionId').isString() && newData.child('sessionId').val().length > 0"
+        }
+      }
+    }
+  }
+}
