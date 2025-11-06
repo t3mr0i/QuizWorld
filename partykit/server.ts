@@ -9,6 +9,24 @@ interface Question {
   explanation?: string;
 }
 
+interface QuizTheme {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  neutral?: string;
+  background?: string;
+  surface?: string;
+  textPrimary?: string;
+  textSecondary?: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  accentGlow?: string;
+  secondaryGlow?: string;
+  decorative?: string;
+  tertiary?: string;
+  border?: string;
+}
+
 interface Quiz {
   id: string;
   title: string;
@@ -17,6 +35,16 @@ interface Quiz {
   createdBy: string;
   createdAt: Date;
   isPublic: boolean;
+  theme?: QuizTheme;
+  metadata?: Record<string, unknown>;
+}
+
+interface GeneratedQuizPayload {
+  questions: Question[];
+  metadata?: Record<string, unknown>;
+  theme?: QuizTheme;
+  topic?: string;
+  title?: string;
 }
 
 interface Player {
@@ -52,6 +80,87 @@ interface QuizSession {
 const quizSessions: Record<string, QuizSession> = {};
 const quizDatabase: Record<string, Quiz> = {}; // Simple in-memory storage
 const POINTS_PER_CORRECT_ANSWER = 100;
+const QUIZ_ARCHITECT_PROMPT = `You are an expert quiz architect specializing in creating challenging, intellectually rigorous multiple-choice assessments. Your mission is to generate quizzes that test deep knowledge, critical thinking, and nuanced understanding of specialized topics.
+
+Core Requirements
+- Produce only valid JSON using the provided schema.
+- Zero answer leakage: questions must not include hints or clues.
+- Ensure precise specificity, expert-level depth, contextual complexity, and no obvious eliminations.
+- Distractors must be sophisticated, factually grounded, and plausible to partially informed individuals.
+- Maintain cognitive rigor distribution: 30% recall, 40% analysis, 20% application, 10% synthesis/evaluation.
+- Apply topic-specific calibration rules depending on the subject area.
+- Follow the difficulty escalation protocol across question numbers.
+- Apply approved question writing techniques and avoid disallowed patterns.
+- Validate every fact with at least three authoritative sources and surface them in metadata.
+
+Quality Assurance Checklist
+- Expert could plausibly miss the question.
+- Tests deep understanding, not rote memorization.
+- Options are all plausible without hints.
+- Correct answer demands genuine expertise.
+- Wrong answer indicates a meaningful knowledge gap.
+
+Output Validation
+- Average difficulty rating between 6.5 and 8.5.
+- Total of 10-20 questions.
+- Facts must be verifiable via provided sources.
+- Questions should challenge true experts.
+
+Color Palette Directive
+- Populate metadata.color_palette with hex codes (e.g., "#1F1F1F") for: primary, secondary, accent, neutral, background, surface, text_primary, text_secondary, and provide a gradient array containing exactly two color stops.
+- Ensure palettes embrace a digital-brutalist aesthetic with bold contrasts and electric highlights while meeting WCAG AA contrast for text against backgrounds.
+- Optionally include supporting keys (accent_glow, secondary_glow, decorative, border) to guide UI theming.`;
+
+const HEX_COLOR_REGEX = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+function sanitizeHexColor(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("#")) return undefined;
+  if (!HEX_COLOR_REGEX.test(trimmed)) return undefined;
+  if (trimmed.length === 4) {
+    return (
+      "#" +
+      trimmed
+        .slice(1)
+        .split("")
+        .map((ch) => ch + ch)
+        .join("")
+        .toUpperCase()
+    );
+  }
+  return trimmed.toUpperCase();
+}
+
+function extractTheme(palette: any): QuizTheme | undefined {
+  if (!palette || typeof palette !== "object") return undefined;
+  const gradientArray = Array.isArray(palette.gradient)
+    ? palette.gradient
+    : Array.isArray(palette.gradient_colors)
+    ? palette.gradient_colors
+    : [];
+
+  const theme: QuizTheme = {
+    primary: sanitizeHexColor(palette.primary),
+    secondary: sanitizeHexColor(palette.secondary),
+    accent: sanitizeHexColor(palette.accent),
+    neutral: sanitizeHexColor(palette.neutral),
+    background: sanitizeHexColor(palette.background),
+    surface: sanitizeHexColor(palette.surface),
+    textPrimary: sanitizeHexColor(palette.text_primary ?? palette.textPrimary),
+    textSecondary: sanitizeHexColor(palette.text_secondary ?? palette.textSecondary),
+    gradientStart: sanitizeHexColor(palette.gradient_start ?? palette.gradientStart ?? gradientArray[0]),
+    gradientEnd: sanitizeHexColor(palette.gradient_end ?? palette.gradientEnd ?? gradientArray[1] ?? gradientArray[0]),
+    accentGlow: sanitizeHexColor(palette.accent_glow ?? palette.glow),
+    secondaryGlow: sanitizeHexColor(palette.secondary_glow),
+    decorative: sanitizeHexColor(palette.decorative ?? palette.grid_line),
+    tertiary: sanitizeHexColor(palette.tertiary ?? palette.tertiary_accent ?? palette.secondary_accent),
+    border: sanitizeHexColor(palette.border)
+  };
+
+  const hasColor = Object.values(theme).some(Boolean);
+  return hasColor ? theme : undefined;
+}
 
 // MIME types for static files
 const MIME_TYPES: Record<string, string> = {
@@ -70,130 +179,101 @@ const MIME_TYPES: Record<string, string> = {
   ".otf": "font/otf",
 };
 
-// AI Quiz Generation using OpenAI Assistant
-async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<Question[]> {
+// AI Quiz Generation using OpenAI Responses API
+async function generateQuizWithOpenAI(topic: string, questionCount: number = 10): Promise<GeneratedQuizPayload> {
   const apiKey = process.env.OPENAI_API_KEY;
-  const assistantId = "asst_ApGsn7wfvZBukHPW9l4rMjn0";
   
   if (!apiKey) {
     throw new Error("OpenAI API key not found");
   }
 
   try {
-    console.log("🤖 Generating quiz questions for topic:", topic);
-    
-    // Create a thread
-    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+    console.log("🤖 Generating quiz questions with Responses API for topic:", topic);
+
+    const normalizedQuestionCount = Math.min(Math.max(questionCount, 10), 20);
+
+    const prompt = `${QUIZ_ARCHITECT_PROMPT}
+
+Topic: ${topic}
+Requested total questions: ${normalizedQuestionCount}
+
+Instructions:
+- Set "topic" to the exact provided topic string.
+- Provide ${normalizedQuestionCount} questions following the difficulty escalation protocol.
+- Ensure validated_sources contains at least three authoritative references actually used.
+- Use ISO 8601 UTC timestamp for metadata.created_at.
+- Target audience: pick from knowledgeable enthusiasts, professionals, or experts based on topic sophistication.
+- Populate metadata.color_palette with uppercase hex codes for primary, secondary, accent, neutral, background, surface, text_primary, text_secondary, and a gradient array containing exactly two colors.
+- Include optional palette helpers (accent_glow, secondary_glow, decorative, border) when they support the visual identity.
+- You may use web browsing tools to fact-check and surface current information.`;
+
+    const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({})
-    });
-
-    if (!threadResponse.ok) {
-      throw new Error(`Failed to create thread: ${threadResponse.status}`);
-    }
-
-    const thread = await threadResponse.json();
-    
-    // Add message to thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        role: 'user',
-        content: `${topic}`
-      })
-    });
-
-    if (!messageResponse.ok) {
-      throw new Error(`Failed to add message: ${messageResponse.status}`);
-    }
-
-    // Run the assistant
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId
-      })
-    });
-
-    if (!runResponse.ok) {
-      throw new Error(`Failed to run assistant: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    
-    // Poll for completion
-    let runStatus = run.status;
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
-    
-    while (runStatus === 'queued' || runStatus === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Assistant run timeout');
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
+        model: 'gpt-5-nano',
+        input: [
+          {
+            role: 'system',
+            content: [
+              {
+                type: 'input_text',
+                text: prompt
+              }
+            ]
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: `Generate the quiz JSON now.`
+              }
+            ]
+          }
+        ],
+        text: {
+          format: {
+            type: 'json_object'
+          }
         }
-      });
-      
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to check run status: ${statusResponse.status}`);
-      }
-      
-      const statusData = await statusResponse.json();
-      runStatus = statusData.status;
-      attempts++;
-    }
-
-    if (runStatus !== 'completed') {
-      throw new Error(`Assistant run failed with status: ${runStatus}`);
-    }
-
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
-      }
+      })
     });
 
-    if (!messagesResponse.ok) {
-      throw new Error(`Failed to get messages: ${messagesResponse.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Responses API error: ${response.status} - ${errorText}`);
     }
 
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-    
-    if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-      throw new Error('No response from assistant');
+    const responseData = await response.json();
+    const outputText =
+      responseData.output_text ??
+      (Array.isArray(responseData.output)
+        ? responseData.output
+            .flatMap((entry: any) =>
+              Array.isArray(entry?.content)
+                ? entry.content
+                    .filter((c: any) => c.type === 'output_text' || c.type === 'text')
+                    .map((c: any) => c.text)
+                : []
+            )
+            .join('')
+        : undefined);
+
+    if (!outputText) {
+      throw new Error('No output text received from Responses API');
     }
 
-    const content = assistantMessage.content[0].text.value;
-    
-    // Parse the JSON response
-    const quizData = JSON.parse(content);
+    const quizData = JSON.parse(outputText);
+    if (!quizData || !Array.isArray(quizData.questions)) {
+      throw new Error('Responses API returned data without a questions array');
+    }
     
     // Convert to our Question format
-    const questions: Question[] = quizData.questions.map((q: any, index: number) => ({
+    const questions: Question[] = (quizData.questions || []).map((q: any, index: number) => ({
       id: `q_${Date.now()}_${index}`,
       question: q.question,
       options: q.options,
@@ -201,8 +281,37 @@ async function generateQuizWithOpenAI(topic: string, questionCount: number = 10)
       explanation: q.explanation
     }));
 
+    let metadata: Record<string, unknown> | undefined;
+    if (quizData.metadata && typeof quizData.metadata === 'object') {
+      metadata = { ...quizData.metadata } as Record<string, unknown>;
+    }
+
+    const paletteCandidate = metadata && typeof (metadata as any).color_palette === 'object'
+      ? (metadata as any).color_palette
+      : quizData?.metadata?.color_palette;
+
+    const theme = extractTheme(paletteCandidate);
+
+    if (theme) {
+      metadata = metadata ? { ...metadata } : {};
+      const existingPalette = metadata && typeof (metadata as any).color_palette === 'object'
+        ? (metadata as any).color_palette
+        : {};
+      (metadata as Record<string, unknown>).color_palette = { ...existingPalette, ...theme };
+    }
+
     console.log(`✅ Generated ${questions.length} questions for topic: ${topic}`);
-    return questions;
+    if (theme) {
+      console.log('🎨 Theme palette generated:', theme);
+    }
+
+    return {
+      questions,
+      metadata,
+      theme,
+      topic: typeof quizData.topic === 'string' ? quizData.topic : undefined,
+      title: typeof quizData.topic === 'string' ? quizData.topic : undefined
+    };
 
   } catch (error) {
     console.error("❌ Error generating quiz:", error);
@@ -321,17 +430,27 @@ export default class QuizaruServer implements Party.Server {
       console.log(`🎯 Creating quiz: "${title}" about "${topic}"`);
       
       // Generate questions using AI
-      const questions = await generateQuizWithOpenAI(topic, questionCount);
-      
+      const generated = await generateQuizWithOpenAI(topic, questionCount);
+      const questions = generated.questions;
+      const metadata: Record<string, unknown> | undefined = generated.metadata
+        ? { ...generated.metadata }
+        : generated.theme
+        ? { color_palette: generated.theme }
+        : undefined;
+      const resolvedTopic = generated.topic || topic;
+      const resolvedTitle = title || generated.title || `Quiz about ${resolvedTopic}`;
+
       // Create quiz object
       const quiz: Quiz = {
         id: `quiz_${Date.now()}`,
-        title: title || `Quiz about ${topic}`,
-        topic,
+        title: resolvedTitle,
+        topic: resolvedTopic,
         questions,
         createdBy: playerName || 'Anonymous',
         createdAt: new Date(),
-        isPublic: true
+        isPublic: true,
+        theme: generated.theme,
+        metadata
       };
       
       // Store quiz in memory
@@ -619,7 +738,7 @@ export default class QuizaruServer implements Party.Server {
       
       // Use the quiz data sent from client, or fall back to memory
       let quiz = quizData || quizDatabase[quizId];
-      
+
       if (!quiz) {
         sender.send(JSON.stringify({
           type: 'error',
@@ -627,11 +746,32 @@ export default class QuizaruServer implements Party.Server {
         }));
         return;
       }
-      
-      // Store quiz in memory for this session
-      if (quizData) {
-        quizDatabase[quizId] = quizData;
+
+      if ((!quiz.theme || typeof quiz.theme !== 'object') && quiz.metadata && typeof (quiz.metadata as any).color_palette === 'object') {
+        const derivedTheme = extractTheme((quiz.metadata as any).color_palette);
+        if (derivedTheme) {
+          const existingPalette = (quiz.metadata as any).color_palette || {};
+          quiz = {
+            ...quiz,
+            theme: derivedTheme,
+            metadata: {
+              ...(quiz.metadata || {}),
+              color_palette: { ...existingPalette, ...derivedTheme }
+            }
+          } as Quiz;
+        }
+      } else if (quiz.theme && typeof quiz.theme === 'object' && (!quiz.metadata || typeof (quiz.metadata as any).color_palette !== 'object')) {
+        quiz = {
+          ...quiz,
+          metadata: {
+            ...(quiz.metadata || {}),
+            color_palette: { ...quiz.theme }
+          }
+        } as Quiz;
       }
+
+      // Store quiz in memory for this session (sanitized copy)
+      quizDatabase[quizId] = quiz;
       
       // Create quiz session with the existing quiz
       const session: QuizSession = {

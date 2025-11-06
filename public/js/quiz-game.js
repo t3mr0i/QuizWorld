@@ -1,6 +1,426 @@
 // Import Firebase functions
 import { ref, push, set, get, query, orderByChild, limitToLast, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 
+const HEX_COLOR_REGEX = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+function sanitizeHexColor(value) {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    if (!trimmed.startsWith('#')) return undefined;
+    if (!HEX_COLOR_REGEX.test(trimmed)) return undefined;
+    if (trimmed.length === 4) {
+        return '#' + trimmed.slice(1).split('').map(ch => ch + ch).join('').toUpperCase();
+    }
+    return trimmed.toUpperCase();
+}
+
+function hexToRgba(hex, alpha = 1) {
+    const sanitized = sanitizeHexColor(hex);
+    if (!sanitized) return hex;
+    const value = sanitized.slice(1);
+    const bigint = parseInt(value, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function colorWithAlpha(color, alpha, fallback) {
+    if (!color) return fallback;
+    if (typeof color === 'string') {
+        const trimmed = color.trim();
+        if (!trimmed) return fallback;
+        if (trimmed.startsWith('rgba') || trimmed.startsWith('rgb') || trimmed.startsWith('hsla')) {
+            return trimmed;
+        }
+        const sanitized = sanitizeHexColor(trimmed);
+        if (sanitized) {
+            return hexToRgba(sanitized, alpha);
+        }
+        return trimmed;
+    }
+    return fallback;
+}
+
+const MIN_TEXT_CONTRAST = 4.5;
+
+function clampColorComponent(value) {
+    if (Number.isNaN(value)) return 0;
+    return Math.min(255, Math.max(0, value));
+}
+
+function parseCssColor(color) {
+    if (!color || typeof color !== 'string') return null;
+    const trimmed = color.trim();
+    if (!trimmed) return null;
+
+    const hex = sanitizeHexColor(trimmed);
+    if (hex) {
+        const value = hex.slice(1);
+        return {
+            r: parseInt(value.slice(0, 2), 16),
+            g: parseInt(value.slice(2, 4), 16),
+            b: parseInt(value.slice(4, 6), 16)
+        };
+    }
+
+    const rgbaMatch = trimmed.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (rgbaMatch) {
+        return {
+            r: clampColorComponent(parseFloat(rgbaMatch[1])),
+            g: clampColorComponent(parseFloat(rgbaMatch[2])),
+            b: clampColorComponent(parseFloat(rgbaMatch[3]))
+        };
+    }
+
+    return null;
+}
+
+function relativeLuminance(rgb) {
+    if (!rgb) return 0;
+    const toLinear = (component) => {
+        const channel = component / 255;
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    };
+    const r = toLinear(rgb.r);
+    const g = toLinear(rgb.g);
+    const b = toLinear(rgb.b);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(colorA, colorB) {
+    const lumA = relativeLuminance(colorA);
+    const lumB = relativeLuminance(colorB);
+    const [lighter, darker] = lumA > lumB ? [lumA, lumB] : [lumB, lumA];
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+function ensureAccessibleTextColor(preferred, backgrounds, fallback) {
+    const backgroundColors = (Array.isArray(backgrounds) ? backgrounds : [backgrounds])
+        .map((color) => parseCssColor(color))
+        .filter(Boolean);
+
+    if (!backgroundColors.length) {
+        const normalizedPreferred = sanitizeHexColor(preferred);
+        if (normalizedPreferred) return normalizedPreferred;
+        return preferred || fallback || '#000000';
+    }
+
+    const evaluateCandidate = (color) => {
+        if (!color) return null;
+        const parsed = parseCssColor(color);
+        if (!parsed) return null;
+        const minContrast = backgroundColors
+            .map((bg) => contrastRatio(parsed, bg))
+            .reduce((min, ratio) => Math.min(min, ratio), Infinity);
+        return { color, minContrast };
+    };
+
+    const candidateConfigs = [];
+    if (preferred) candidateConfigs.push({ color: preferred, prioritize: true });
+    if (fallback && fallback !== preferred) candidateConfigs.push({ color: fallback });
+    candidateConfigs.push({ color: '#FFFFFF' });
+    candidateConfigs.push({ color: '#000000' });
+
+    let bestCandidate = null;
+
+    for (const config of candidateConfigs) {
+        const evaluation = evaluateCandidate(config.color);
+        if (!evaluation) continue;
+
+        if (config.prioritize && evaluation.minContrast >= MIN_TEXT_CONTRAST) {
+            const normalized = sanitizeHexColor(config.color);
+            return normalized || config.color;
+        }
+
+        if (!bestCandidate || evaluation.minContrast > bestCandidate.minContrast) {
+            bestCandidate = { ...evaluation, prioritized: !!config.prioritize };
+        }
+    }
+
+    if (bestCandidate) {
+        const normalized = sanitizeHexColor(bestCandidate.color);
+        if (bestCandidate.minContrast >= MIN_TEXT_CONTRAST) {
+            return normalized || bestCandidate.color;
+        }
+        return normalized || bestCandidate.color;
+    }
+
+    const normalizedFallback = sanitizeHexColor(fallback);
+    if (normalizedFallback) return normalizedFallback;
+    return fallback || '#000000';
+}
+
+function rgbToHex(rgb) {
+    if (!rgb) return undefined;
+    const toHex = (value) => {
+        const clamped = clampColorComponent(Math.round(value));
+        return clamped.toString(16).padStart(2, '0');
+    };
+    return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`.toUpperCase();
+}
+
+function mixRgb(base, target, amount) {
+    const clampAmount = Math.min(1, Math.max(0, amount));
+    return {
+        r: clampColorComponent(base.r + (target.r - base.r) * clampAmount),
+        g: clampColorComponent(base.g + (target.g - base.g) * clampAmount),
+        b: clampColorComponent(base.b + (target.b - base.b) * clampAmount)
+    };
+}
+
+function ensureSurfaceContrast(surfaceColor, textColor, fallbackSurface) {
+    const surfaceRgb = parseCssColor(surfaceColor) || parseCssColor(fallbackSurface);
+    const textRgb = parseCssColor(textColor) || parseCssColor('#FFFFFF');
+
+    if (!surfaceRgb || !textRgb) {
+        return surfaceColor || fallbackSurface;
+    }
+
+    const targetContrast = MIN_TEXT_CONTRAST;
+    let adjusted = { ...surfaceRgb };
+    let contrast = contrastRatio(adjusted, textRgb);
+
+    if (contrast >= targetContrast) {
+        return sanitizeHexColor(rgbToHex(adjusted)) || surfaceColor || fallbackSurface;
+    }
+
+    const textIsLight = relativeLuminance(textRgb) > relativeLuminance(adjusted);
+    const target = textIsLight ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
+
+    for (let i = 0; i < 12 && contrast < targetContrast; i++) {
+        adjusted = mixRgb(adjusted, target, 0.12);
+        contrast = contrastRatio(adjusted, textRgb);
+    }
+
+    const adjustedHex = sanitizeHexColor(rgbToHex(adjusted));
+    return adjustedHex || surfaceColor || fallbackSurface;
+}
+
+const SESSION_SCALAR_KEYS = [
+    'id',
+    'roomCode',
+    'host',
+    'isTournament',
+    'tournamentInfo',
+    'createdAt',
+    'updatedAt',
+    'lastActivity',
+    'timeLimit',
+    'questionTimeLimit'
+];
+
+const SESSION_RESERVED_KEYS = new Set([
+    ...SESSION_SCALAR_KEYS,
+    'quiz',
+    'players',
+    'answers',
+    'currentQuestionIndex',
+    'gameState',
+    'playersReady'
+]);
+
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object';
+}
+
+function clonePlainObject(value) {
+    return isPlainObject(value) ? { ...value } : null;
+}
+
+function normalizeIndexedSequence(value) {
+    if (Array.isArray(value)) return value;
+    if (!isPlainObject(value)) return [];
+    return Object.keys(value)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((key) => value[key]);
+}
+
+function pickFirstDefined(key, ...sources) {
+    for (const source of sources) {
+        if (source && source[key] !== undefined) {
+            return source[key];
+        }
+    }
+    return undefined;
+}
+
+function mergeQuizForSanitize(primary, fallback) {
+    const primaryQuiz = isPlainObject(primary) ? primary : null;
+    const fallbackQuiz = isPlainObject(fallback) ? fallback : null;
+
+    if (!primaryQuiz && !fallbackQuiz) {
+        return null;
+    }
+
+    const merged = { ...(fallbackQuiz || {}) };
+
+    if (primaryQuiz) {
+        Object.assign(merged, primaryQuiz);
+        if ('questions' in primaryQuiz) {
+            merged.questions = primaryQuiz.questions;
+        }
+    }
+
+    if (!('questions' in merged) && fallbackQuiz && 'questions' in fallbackQuiz) {
+        merged.questions = fallbackQuiz.questions;
+    }
+
+    return merged;
+}
+
+const OPTION_TEXT_KEYS = ['text', 'label', 'value', 'answer', 'content', 'name', 'title'];
+
+function extractTextContent(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) {
+        const parts = value.map((entry) => extractTextContent(entry)).filter(Boolean);
+        return parts.join(', ');
+    }
+    if (typeof value === 'object') {
+        for (const key of OPTION_TEXT_KEYS) {
+            if (typeof value[key] === 'string' || typeof value[key] === 'number' || typeof value[key] === 'boolean') {
+                return String(value[key]);
+            }
+        }
+        const firstString = Object.values(value).find((entry) => typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean');
+        if (firstString !== undefined) {
+            return String(firstString);
+        }
+        try {
+            return JSON.stringify(value);
+        } catch (error) {
+            return String(value);
+        }
+    }
+    return String(value);
+}
+
+function sanitizeQuestionData(question, index = 0) {
+    const fallbackQuestion = {
+        id: `q_${index}`,
+        question: `Question ${index + 1}`,
+        options: [],
+        correctAnswer: 0,
+        explanation: ''
+    };
+
+    if (!question || typeof question !== 'object') {
+        return fallbackQuestion;
+    }
+
+    const sanitized = { ...question };
+    sanitized.id = typeof question.id === 'string' ? question.id : `q_${index}`;
+    sanitized.question = extractTextContent(question.question ?? question.prompt ?? fallbackQuestion.question) || fallbackQuestion.question;
+    const rawOptions = normalizeIndexedSequence(question.options);
+
+    sanitized.options = rawOptions
+        .map((option, optionIndex) => extractTextContent(option) || `Option ${optionIndex + 1}`)
+        .filter((optionText) => optionText.length > 0);
+
+    if (sanitized.options.length === 0) {
+        sanitized.options = fallbackQuestion.options;
+    }
+
+    const explanation = extractTextContent(question.explanation ?? question.detail ?? '');
+    sanitized.explanation = explanation;
+
+    let correctAnswer = Number.isInteger(question.correctAnswer)
+        ? question.correctAnswer
+        : Number.isInteger(question.correct_answer)
+        ? question.correct_answer
+        : Number.isInteger(question.correct_answer_index)
+        ? question.correct_answer_index
+        : Number.parseInt(question.correctAnswerIndex, 10);
+
+    if (!Number.isFinite(correctAnswer)) {
+        correctAnswer = 0;
+    }
+
+    if (sanitized.options.length > 0) {
+        correctAnswer = Math.min(Math.max(correctAnswer, 0), sanitized.options.length - 1);
+    } else {
+        correctAnswer = 0;
+    }
+
+    sanitized.correctAnswer = correctAnswer;
+    return sanitized;
+}
+
+function sanitizeQuizData(quiz) {
+    if (!quiz || typeof quiz !== 'object') return quiz;
+    const sanitizedQuiz = { ...quiz };
+    const rawQuestions = normalizeIndexedSequence(quiz.questions);
+    sanitizedQuiz.questions = rawQuestions.map((question, index) => sanitizeQuestionData(question, index));
+    if (sanitizedQuiz.metadata && typeof sanitizedQuiz.metadata === 'object') {
+        sanitizedQuiz.metadata = { ...sanitizedQuiz.metadata };
+        if (sanitizedQuiz.metadata.color_palette && typeof sanitizedQuiz.metadata.color_palette === 'object') {
+            sanitizedQuiz.metadata.color_palette = { ...sanitizedQuiz.metadata.color_palette };
+        }
+    }
+    if (sanitizedQuiz.theme && typeof sanitizedQuiz.theme === 'object') {
+        sanitizedQuiz.theme = { ...sanitizedQuiz.theme };
+    }
+    return sanitizedQuiz;
+}
+
+function sanitizeSessionData(session, fallbackSession = null) {
+    const sessionData = isPlainObject(session) ? session : null;
+    const fallbackData = isPlainObject(fallbackSession) ? fallbackSession : null;
+
+    if (!sessionData && !fallbackData) {
+        return session;
+    }
+
+    const sanitizedSession = {};
+
+    for (const key of SESSION_SCALAR_KEYS) {
+        const value = pickFirstDefined(key, sessionData, fallbackData);
+        if (value !== undefined) {
+            sanitizedSession[key] = value;
+        }
+    }
+
+    const mergedQuiz = mergeQuizForSanitize(sessionData?.quiz, fallbackData?.quiz);
+    if (mergedQuiz) {
+        sanitizedSession.quiz = sanitizeQuizData(mergedQuiz);
+    }
+
+    const playersRaw = pickFirstDefined('players', sessionData, fallbackData);
+    sanitizedSession.players = clonePlainObject(playersRaw) || {};
+
+    const answersRaw = pickFirstDefined('answers', sessionData, fallbackData);
+    sanitizedSession.answers = clonePlainObject(answersRaw) || {};
+
+    const currentIndex = pickFirstDefined('currentQuestionIndex', sessionData, fallbackData);
+    sanitizedSession.currentQuestionIndex = Number.isInteger(currentIndex) ? currentIndex : 0;
+
+    const gameState = pickFirstDefined('gameState', sessionData, fallbackData);
+    sanitizedSession.gameState = typeof gameState === 'string' ? gameState : 'waiting';
+
+    const playersReady = pickFirstDefined('playersReady', sessionData, fallbackData);
+    if (isPlainObject(playersReady)) {
+        sanitizedSession.playersReady = { ...playersReady };
+    }
+
+    if (sessionData || fallbackData) {
+        const remainderSources = [fallbackData, sessionData];
+        for (const source of remainderSources) {
+            if (!isPlainObject(source)) continue;
+            for (const [key, value] of Object.entries(source)) {
+                if (SESSION_RESERVED_KEYS.has(key)) continue;
+                if (sanitizedSession[key] !== undefined) continue;
+                sanitizedSession[key] = value;
+            }
+        }
+    }
+
+    return sanitizedSession;
+}
+
 // Firebase Database Service
 class QuizDatabase {
     constructor() {
@@ -45,7 +465,9 @@ class QuizDatabase {
                 createdBy: quiz.createdBy,
                 createdAt: Date.now(),
                 playCount: 0,
-                averageScore: 0
+                averageScore: 0,
+                theme: quiz.theme || quiz.metadata?.color_palette || null,
+                metadata: quiz.metadata || (quiz.theme ? { color_palette: quiz.theme } : null)
             };
             
             await set(newQuizRef, quizData);
@@ -258,7 +680,25 @@ class QuizGameClient {
         this.gameStartTime = null;
         this.startQuizTimeout = null;
         this.playQuizTimeout = null;
+        this.themeDefaults = this.captureThemeDefaults();
+        this.currentTheme = null;
         this.lastQuestionIndex = -1;
+
+        // Loading overlay progress state
+        this.loadingProgressStart = null;
+        this.loadingProgressTimer = null;
+        this.loadingProgressCompletionTimeout = null;
+        this.loadingProgressBar = null;
+        this.loadingProgressLabel = null;
+        this.loadingProgressLastStageText = null;
+        this.loadingProgressValue = 0;
+        this.loadingProgressStages = [
+            { threshold: 0, text: 'Initializing request' },
+            { threshold: 0.2, text: 'Drafting questions' },
+            { threshold: 0.45, text: 'Verifying answers' },
+            { threshold: 0.7, text: 'Designing experience' },
+            { threshold: 0.85, text: 'Packaging quiz' }
+        ];
         
         // Browser history management
         this.navigationStack = ['welcome'];
@@ -316,6 +756,186 @@ class QuizGameClient {
             window.history.replaceState(initialState, '', url.toString());
             console.log('📚 Initialized browser history state');
         }
+    }
+
+    captureThemeDefaults() {
+        const styles = getComputedStyle(document.documentElement);
+        const read = (varName) => styles.getPropertyValue(varName).trim();
+        return {
+            primary: read('--primary-accent-color'),
+            secondary: read('--secondary-accent-color-1'),
+            accent: read('--secondary-accent-color-2'),
+            tertiaryAccent: read('--secondary-accent-color-3'),
+            background: read('--background-primary'),
+            surface: read('--surface-color') || read('--panel-background'),
+            textPrimary: read('--text-color-primary'),
+            textSecondary: read('--text-color-secondary'),
+            gradientStart: read('--background-gradient-start') || read('--background-primary'),
+            gradientEnd: read('--background-gradient-end') || read('--background-primary'),
+            border: read('--border-color-subtle'),
+            shadow: read('--shadow-color-soft'),
+            accentGlow: read('--accent-glow-color'),
+            secondaryGlow: read('--secondary-glow-color'),
+            decorative: read('--decorative-line-color')
+        };
+    }
+
+    normalizeTheme(themeData) {
+        if (!themeData || typeof themeData !== 'object') return null;
+        const palette = themeData.color_palette && typeof themeData.color_palette === 'object'
+            ? themeData.color_palette
+            : themeData;
+        const gradientArray = Array.isArray(palette.gradient)
+            ? palette.gradient
+            : Array.isArray(palette.gradient_colors)
+                ? palette.gradient_colors
+                : [];
+        const normalized = {
+            primary: sanitizeHexColor(palette.primary),
+            secondary: sanitizeHexColor(palette.secondary),
+            accent: sanitizeHexColor(palette.accent),
+            neutral: sanitizeHexColor(palette.neutral),
+            background: sanitizeHexColor(palette.background),
+            surface: sanitizeHexColor(palette.surface),
+            textPrimary: sanitizeHexColor(palette.text_primary || palette.textPrimary),
+            textSecondary: sanitizeHexColor(palette.text_secondary || palette.textSecondary),
+            gradientStart: sanitizeHexColor(palette.gradient_start || palette.gradientStart || gradientArray[0]),
+            gradientEnd: sanitizeHexColor(palette.gradient_end || palette.gradientEnd || gradientArray[1] || gradientArray[0]),
+            accentGlow: sanitizeHexColor(palette.accent_glow || palette.glow),
+            secondaryGlow: sanitizeHexColor(palette.secondary_glow),
+            decorative: sanitizeHexColor(palette.decorative || palette.grid_line),
+            tertiary: sanitizeHexColor(palette.tertiary || palette.tertiary_accent || palette.secondary_accent),
+            border: sanitizeHexColor(palette.border)
+        };
+        const hasColor = Object.values(normalized).some(Boolean);
+        return hasColor ? normalized : null;
+    }
+
+    applyQuizTheme(themeData) {
+        if (!this.themeDefaults) {
+            this.themeDefaults = this.captureThemeDefaults();
+        }
+        const normalized = this.normalizeTheme(themeData);
+        if (!normalized) {
+            this.resetTheme();
+            return;
+        }
+
+        const defaults = this.themeDefaults;
+        const rootStyle = document.documentElement.style;
+
+        const primary = normalized.primary || defaults.primary;
+        const secondary = normalized.secondary || defaults.secondary;
+        const accent = normalized.accent || defaults.accent;
+        const background = normalized.background || defaults.background;
+        const textPrimary = normalized.textPrimary || defaults.textPrimary;
+        const textSecondary = normalized.textSecondary || defaults.textSecondary;
+        const tertiary = normalized.tertiary || accent || defaults.tertiaryAccent;
+
+        const surfaceBase = normalized.surface || background || defaults.surface;
+
+        const gradientStart = normalized.gradientStart || background || defaults.gradientStart;
+        const gradientEnd = normalized.gradientEnd || background || defaults.gradientEnd;
+
+        const borderColor = colorWithAlpha(normalized.border || textPrimary || primary, 0.18, defaults.border);
+        const shadowColor = colorWithAlpha(normalized.shadow || textPrimary || primary, 0.12, defaults.shadow);
+        const accentGlow = colorWithAlpha(normalized.accentGlow || accent || secondary || primary, 0.2, defaults.accentGlow);
+        const secondaryGlow = colorWithAlpha(normalized.secondaryGlow || secondary || primary, 0.16, defaults.secondaryGlow);
+        const decorative = colorWithAlpha(normalized.decorative || normalized.neutral || textSecondary || primary, 0.08, defaults.decorative);
+
+        const baseContrastBackgrounds = [
+            surfaceBase,
+            background,
+            gradientStart,
+            gradientEnd,
+            defaults.surface,
+            defaults.background
+        ].filter(Boolean);
+
+        const accessibleTextPrimary = ensureAccessibleTextColor(textPrimary, baseContrastBackgrounds, defaults.textPrimary);
+        const accessibleSurface = ensureSurfaceContrast(surfaceBase, accessibleTextPrimary, defaults.surface) || defaults.surface;
+        const secondaryContrastBackgrounds = [
+            accessibleSurface,
+            background,
+            gradientStart,
+            gradientEnd,
+            defaults.surface,
+            defaults.background
+        ].filter(Boolean);
+        const accessibleTextSecondary = ensureAccessibleTextColor(textSecondary, secondaryContrastBackgrounds, defaults.textSecondary);
+
+        normalized.textPrimary = accessibleTextPrimary;
+        normalized.textSecondary = accessibleTextSecondary;
+        normalized.surface = sanitizeHexColor(accessibleSurface) || accessibleSurface;
+
+        rootStyle.setProperty('--primary-accent-color', primary);
+        rootStyle.setProperty('--secondary-accent-color-1', secondary);
+        rootStyle.setProperty('--secondary-accent-color-2', accent);
+        rootStyle.setProperty('--secondary-accent-color-3', tertiary || defaults.tertiaryAccent);
+        rootStyle.setProperty('--background-primary', background);
+        rootStyle.setProperty('--surface-color', accessibleSurface);
+        rootStyle.setProperty('--panel-background', accessibleSurface);
+        rootStyle.setProperty('--text-color-primary', accessibleTextPrimary);
+        rootStyle.setProperty('--text-color-secondary', accessibleTextSecondary);
+        rootStyle.setProperty('--background-gradient-start', gradientStart);
+        rootStyle.setProperty('--background-gradient-end', gradientEnd);
+        rootStyle.setProperty('--border-color-subtle', borderColor);
+        rootStyle.setProperty('--shadow-color-soft', shadowColor);
+        rootStyle.setProperty('--accent-glow-color', accentGlow);
+        rootStyle.setProperty('--secondary-glow-color', secondaryGlow);
+        rootStyle.setProperty('--decorative-line-color', decorative);
+
+        this.currentTheme = normalized;
+    }
+
+    resetTheme() {
+        if (!this.themeDefaults) {
+            this.themeDefaults = this.captureThemeDefaults();
+        }
+        const defaults = this.themeDefaults;
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--primary-accent-color', defaults.primary);
+        rootStyle.setProperty('--secondary-accent-color-1', defaults.secondary);
+        rootStyle.setProperty('--secondary-accent-color-2', defaults.accent);
+        rootStyle.setProperty('--secondary-accent-color-3', defaults.tertiaryAccent);
+        rootStyle.setProperty('--background-primary', defaults.background);
+        rootStyle.setProperty('--surface-color', defaults.surface);
+        rootStyle.setProperty('--panel-background', defaults.surface);
+        rootStyle.setProperty('--text-color-primary', defaults.textPrimary);
+        rootStyle.setProperty('--text-color-secondary', defaults.textSecondary);
+        rootStyle.setProperty('--background-gradient-start', defaults.gradientStart);
+        rootStyle.setProperty('--background-gradient-end', defaults.gradientEnd);
+        rootStyle.setProperty('--border-color-subtle', defaults.border);
+        rootStyle.setProperty('--shadow-color-soft', defaults.shadow);
+        rootStyle.setProperty('--accent-glow-color', defaults.accentGlow);
+        rootStyle.setProperty('--secondary-glow-color', defaults.secondaryGlow);
+        rootStyle.setProperty('--decorative-line-color', defaults.decorative);
+        this.currentTheme = null;
+    }
+
+    extractQuizTheme(quiz) {
+        if (!quiz || typeof quiz !== 'object') return null;
+        if (quiz.theme) return quiz.theme;
+        if (quiz.metadata && quiz.metadata.color_palette) {
+            return quiz.metadata.color_palette;
+        }
+        return null;
+    }
+
+    renderPalette(themeData) {
+        const normalized = this.normalizeTheme(themeData);
+        if (!normalized) return '';
+        const swatches = [
+            { label: 'Primary', value: normalized.primary },
+            { label: 'Secondary', value: normalized.secondary },
+            { label: 'Accent', value: normalized.accent }
+        ].filter(entry => entry.value);
+        if (!swatches.length) return '';
+        return `
+            <div class="quiz-item-palette">
+                ${swatches.map(entry => `<span><span class="palette-swatch" style="--swatch-color: ${entry.value};"></span>${entry.label}</span>`).join('')}
+            </div>
+        `;
     }
 
     isValidScreen(screenName) {
@@ -637,6 +1257,8 @@ class QuizGameClient {
             playerAnswers: [],
             gameStarted: false
         };
+
+        this.resetTheme();
         
         // Clear any form data
         const forms = document.querySelectorAll('form');
@@ -978,6 +1600,12 @@ class QuizGameClient {
         // Shuffle questions for variety
         const shuffledQuestions = this.shuffleArray([...allQuestions]);
         
+        const themeSource = this.selectedTournamentQuizzes.find(q => this.extractQuizTheme(q));
+        const palette = themeSource ? this.extractQuizTheme(themeSource) : null;
+        const metadata = palette
+            ? { ...(themeSource?.metadata || {}), color_palette: palette }
+            : { ...(themeSource?.metadata || {}) };
+
         return {
             id: `tournament_${Date.now()}`,
             title: tournamentName,
@@ -990,7 +1618,9 @@ class QuizGameClient {
                 id: q.id,
                 title: q.title || q.topic,
                 questionCount: q.questions.length
-            }))
+            })),
+            theme: palette || null,
+            metadata
         };
     }
 
@@ -1112,19 +1742,24 @@ class QuizGameClient {
     }
 
     async handleQuizCreated(data) {
-        this.hideLoading();
-        this.gameState.currentQuiz = data.quiz;
-        this.gameState.currentSession = {
+        const sanitizedQuiz = sanitizeQuizData(data.quiz);
+        const sessionTemplate = {
             id: data.sessionId,
-            quiz: data.quiz,
+            quiz: sanitizedQuiz,
             players: {},
             gameState: 'waiting',
-            host: this.socket.id || 'host'
+            host: this.socket?.id || 'host'
         };
+
+        this.hideLoading();
+        this.gameState.currentSession = sanitizeSessionData(sessionTemplate);
+        this.gameState.currentQuiz = this.gameState.currentSession.quiz || sanitizedQuiz;
+
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedQuiz));
         
         // Save quiz to Firebase
         try {
-            const quizId = await this.quizDatabase.saveQuiz(data.quiz);
+            const quizId = await this.quizDatabase.saveQuiz(sanitizedQuiz);
             console.log('💾 Quiz saved to Firebase with ID:', quizId);
             
             // Update the quiz ID in our session
@@ -1145,21 +1780,26 @@ class QuizGameClient {
     }
 
     async handleTournamentCreated(data) {
-        this.hideLoading();
-        this.gameState.currentQuiz = data.quiz;
-        this.gameState.currentSession = {
+        const sanitizedQuiz = sanitizeQuizData(data.quiz);
+        const sessionTemplate = {
             id: data.sessionId,
-            quiz: data.quiz,
+            quiz: sanitizedQuiz,
             players: {},
             gameState: 'waiting',
-            host: this.socket.id || 'host',
+            host: this.socket?.id || 'host',
             isTournament: true,
             tournamentInfo: data.tournamentInfo
         };
+
+        this.hideLoading();
+        this.gameState.currentSession = sanitizeSessionData(sessionTemplate);
+        this.gameState.currentQuiz = this.gameState.currentSession.quiz || sanitizedQuiz;
+
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedQuiz));
         
         // Save tournament quiz to Firebase
         try {
-            const quizId = await this.quizDatabase.saveQuiz(data.quiz);
+            const quizId = await this.quizDatabase.saveQuiz(sanitizedQuiz);
             console.log('💾 Tournament quiz saved to Firebase with ID:', quizId);
             
             // Update the quiz ID in our session
@@ -1181,7 +1821,16 @@ class QuizGameClient {
 
     async handleQuizLoaded(data) {
         console.log('🎯 Quiz loaded:', data);
-        
+        const sanitizedQuiz = sanitizeQuizData(data.quiz);
+        const fallbackSession = {
+            id: data.sessionId,
+            quiz: sanitizedQuiz,
+            players: {},
+            gameState: 'waiting',
+            host: this.socket?.id || 'host'
+        };
+        const sanitizedSession = sanitizeSessionData(data.session, fallbackSession);
+
         // Clear play quiz timeout
         if (this.playQuizTimeout) {
             clearTimeout(this.playQuizTimeout);
@@ -1189,14 +1838,10 @@ class QuizGameClient {
         }
         
         this.hideLoading();
-        this.gameState.currentQuiz = data.quiz;
-        this.gameState.currentSession = data.session || {
-            id: data.sessionId,
-            quiz: data.quiz,
-            players: {},
-            gameState: 'waiting',
-            host: this.socket.id || 'host'
-        };
+        this.gameState.currentSession = sanitizedSession;
+        this.gameState.currentQuiz = sanitizedSession.quiz || sanitizedQuiz;
+
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedQuiz));
         
         this.showToast('Quiz loaded successfully!', 'success');
         this.updateLobbyDisplay();
@@ -1204,19 +1849,26 @@ class QuizGameClient {
     }
 
     handleSessionUpdate(data) {
-        console.log('🔄 Session update received:', data.session.gameState);
-        const oldSession = this.gameState.currentSession;
-        this.gameState.currentSession = data.session;
+        const previousSession = this.gameState.currentSession;
+        const fallbackSession = previousSession || (this.gameState.currentQuiz ? { quiz: this.gameState.currentQuiz } : null);
+        const sanitizedSession = sanitizeSessionData(data.session, fallbackSession);
+        console.log('🔄 Session update received:', sanitizedSession.gameState);
+        this.gameState.currentSession = sanitizedSession;
+        if (sanitizedSession.quiz) {
+            this.gameState.currentQuiz = sanitizedSession.quiz;
+        }
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedSession?.quiz));
+        const sanitizedPayload = { ...data, session: sanitizedSession };
         
         // Check if game state changed
-        if (oldSession && oldSession.gameState !== data.session.gameState) {
-            console.log('🎮 Game state changed from', oldSession.gameState, 'to', data.session.gameState);
+        if (previousSession && previousSession.gameState !== sanitizedSession.gameState) {
+            console.log('🎮 Game state changed from', previousSession.gameState, 'to', sanitizedSession.gameState);
             
-            if (data.session.gameState === 'playing') {
+            if (sanitizedSession.gameState === 'playing') {
                 // Transition to playing state
-                this.handleSessionState(data);
+                this.handleSessionState(sanitizedPayload);
                 return;
-            } else if (data.session.gameState === 'waiting' && this.currentScreen !== 'lobby') {
+            } else if (sanitizedSession.gameState === 'waiting' && this.currentScreen !== 'lobby') {
                 // If we're not in lobby but should be, go there
                 console.log('🏠 Transitioning to lobby');
                 this.hideLoading();
@@ -1228,14 +1880,14 @@ class QuizGameClient {
         }
         
         // If session is in playing state and we're not in quiz screen, transition to quiz
-        if (data.session.gameState === 'playing' && this.currentScreen !== 'quiz') {
+        if (sanitizedSession.gameState === 'playing' && this.currentScreen !== 'quiz') {
             console.log('🎯 Session is playing but we\'re not in quiz screen - transitioning to quiz');
-            this.handleSessionState(data);
+            this.handleSessionState(sanitizedPayload);
             return;
         }
         
         // If this is the first session update after playing a quiz, show lobby
-        if (!oldSession && data.session.gameState === 'waiting' && this.currentScreen !== 'lobby') {
+        if (!previousSession && sanitizedSession.gameState === 'waiting' && this.currentScreen !== 'lobby') {
             console.log('🏠 First session update - showing lobby');
             
             // Clear play quiz timeout
@@ -1250,7 +1902,7 @@ class QuizGameClient {
             this.showScreen('lobby');
             return;
         }
-        
+
         // Update current screen
         if (this.currentScreen === 'lobby') {
             this.updateLobbyDisplay();
@@ -1261,16 +1913,22 @@ class QuizGameClient {
     }
 
     handleSessionState(data) {
-        console.log('🎮 handleSessionState() called with gameState:', data.session.gameState);
-        this.gameState.currentSession = data.session;
+        const fallbackSession = this.gameState.currentSession || (this.gameState.currentQuiz ? { quiz: this.gameState.currentQuiz } : null);
+        const sanitizedSession = sanitizeSessionData(data.session, fallbackSession);
+        console.log('🎮 handleSessionState() called with gameState:', sanitizedSession.gameState);
+        this.gameState.currentSession = sanitizedSession;
+        if (sanitizedSession.quiz) {
+            this.gameState.currentQuiz = sanitizedSession.quiz;
+        }
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedSession?.quiz));
         
-        if (data.session.gameState === 'waiting') {
+        if (sanitizedSession.gameState === 'waiting') {
             console.log('⏳ Session state: waiting - showing lobby');
             this.hideLoading(); // Hide loading if we're back to waiting
             this.resetStartButton(); // Reset button state when returning to waiting
             this.updateLobbyDisplay();
             this.showScreen('lobby');
-        } else if (data.session.gameState === 'playing') {
+        } else if (sanitizedSession.gameState === 'playing') {
             console.log('🎯 Session state: playing - starting quiz!');
             // Clear timeout and hide loading when quiz starts
             if (this.startQuizTimeout) {
@@ -1288,12 +1946,14 @@ class QuizGameClient {
             this.updateQuizDisplay();
             this.showScreen('quiz');
         } else {
-            console.log('❓ Unknown session state:', data.session.gameState);
+            console.log('❓ Unknown session state:', sanitizedSession.gameState);
         }
     }
 
     handleQuestionResults(data) {
         console.log('📊 Question results received:', data);
+        const questionIndex = data.questionIndex ?? data.currentQuestionIndex ?? this.gameState.currentSession?.currentQuestionIndex ?? 0;
+        const currentQuestion = sanitizeQuestionData(data.currentQuestion, questionIndex);
         
         // Only show results if we're currently in quiz mode
         if (this.currentScreen !== 'quiz') {
@@ -1302,10 +1962,10 @@ class QuizGameClient {
         }
         
         // Color code the answer options
-        this.colorCodeAnswers(data.currentQuestion.correctAnswer);
+        this.colorCodeAnswers(currentQuestion.correctAnswer);
         
         // Show inline results
-        this.showInlineResults(data);
+        this.showInlineResults({ ...data, currentQuestion });
     }
 
     colorCodeAnswers(correctAnswerIndex) {
@@ -1332,6 +1992,7 @@ class QuizGameClient {
     showInlineResults(data) {
         const currentPlayer = this.getCurrentPlayer();
         const session = this.gameState.currentSession;
+        const currentQuestion = data.currentQuestion;
         
         // Calculate points earned for this question
         let pointsEarned = 0;
@@ -1342,15 +2003,18 @@ class QuizGameClient {
             const previousScore = this.gameState.previousScore || 0;
             pointsEarned = playerData.score - previousScore;
             this.gameState.previousScore = playerData.score;
-            wasCorrect = playerData.answer === data.currentQuestion.correctAnswer;
+            wasCorrect = playerData.answer === currentQuestion.correctAnswer;
         }
         
         // Update explanation
         const explanationElement = document.getElementById('inline-explanation');
-        if (data.currentQuestion.explanation) {
-            explanationElement.textContent = data.currentQuestion.explanation;
+        if (currentQuestion.explanation) {
+            explanationElement.textContent = currentQuestion.explanation;
         } else {
-            explanationElement.textContent = `The correct answer is: ${data.currentQuestion.options[data.currentQuestion.correctAnswer]}`;
+            const correctOption = currentQuestion.options?.[currentQuestion.correctAnswer];
+            explanationElement.textContent = correctOption
+                ? `The correct answer is: ${correctOption}`
+                : 'The correct answer will appear here shortly.';
         }
         
         // Update points display
@@ -1588,6 +2252,8 @@ class QuizGameClient {
 
     handleQuizStarted(data) {
         console.log('🚀 Quiz started:', data);
+        const fallbackSession = this.gameState.currentSession || (this.gameState.currentQuiz ? { quiz: this.gameState.currentQuiz } : null);
+        const sanitizedSession = sanitizeSessionData(data.session, fallbackSession);
         
         // Clear timeout and hide loading when quiz starts
         if (this.startQuizTimeout) {
@@ -1598,7 +2264,11 @@ class QuizGameClient {
         this.resetStartButton(); // Reset button state when quiz starts
         
         // Update session with the started quiz data
-        this.gameState.currentSession = data.session;
+        this.gameState.currentSession = sanitizedSession;
+        if (sanitizedSession.quiz) {
+            this.gameState.currentQuiz = sanitizedSession.quiz;
+        }
+        this.applyQuizTheme(this.extractQuizTheme(sanitizedSession?.quiz));
         
         // Set game start time when quiz begins
         if (!this.gameStartTime) {
@@ -1699,6 +2369,13 @@ class QuizGameClient {
             console.log('⚠️ No session available for quiz display');
             return;
         }
+
+        if (!session.quiz) {
+            console.warn('⚠️ Session missing quiz data');
+            return;
+        }
+        
+        this.applyQuizTheme(this.extractQuizTheme(session.quiz));
         
         if (session.gameState !== 'playing') {
             console.log('⚠️ Session not in playing state:', session.gameState);
@@ -1741,10 +2418,17 @@ class QuizGameClient {
         const optionsContainer = document.getElementById('answer-options');
         optionsContainer.innerHTML = '';
         
-        currentQuestion.options.forEach((option, index) => {
+        const currentOptions = Array.isArray(currentQuestion.options)
+            ? currentQuestion.options
+            : (currentQuestion.options && typeof currentQuestion.options === 'object')
+            ? Object.values(currentQuestion.options)
+            : [];
+
+        currentOptions.forEach((option, index) => {
             const button = document.createElement('button');
             button.className = 'answer-option';
-            button.textContent = option;
+            const optionText = typeof option === 'string' ? option : extractTextContent(option);
+            button.textContent = optionText || `Option ${index + 1}`;
 
             if (!hasAnswered) {
                 button.onclick = () => this.selectAnswer(index);
@@ -2067,33 +2751,210 @@ class QuizGameClient {
         }
     }
 
+    getLoadingElements() {
+        return {
+            overlay: document.getElementById('loading-overlay'),
+            message: document.getElementById('loading-message'),
+            submessage: document.getElementById('loading-submessage'),
+            progressBar: document.getElementById('loading-progress-bar'),
+            progressLabel: document.getElementById('loading-progress-label')
+        };
+    }
+
+    cancelLoadingProgressAnimation() {
+        if (this.loadingProgressTimer) {
+            clearTimeout(this.loadingProgressTimer);
+            this.loadingProgressTimer = null;
+        }
+        if (this.loadingProgressRaf) {
+            cancelAnimationFrame(this.loadingProgressRaf);
+            this.loadingProgressRaf = null;
+        }
+    }
+
+    resetLoadingProgress() {
+        this.cancelLoadingProgressAnimation();
+        this.loadingProgressStart = null;
+        this.loadingProgressValue = 0;
+        const { progressBar, progressLabel } = this.getLoadingElements();
+        if (progressBar) {
+            progressBar.style.transition = 'none';
+            progressBar.style.width = '0%';
+            void progressBar.offsetWidth;
+            progressBar.style.transition = '';
+        }
+        const initialStage = this.loadingProgressStages[0]?.text || 'Preparing...';
+        if (progressLabel) {
+            progressLabel.textContent = `${initialStage} (0%)`;
+        }
+        this.loadingProgressLastStageText = null;
+    }
+
+    startLoadingProgress() {
+        const { progressBar, progressLabel } = this.getLoadingElements();
+        if (!progressBar || !progressLabel) {
+            return;
+        }
+
+        this.loadingProgressBar = progressBar;
+        this.loadingProgressLabel = progressLabel;
+        this.loadingProgressStart = Date.now();
+        this.loadingProgressLastStageText = null;
+        this.loadingProgressValue = 0;
+
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '0%';
+        void progressBar.offsetWidth;
+        progressBar.style.transition = '';
+
+        const initialStage = this.loadingProgressStages[0]?.text || 'Preparing...';
+        progressLabel.textContent = `${initialStage} (0%)`;
+
+        this.cancelLoadingProgressAnimation();
+        this.loadingProgressTimer = setTimeout(() => this.updateLoadingProgress(), this.getLoadingProgressDelay());
+    }
+
+    getLoadingProgressDelay() {
+        if (this.loadingProgressValue < 20) {
+            return 140 + Math.random() * 120;
+        }
+        if (this.loadingProgressValue < 45) {
+            return 180 + Math.random() * 150;
+        }
+        if (this.loadingProgressValue < 70) {
+            return 220 + Math.random() * 180;
+        }
+        return 260 + Math.random() * 220;
+    }
+
+    getLoadingProgressEasing() {
+        if (this.loadingProgressValue < 20) {
+            return 0.35 + Math.random() * 0.1;
+        }
+        if (this.loadingProgressValue < 45) {
+            return 0.25 + Math.random() * 0.08;
+        }
+        if (this.loadingProgressValue < 70) {
+            return 0.18 + Math.random() * 0.06;
+        }
+        if (this.loadingProgressValue < 85) {
+            return 0.12 + Math.random() * 0.05;
+        }
+        return 0.08 + Math.random() * 0.03;
+    }
+
+    updateLoadingProgress() {
+        const progressBar = this.loadingProgressBar || document.getElementById('loading-progress-bar');
+        const progressLabel = this.loadingProgressLabel || document.getElementById('loading-progress-label');
+
+        if (!progressBar || !progressLabel) {
+            this.cancelLoadingProgressAnimation();
+            return;
+        }
+
+        if (this.loadingProgressTimer) {
+            clearTimeout(this.loadingProgressTimer);
+            this.loadingProgressTimer = null;
+        }
+
+        const maxAutoProgress = 96;
+        const remaining = Math.max(0, maxAutoProgress - this.loadingProgressValue);
+        if (remaining > 0) {
+            const easing = this.getLoadingProgressEasing();
+            const increment = Math.max(1, Math.round(remaining * easing * Math.random())) || 1;
+            this.loadingProgressValue = Math.min(maxAutoProgress, this.loadingProgressValue + increment);
+        }
+
+        const percent = Math.min(99, Math.max(0, Math.round(this.loadingProgressValue)));
+        progressBar.style.width = `${percent}%`;
+
+        const fraction = percent / 100;
+        let currentStage = this.loadingProgressStages[0];
+        for (const step of this.loadingProgressStages) {
+            if (fraction >= step.threshold) {
+                currentStage = step;
+            } else {
+                break;
+            }
+        }
+
+        const stageText = currentStage?.text || 'Working...';
+        if (stageText !== this.loadingProgressLastStageText) {
+            this.loadingProgressLastStageText = stageText;
+        }
+
+        progressLabel.textContent = `${stageText} (${percent}%)`;
+
+        if (this.loadingProgressValue < maxAutoProgress) {
+            this.loadingProgressTimer = setTimeout(() => this.updateLoadingProgress(), this.getLoadingProgressDelay());
+        }
+    }
+
+    completeLoadingProgress() {
+        this.cancelLoadingProgressAnimation();
+        this.loadingProgressStart = null;
+        this.loadingProgressValue = 100;
+
+        const { progressBar, progressLabel } = this.getLoadingElements();
+        let delay = 0;
+
+        if (progressBar) {
+            progressBar.style.transition = 'width 0.35s ease-out';
+            progressBar.style.width = '100%';
+            delay = 360;
+        }
+
+        if (progressLabel) {
+            progressLabel.textContent = 'Ready! (100%)';
+        }
+
+        return delay;
+    }
+
     showLoading(message, submessage = '') {
         console.log('🔄 showLoading() called with:', message, submessage);
-        
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const loadingMessage = document.getElementById('loading-message');
-        const loadingSubmessage = document.getElementById('loading-submessage');
-        
-        if (!loadingOverlay || !loadingMessage || !loadingSubmessage) {
+        const { overlay, message: loadingMessage, submessage: loadingSubmessage } = this.getLoadingElements();
+
+        if (!overlay || !loadingMessage || !loadingSubmessage) {
             console.error('❌ Loading elements not found in DOM');
             return;
         }
-        
+
         loadingMessage.textContent = message;
         loadingSubmessage.textContent = submessage;
-        loadingOverlay.classList.remove('hidden');
-        
+
+        if (this.loadingProgressCompletionTimeout) {
+            clearTimeout(this.loadingProgressCompletionTimeout);
+            this.loadingProgressCompletionTimeout = null;
+        }
+
+        this.resetLoadingProgress();
+        overlay.classList.remove('hidden');
+        this.startLoadingProgress();
+
         console.log('✅ Loading overlay should now be visible');
     }
 
-    hideLoading() {
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.classList.add('hidden');
-            console.log('🔄 Loading overlay hidden');
-        } else {
+    hideLoading(options = {}) {
+        const { overlay } = this.getLoadingElements();
+        if (!overlay) {
             console.error('❌ Loading overlay not found in DOM');
+            return;
         }
+
+        if (this.loadingProgressCompletionTimeout) {
+            clearTimeout(this.loadingProgressCompletionTimeout);
+            this.loadingProgressCompletionTimeout = null;
+        }
+
+        const delay = options.immediate ? 0 : this.completeLoadingProgress();
+
+        this.loadingProgressCompletionTimeout = setTimeout(() => {
+            overlay.classList.add('hidden');
+            this.resetLoadingProgress();
+            this.loadingProgressCompletionTimeout = null;
+            console.log('🔄 Loading overlay hidden');
+        }, delay);
     }
 
     showQuizStartLoading() {
@@ -2214,6 +3075,7 @@ class QuizGameClient {
             quizItem.className = 'quiz-item';
             
             const createdDate = new Date(quiz.createdAt).toLocaleDateString();
+            const paletteHtml = this.renderPalette(this.extractQuizTheme(quiz));
             
             quizItem.innerHTML = `
                 <div class="quiz-item-header">
@@ -2243,9 +3105,10 @@ class QuizGameClient {
                         </div>
                     ` : ''}
                 </div>
+                ${paletteHtml}
                 <div class="quiz-item-actions">
                     <button class="btn btn-primary" onclick="window.quizGame.playQuiz('${quiz.id}')">Play Quiz</button>
-                                            <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.title || quiz.topic}')">View Highscores</button>
+                    <button class="btn btn-outline" onclick="window.quizGame.viewHighscores('${quiz.id}', '${quiz.title || quiz.topic}')">View Highscores</button>
                 </div>
             `;
             
@@ -2268,6 +3131,8 @@ class QuizGameClient {
                 this.showToast('Quiz not found. Please try again.', 'error');
                 return;
             }
+
+            this.applyQuizTheme(this.extractQuizTheme(quiz));
             
             // Get player name
             console.log('🎯 Prompting for player name...');

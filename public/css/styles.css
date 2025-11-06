@@ -21,12 +21,20 @@
   --primary-accent-color: var(--teen-orange);
   --secondary-accent-color-1: var(--electric-cyan);
   --secondary-accent-color-2: var(--neon-lime);
+  --secondary-accent-color-3: #FFE066;
   --text-color-primary: var(--kb-black);
   --text-color-secondary: var(--kb-grey);
   --background-primary: var(--digital-void-bg);
-  --panel-background: rgba(255, 255, 255, 0.9);
+  --surface-color: rgba(255, 255, 255, 0.92);
+  --panel-background: var(--surface-color);
   --border-color-subtle: rgba(19, 20, 23, 0.15);
-  --shadow-color-soft: rgba(19, 20, 23, 0.05);
+  --shadow-color-soft: rgba(19, 20, 23, 0.08);
+  --background-gradient-start: #DEE4EC;
+  --background-gradient-end: #F6F8FB;
+  --background-gradient-angle: 135deg;
+  --accent-glow-color: rgba(255, 70, 0, 0.16);
+  --secondary-glow-color: rgba(0, 249, 255, 0.12);
+  --decorative-line-color: rgba(19, 20, 23, 0.06);
 
   /* Typography */
   --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -70,8 +78,24 @@ body {
   line-height: 1.6;
   color: var(--text-color-primary);
   background-color: var(--background-primary);
+  background-image: linear-gradient(var(--background-gradient-angle), var(--background-gradient-start), var(--background-gradient-end));
+  background-attachment: fixed;
+  position: relative;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 18% 22%, var(--accent-glow-color) 0%, transparent 55%),
+    radial-gradient(circle at 82% 28%, var(--secondary-glow-color) 0%, transparent 60%),
+    repeating-linear-gradient(135deg, transparent 0 42px, var(--decorative-line-color) 42px 44px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* ===== TYPOGRAPHY ===== */
@@ -122,6 +146,8 @@ a:hover {
   margin: 0 auto;
   padding: var(--spacing-lg);
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 .game-container {
@@ -139,14 +165,24 @@ a:hover {
 /* ===== CARDS ===== */
 .card {
   background-color: var(--panel-background);
-  border: 3px solid var(--kb-black);
+  border: 2px solid var(--border-color-subtle);
   border-radius: var(--border-radius-lg);
-  box-shadow: 8px 8px 0 rgba(19, 20, 23, 0.1);
+  box-shadow: 10px 10px 0 var(--shadow-color-soft);
   transition: all var(--transition-normal);
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.07) 45%, transparent 60%);
+  pointer-events: none;
 }
 
 .welcome-card {
@@ -462,7 +498,20 @@ small {
 .btn-text:hover {
   color: var(--primary-accent-color);
   transform: none;
-  box-shadow: none;
+}
+
+.btn-primary .btn-text {
+  color: white;
+}
+
+.btn-primary .btn-text:hover {
+  color: white;
+}
+
+#generate-quiz-btn .btn-text,
+#generate-quiz-btn .btn-text:hover,
+#generate-quiz-btn:focus .btn-text {
+  color: white;
 }
 
 .btn-icon {
@@ -676,11 +725,13 @@ small {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-sm);
-  background: var(--bg-color-primary);
-  border: 1px solid var(--kb-black);
+  background: var(--panel-background);
+  border: 1px solid var(--border-color-subtle);
   font-family: var(--font-mono);
   font-size: 0.8rem;
   transition: all var(--transition-normal);
+  box-shadow: 6px 6px 0 var(--shadow-color-soft);
+  position: relative;
 }
 
 .live-score-item.current-player {
@@ -703,6 +754,15 @@ small {
 .live-score-item.third-place {
   background: var(--secondary-accent-color-3);
   color: var(--kb-black);
+}
+
+.live-score-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-left: 3px solid var(--primary-accent-color);
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .live-score-rank {
@@ -776,10 +836,22 @@ small {
 
 
 .question-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 3px solid var(--kb-black);
+  position: relative;
+  background: var(--panel-background);
+  border: 2px solid var(--border-color-subtle);
   padding: var(--spacing-xl);
   margin-bottom: var(--spacing-lg);
+  box-shadow: 12px 12px 0 var(--shadow-color-soft);
+  overflow: hidden;
+}
+
+.question-card::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  background: linear-gradient(140deg, var(--primary-accent-color) 0%, transparent 60%);
+  opacity: 0.25;
+  pointer-events: none;
 }
 
 .question-card h2 {
@@ -797,19 +869,21 @@ small {
 
 .answer-option {
   padding: var(--spacing-lg);
-  background: rgba(255, 255, 255, 0.8);
-  border: 2px solid var(--kb-black);
+  background: var(--panel-background);
+  border: 2px solid var(--border-color-subtle);
   font-family: var(--font-primary);
   font-size: 1rem;
   text-align: left;
   cursor: pointer;
   transition: all var(--transition-fast);
+  position: relative;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.05);
 }
 
 .answer-option:hover {
-  background: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.95);
   transform: translateY(-2px);
-  box-shadow: 4px 4px 0 rgba(19, 20, 23, 0.1);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.08);
 }
 
 .answer-option.selected {
@@ -1072,6 +1146,68 @@ small {
 .loading-content p {
   color: var(--text-color-secondary);
   margin-bottom: 0;
+}
+
+.loading-progress {
+  width: 100%;
+  margin-top: var(--spacing-xl);
+}
+
+.loading-progress-track {
+  width: 100%;
+  height: 10px;
+  border: 2px solid var(--kb-black);
+  background: rgba(19, 20, 23, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-progress-bar {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary-accent-color), var(--secondary-accent-color-1));
+  transition: width 0.35s ease-out;
+}
+
+.loading-progress-label {
+  margin-top: var(--spacing-sm);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-primary);
+}
+
+.loading-progress {
+  width: 100%;
+  margin-top: var(--spacing-xl);
+}
+
+.loading-progress-track {
+  width: 100%;
+  height: 10px;
+  border: 2px solid var(--kb-black);
+  background: rgba(19, 20, 23, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-progress-bar {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary-accent-color), var(--secondary-accent-color-1));
+  transition: width 0.35s ease-out;
+}
+
+.loading-progress-label {
+  margin-top: var(--spacing-sm);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-primary);
 }
 
 /* Toast Notifications */
@@ -1526,18 +1662,29 @@ small {
 }
 
 .quiz-item {
-  border: 2px solid var(--kb-black);
-  background: var(--bg-color-secondary);
+  border: 2px solid var(--border-color-subtle);
+  background: var(--panel-background);
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
   transition: all var(--transition-normal);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 10px 10px 0 var(--shadow-color-soft);
+}
+
+.quiz-item::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(120deg, var(--secondary-accent-color-1) 0%, transparent 60%);
+  opacity: 0.18;
+  pointer-events: none;
 }
 
 .quiz-item:hover {
-  background: var(--secondary-accent-color-1);
-  transform: translateY(-2px);
-  box-shadow: 6px 6px 0 rgba(19, 20, 23, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.12);
 }
 
 .quiz-item-header {
@@ -1600,6 +1747,31 @@ small {
 .quiz-item-actions .btn {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.8rem;
+}
+
+.quiz-item-palette {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.quiz-item-palette span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-color-secondary);
+}
+
+.palette-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  background: var(--swatch-color, transparent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
 }
 
 .highscores-modal {
