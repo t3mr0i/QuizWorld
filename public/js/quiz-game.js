@@ -2527,6 +2527,7 @@ class QuizGameClient {
         // Send answer to server
         this.sendMessage({
             type: 'submit_answer',
+            questionIndex: this.gameState.currentSession?.currentQuestionIndex,
             answerIndex
         });
         
@@ -2589,7 +2590,7 @@ class QuizGameClient {
             return;
         }
         
-        this.sendMessage({ type: 'next_question' });
+        this.sendMessage({ type: 'next_question', questionIndex: this.gameState.currentSession?.currentQuestionIndex });
     }
 
     playAgain() {
