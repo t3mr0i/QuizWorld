@@ -368,7 +368,7 @@ export default class QuizaruServer implements Party.Server {
           this.handleSubmitAnswer(data, sender);
           break;
         case 'next_question':
-          this.handleNextQuestion(sender);
+          this.handleNextQuestion(sender, data.questionIndex);
           break;
         case 'player_ready':
           this.handlePlayerReady(data, sender);
@@ -407,7 +407,16 @@ export default class QuizaruServer implements Party.Server {
         }
       }
       
-      this.broadcastSessionUpdate();
+      const players = Object.values(this.session.players);
+      if (players.length === 0) {
+        delete quizSessions[this.roomId];
+        return;
+      }
+      if (this.session.gameState === 'playing' && players.every(player => player.hasAnswered)) {
+        this.showQuestionResults();
+      } else {
+        this.broadcastSessionUpdate();
+      }
     }
   }
 
@@ -567,6 +576,13 @@ export default class QuizaruServer implements Party.Server {
 
     const { playerName } = data;
     
+    // Repeated join messages must not reset a player's answer, score or host role.
+    const existing = this.session.players[sender.id];
+    if (existing) {
+      if (typeof playerName === 'string' && playerName.trim()) existing.name = playerName;
+      this.broadcastSessionUpdate();
+      return;
+    }
     // Add player to session
     this.session.players[sender.id] = {
       id: sender.id,
@@ -590,6 +606,8 @@ export default class QuizaruServer implements Party.Server {
       }));
       return;
     }
+
+    if (this.session.gameState !== 'waiting' || !this.session.quiz.questions.length) return;
 
     const players = Object.values(this.session.players);
     const playerCount = players.length;
@@ -617,10 +635,12 @@ export default class QuizaruServer implements Party.Server {
 
     this.session.gameState = 'playing';
     this.session.currentQuestionIndex = 0;
+    this.session.answers = {};
     
     // Reset all players
     Object.values(this.session.players).forEach(player => {
       player.hasAnswered = false;
+      player.currentAnswer = undefined;
       player.score = 0;
     });
     
@@ -634,7 +654,10 @@ export default class QuizaruServer implements Party.Server {
       return;
     }
 
-    const { answerIndex } = data;
+    const { answerIndex, questionIndex } = data;
+    if (questionIndex !== undefined && questionIndex !== this.session.currentQuestionIndex) return;
+    const currentQuestion = this.session.quiz.questions[this.session.currentQuestionIndex];
+    if (!currentQuestion || !Number.isInteger(answerIndex) || answerIndex < -1 || answerIndex >= currentQuestion.options.length) return;
     const player = this.session.players[sender.id];
     
     if (!player || player.hasAnswered) {
@@ -650,7 +673,6 @@ export default class QuizaruServer implements Party.Server {
     player.hasAnswered = true;
     player.currentAnswer = answerIndex;
 
-    const currentQuestion = this.session.quiz.questions[this.session.currentQuestionIndex];
     const isCorrect = answerIndex === currentQuestion.correctAnswer;
     console.log(`📝 ${player.name} answered question ${this.session.currentQuestionIndex} (${isCorrect ? '✅ correct' : '❌ incorrect'})`);
     
@@ -663,10 +685,13 @@ export default class QuizaruServer implements Party.Server {
     }
   }
 
-  private handleNextQuestion(sender: Party.Connection) {
+  private handleNextQuestion(sender: Party.Connection, questionIndex?: number) {
     if (!this.session || this.session.host !== sender.id) {
       return;
     }
+
+    if (this.session.gameState !== 'results') return;
+    if (questionIndex !== undefined && questionIndex !== this.session.currentQuestionIndex) return;
 
     this.session.currentQuestionIndex++;
     
@@ -703,7 +728,7 @@ export default class QuizaruServer implements Party.Server {
   }
 
   private handlePlayerReady(data: any, sender: Party.Connection) {
-    if (!this.session || !this.session.players[sender.id]) {
+    if (!this.session || this.session.gameState !== 'waiting' || typeof data.ready !== 'boolean' || !this.session.players[sender.id]) {
       return;
     }
 
@@ -819,7 +844,7 @@ export default class QuizaruServer implements Party.Server {
   // Timer functionality removed - unlimited time per answer
 
   private showQuestionResults() {
-    if (!this.session) return;
+    if (!this.session || this.session.gameState !== 'playing') return;
     
     this.session.gameState = 'results';
 
